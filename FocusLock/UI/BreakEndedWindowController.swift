@@ -28,7 +28,7 @@ final class BreakEndedWindowController {
         )
 
         let window = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 560, height: 300),
+            contentRect: NSRect(x: 0, y: 0, width: 600, height: 380),
             styleMask: [.titled, .closable],
             backing: .buffered,
             defer: false

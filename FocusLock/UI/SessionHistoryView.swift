@@ -15,10 +15,6 @@ struct SessionHistoryView: View {
             statsGrid
 
             FLSurface {
-                ExportView()
-            }
-
-            FLSurface {
                 historyList
             }
         }
@@ -28,7 +24,7 @@ struct SessionHistoryView: View {
     }
 
     private var header: some View {
-        HStack(spacing: FLSpacing.md) {
+        HStack(alignment: .top, spacing: FLSpacing.md) {
             Image(systemName: "chart.bar.xaxis")
                 .font(.title2)
                 .foregroundStyle(Color.flFocus)
@@ -45,8 +41,11 @@ struct SessionHistoryView: View {
                     .font(.callout)
                     .foregroundStyle(Color.flTextSecondary)
             }
+            .layoutPriority(1)
 
-            Spacer()
+            Spacer(minLength: FLSpacing.md)
+
+            ExportView()
         }
     }
 

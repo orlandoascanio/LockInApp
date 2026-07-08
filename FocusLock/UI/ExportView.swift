@@ -4,48 +4,58 @@ struct ExportView: View {
     @EnvironmentObject private var controller: MenuBarController
 
     var body: some View {
-        VStack(alignment: .leading, spacing: FLSpacing.md) {
-            HStack(alignment: .top, spacing: FLSpacing.md) {
-                VStack(alignment: .leading, spacing: FLSpacing.xs) {
-                    FLSectionHeader(title: "Export", systemImage: "square.and.arrow.down")
-
-                    Text("Export the session list.")
-                        .font(.caption)
-                        .foregroundStyle(Color.flTextSecondary)
-                }
-
-                Spacer()
-
-                Button {
+        VStack(alignment: .trailing, spacing: FLSpacing.xs) {
+            HStack(spacing: FLSpacing.sm) {
+                exportButton(
+                    title: "CSV",
+                    accessibilityTitle: "Export CSV",
+                    systemImage: "tablecells"
+                ) {
                     controller.exportCSVFromPanel()
-                } label: {
-                    Label("Export CSV", systemImage: "tablecells")
                 }
-                .buttonStyle(FLActionButtonStyle(variant: .secondary))
 
-                Button {
+                exportButton(
+                    title: "JSON",
+                    accessibilityTitle: "Export JSON",
+                    systemImage: "curlybraces"
+                ) {
                     controller.exportJSONFromPanel()
-                } label: {
-                    Label("Export JSON", systemImage: "curlybraces")
                 }
-                .buttonStyle(FLActionButtonStyle(variant: .secondary))
             }
 
             if let message = controller.exportMessage {
-                HStack(spacing: FLSpacing.sm) {
+                HStack(spacing: FLSpacing.xs) {
                     Image(systemName: "checkmark.circle.fill")
                         .foregroundStyle(Color.flSuccess)
                         .symbolRenderingMode(.hierarchical)
 
                     Text(message)
-                        .font(.caption)
                         .foregroundStyle(Color.flTextSecondary)
+                        .lineLimit(1)
 
-                    Spacer()
                 }
-                .padding(FLSpacing.sm)
-                .background(Color.primary.opacity(0.035), in: RoundedRectangle(cornerRadius: FLRadius.sm, style: .continuous))
+                .font(.caption2)
+                .transition(.opacity)
+                .help(message)
             }
         }
+        .frame(maxWidth: 240, alignment: .trailing)
+        .accessibilityElement(children: .contain)
+    }
+
+    private func exportButton(
+        title: String,
+        accessibilityTitle: String,
+        systemImage: String,
+        action: @escaping () -> Void
+    ) -> some View {
+        Button(action: action) {
+            Label(title, systemImage: systemImage)
+                .labelStyle(.titleAndIcon)
+        }
+        .buttonStyle(.bordered)
+        .controlSize(.regular)
+        .help(accessibilityTitle)
+        .accessibilityLabel(accessibilityTitle)
     }
 }
