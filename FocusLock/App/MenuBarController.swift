@@ -394,29 +394,26 @@ final class MenuBarController: NSObject, ObservableObject {
             return
         }
 
-        updateTitleForFocus(remainingMinutes: statusRemainingMinutes)
+        updateTitleForActiveSession(countdown: statusCountdownTitle)
         button.toolTip = statusTooltip
     }
 
-    private var statusRemainingMinutes: Int? {
-        guard snapshot.phase == .focus else {
+    private var statusCountdownTitle: String? {
+        guard snapshot.phase == .focus || snapshot.phase == .break else {
             return nil
         }
-        return max(1, Int(ceil(snapshot.remainingSeconds / 60)))
+        return snapshot.formattedRemaining
     }
 
-    func updateTitleForFocus(remainingMinutes: Int?) {
+    func updateTitleForActiveSession(countdown: String?) {
         guard let button = statusItem?.button else {
             FocusLockLog.debug("Status item button missing")
             return
         }
 
-        if let remainingMinutes {
+        if let countdown {
             button.image = nil
-            button.title = "\(remainingMinutes)m"
-        } else if snapshot.phase == .break {
-            button.image = nil
-            button.title = "Break"
+            button.title = countdown
         } else {
             button.title = ""
             assignIdleIcon(to: button)
