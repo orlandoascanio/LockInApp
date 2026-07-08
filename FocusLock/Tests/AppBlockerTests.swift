@@ -167,14 +167,64 @@ final class AppBlockerTests: XCTestCase {
         XCTAssertEqual(slack.hideCallCount, 1)
     }
 
+    func testBlockedDockActivationSchedulesFollowUpHideRetry() {
+        let discord = MockRunningApplication(name: "Discord", bundleId: "com.hnc.Discord")
+        var scheduled: [ScheduledWork] = []
+        let blocker = AppBlocker(
+            notificationService: NoopNotificationService(),
+            activationMonitor: MockActivationMonitor(),
+            frontmostApplicationProvider: { nil },
+            scheduleAfter: { delay, work in scheduled.append(ScheduledWork(delay: delay, work: work)) }
+        )
+
+        blocker.start(
+            blockedApps: [BlockedApp(name: "Discord", bundleId: "com.hnc.Discord")],
+            blockerMode: .guardScreen
+        )
+
+        _ = blocker.handleActivation(of: discord)
+        XCTAssertEqual(discord.hideCallCount, 1)
+
+        let hideRetries = scheduled.filter { $0.delay < 1 }
+        XCTAssertFalse(hideRetries.isEmpty)
+
+        hideRetries.forEach { $0.work() }
+        XCTAssertGreaterThan(discord.hideCallCount, 1)
+    }
+
+    func testFollowUpHideRetryDoesNotHideTemporarilyAllowedApp() {
+        let discord = MockRunningApplication(name: "Discord", bundleId: "com.hnc.Discord")
+        var scheduled: [ScheduledWork] = []
+        let blocker = AppBlocker(
+            notificationService: NoopNotificationService(),
+            activationMonitor: MockActivationMonitor(),
+            frontmostApplicationProvider: { nil },
+            scheduleAfter: { delay, work in scheduled.append(ScheduledWork(delay: delay, work: work)) }
+        )
+
+        blocker.start(
+            blockedApps: [BlockedApp(name: "Discord", bundleId: "com.hnc.Discord")],
+            blockerMode: .guardScreen
+        )
+
+        _ = blocker.handleActivation(of: discord)
+        let hideRetries = scheduled.filter { $0.delay < 1 }
+        XCTAssertFalse(hideRetries.isEmpty)
+
+        blocker.allowTemporarily(bundleId: "com.hnc.Discord", duration: 300)
+        hideRetries.forEach { $0.work() }
+
+        XCTAssertEqual(discord.hideCallCount, 1)
+    }
+
     func testExpiredAllowanceReGuardsAppThatStaysFrontmost() {
         let slack = MockRunningApplication(name: "Slack", bundleId: "com.tinyspeck.slackmacgap")
-        var scheduled: [() -> Void] = []
+        var scheduled: [ScheduledWork] = []
         let blocker = AppBlocker(
             notificationService: NoopNotificationService(),
             activationMonitor: MockActivationMonitor(),
             frontmostApplicationProvider: { slack },
-            scheduleAfter: { _, work in scheduled.append(work) }
+            scheduleAfter: { delay, work in scheduled.append(ScheduledWork(delay: delay, work: work)) }
         )
 
         blocker.start(
@@ -187,10 +237,11 @@ final class AppBlockerTests: XCTestCase {
 
         // User clicks "Allow 5 minutes" and stays inside Slack (no new activation).
         blocker.allowTemporarily(bundleId: "com.tinyspeck.slackmacgap", duration: 300)
-        XCTAssertEqual(scheduled.count, 1)
+        let allowanceExpiries = scheduled.filter { $0.delay == 300 }
+        XCTAssertEqual(allowanceExpiries.count, 1)
 
         // The five-minute window elapses with Slack still frontmost.
-        scheduled.forEach { $0() }
+        allowanceExpiries.forEach { $0.work() }
 
         // The app must be guarded again without requiring a fresh activation event.
         XCTAssertEqual(slack.hideCallCount, 2)
@@ -200,12 +251,12 @@ final class AppBlockerTests: XCTestCase {
         let slack = MockRunningApplication(name: "Slack", bundleId: "com.tinyspeck.slackmacgap")
         let safari = MockRunningApplication(name: "Safari", bundleId: "com.apple.Safari")
         var frontmost: RunningApplicationRepresenting = slack
-        var scheduled: [() -> Void] = []
+        var scheduled: [ScheduledWork] = []
         let blocker = AppBlocker(
             notificationService: NoopNotificationService(),
             activationMonitor: MockActivationMonitor(),
             frontmostApplicationProvider: { frontmost },
-            scheduleAfter: { _, work in scheduled.append(work) }
+            scheduleAfter: { delay, work in scheduled.append(ScheduledWork(delay: delay, work: work)) }
         )
 
         blocker.start(
@@ -218,19 +269,19 @@ final class AppBlockerTests: XCTestCase {
 
         // The user moved on to a non-blocked app before the window elapsed.
         frontmost = safari
-        scheduled.forEach { $0() }
+        scheduled.filter { $0.delay == 300 }.forEach { $0.work() }
 
         XCTAssertEqual(slack.hideCallCount, 1)
     }
 
     func testRenewedAllowanceIsNotCancelledByStaleExpiryTimer() {
         let slack = MockRunningApplication(name: "Slack", bundleId: "com.tinyspeck.slackmacgap")
-        var scheduled: [() -> Void] = []
+        var scheduled: [ScheduledWork] = []
         let blocker = AppBlocker(
             notificationService: NoopNotificationService(),
             activationMonitor: MockActivationMonitor(),
             frontmostApplicationProvider: { slack },
-            scheduleAfter: { _, work in scheduled.append(work) }
+            scheduleAfter: { delay, work in scheduled.append(ScheduledWork(delay: delay, work: work)) }
         )
 
         blocker.start(
@@ -242,14 +293,15 @@ final class AppBlockerTests: XCTestCase {
         blocker.allowTemporarily(bundleId: "com.tinyspeck.slackmacgap", duration: 300)
         // User renews the allowance before the first window elapses.
         blocker.allowTemporarily(bundleId: "com.tinyspeck.slackmacgap", duration: 300)
-        XCTAssertEqual(scheduled.count, 2)
+        let allowanceExpiries = scheduled.filter { $0.delay == 300 }
+        XCTAssertEqual(allowanceExpiries.count, 2)
 
         // The first (now stale) timer fires: it must not re-guard the app.
-        scheduled[0]()
+        allowanceExpiries[0].work()
         XCTAssertEqual(slack.hideCallCount, 1)
 
         // The renewed timer fires: now the app is guarded again.
-        scheduled[1]()
+        allowanceExpiries[1].work()
         XCTAssertEqual(slack.hideCallCount, 2)
     }
 
@@ -353,6 +405,11 @@ final class AppBlockerTests: XCTestCase {
         monitor.fire(slack)
         XCTAssertEqual(slack.hideCallCount, 0)
     }
+}
+
+private struct ScheduledWork {
+    let delay: TimeInterval
+    let work: () -> Void
 }
 
 private final class MockRunningApplication: RunningApplicationRepresenting {

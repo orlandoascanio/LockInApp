@@ -152,6 +152,8 @@ public final class AppBlocker {
     /// so a stale expiry timer cannot cancel a freshly renewed allowance.
     private var allowanceTokens: [String: Int] = [:]
 
+    private static let postInterceptionHideRetryDelays: [TimeInterval] = [0.15, 0.45]
+
     public var isRunning: Bool {
         isActive
     }
@@ -291,17 +293,14 @@ public final class AppBlocker {
             return nil
         }
 
-        if let expiry = temporaryAllowances[bundleId] {
-            if expiry > now {
-                return nil
-            }
-            temporaryAllowances[bundleId] = nil
-            allowanceTokens[bundleId] = nil
+        if hasActiveTemporaryAllowance(for: bundleId, now: now) {
+            return nil
         }
 
         switch blockerMode {
         case .guardScreen, .hideOnly:
             _ = app.hide()
+            schedulePostInterceptionHideRetries(for: app, bundleId: bundleId, name: name)
             FocusLockLog.debug("blocked app hidden: \(name) (\(bundleId)), mode=\(blockerMode.rawValue)")
         case .quitApp:
             if !app.terminate() {
@@ -317,6 +316,67 @@ public final class AppBlocker {
             delegate?.appBlocker(self, didIntercept: intercepted)
         }
         return intercepted
+    }
+
+    private func hasActiveTemporaryAllowance(for bundleId: String, now: Date) -> Bool {
+        guard let expiry = temporaryAllowances[bundleId] else {
+            return false
+        }
+
+        if expiry > now {
+            return true
+        }
+
+        temporaryAllowances[bundleId] = nil
+        allowanceTokens[bundleId] = nil
+        return false
+    }
+
+    private func schedulePostInterceptionHideRetries(
+        for app: RunningApplicationRepresenting,
+        bundleId: String,
+        name: String
+    ) {
+        for delay in Self.postInterceptionHideRetryDelays {
+            scheduleAfter(delay) { [weak self, weak app] in
+                guard let app else {
+                    return
+                }
+                self?.retryHideBlockedApp(app, bundleId: bundleId, name: name)
+            }
+        }
+    }
+
+    private func retryHideBlockedApp(
+        _ app: RunningApplicationRepresenting,
+        bundleId: String,
+        name: String
+    ) {
+        guard isActive else {
+            return
+        }
+
+        guard app.bundleIdentifier == bundleId else {
+            return
+        }
+
+        guard blockedApps.contains(where: { $0.bundleId == bundleId }) else {
+            return
+        }
+
+        switch blockerMode {
+        case .guardScreen, .hideOnly:
+            break
+        case .quitApp:
+            return
+        }
+
+        guard !hasActiveTemporaryAllowance(for: bundleId, now: Date()) else {
+            return
+        }
+
+        _ = app.hide()
+        FocusLockLog.debug("blocked app re-hidden after activation retry: \(name) (\(bundleId))")
     }
 
     public static func shouldRun(for phase: SessionPhase) -> Bool {
