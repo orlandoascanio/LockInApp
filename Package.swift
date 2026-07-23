@@ -10,6 +10,7 @@ let package = Package(
     ],
     products: [
         .executable(name: "LockIn", targets: ["FocusLockApp"]),
+        .executable(name: "UIConcepts", targets: ["UIConcepts"]),
         .library(name: "FocusLockCore", targets: ["FocusLockCore"])
     ],
     targets: [
@@ -47,6 +48,12 @@ let package = Package(
             resources: [
                 .process("Assets.xcassets")
             ]
+        ),
+        // Design-exploration only. Static mockups, no wiring to the real app.
+        .executableTarget(
+            name: "UIConcepts",
+            path: "UIConcepts",
+            exclude: ["renders", "README.md"]
         ),
         .testTarget(
             name: "FocusLockTests",
