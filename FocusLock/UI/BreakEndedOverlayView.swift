@@ -6,73 +6,43 @@ struct BreakEndedOverlayView: View {
     let onEndCycle: () -> Void
 
     var body: some View {
-        VStack(spacing: FLSpacing.xl) {
-            hero
-            actions
+        VStack(spacing: 0) {
+            VStack(spacing: 18) {
+                FLMicroLabel(text: "Break ended", tint: .flAccentDeep)
+
+                Text("Back to it.")
+                    .font(FLTypography.timer(44))
+                    .foregroundStyle(Color.flInk)
+
+                Rectangle()
+                    .fill(Color.flAccentDeep)
+                    .frame(width: 36, height: 2)
+
+                Text("You rested. The next block is the one that counts.")
+                    .font(.system(size: 14))
+                    .foregroundStyle(Color.flInkSoft)
+                    .multilineTextAlignment(.center)
+            }
+            .padding(.top, 40)
+            .padding(.bottom, 32)
+
+            HStack(spacing: 22) {
+                Button("Start focus", action: onStartFocus)
+                    .buttonStyle(FLActionButtonStyle(variant: .primary, minHeight: 44))
+                    .keyboardShortcut(.defaultAction)
+
+                Button("Snooze 2 minutes", action: onSnooze)
+                    .buttonStyle(FLLinkButtonStyle(tint: .flInkSoft))
+
+                Button("End cycle", action: onEndCycle)
+                    .buttonStyle(FLLinkButtonStyle(tint: .flClay))
+                    .keyboardShortcut(.cancelAction)
+            }
+            .padding(.bottom, 38)
         }
-        .frame(width: 520)
+        .frame(width: 560)
         .padding(.horizontal, 40)
-        .padding(.vertical, 34)
-        .background(Color.flBackground)
-    }
-
-    private var hero: some View {
-        VStack(spacing: FLSpacing.md) {
-            Image(systemName: "bell.badge.fill")
-                .font(.system(size: 38, weight: .medium))
-                .foregroundStyle(Color.flFocus)
-                .frame(width: 64, height: 64)
-                .background(Color.flFocusSurface, in: RoundedRectangle(cornerRadius: FLRadius.xl, style: .continuous))
-                .symbolRenderingMode(.hierarchical)
-
-            VStack(spacing: FLSpacing.sm) {
-                Text("Break is done.")
-                    .font(.system(size: 30, weight: .semibold, design: .rounded))
-                    .foregroundStyle(Color.flTextPrimary)
-
-                Text("Time to get locked in again.")
-                    .font(.body)
-                    .foregroundStyle(Color.flTextPrimary)
-
-                Text("You rested. Now protect the next block.")
-                    .font(.callout)
-                    .foregroundStyle(Color.flTextSecondary)
-            }
-            .multilineTextAlignment(.center)
-        }
-    }
-
-    private var actions: some View {
-        VStack(spacing: FLSpacing.sm) {
-            Button {
-                onStartFocus()
-            } label: {
-                Label("Start Focus", systemImage: "play.fill")
-                    .frame(maxWidth: .infinity)
-            }
-            .buttonStyle(FLActionButtonStyle(variant: .primary))
-            .keyboardShortcut(.defaultAction)
-
-            HStack(spacing: FLSpacing.sm) {
-                Button {
-                    onSnooze()
-                } label: {
-                    Label("Snooze 2 Minutes", systemImage: "clock.arrow.circlepath")
-                        .frame(maxWidth: .infinity)
-                }
-                .buttonStyle(FLActionButtonStyle(variant: .secondary))
-
-                Button {
-                    onEndCycle()
-                } label: {
-                    Label("End Cycle", systemImage: "xmark")
-                        .frame(maxWidth: .infinity)
-                }
-                .buttonStyle(FLActionButtonStyle(variant: .secondary))
-                .keyboardShortcut(.cancelAction)
-            }
-        }
-        .frame(width: 360)
+        .background(Color.flCanvas)
         .accessibilityElement(children: .contain)
     }
 }

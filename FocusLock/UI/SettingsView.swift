@@ -6,147 +6,321 @@ struct SettingsView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
+            header
+
             ScrollView {
-                VStack(alignment: .leading, spacing: FLSpacing.lg) {
-                    header
-                    timerSection
-                    blockingSection
+                VStack(alignment: .leading, spacing: 0) {
+                    FLRule()
+                    durationsSection
+                    FLRule()
+                    behaviourSection
+                    FLRule()
+                    sessionSection
+                    FLRule()
+                    hudSection
                 }
-                .padding(FLSpacing.lg)
             }
 
-            if let settingsMessage = controller.settingsMessage {
-                FLSubtleDivider()
-                HStack(spacing: FLSpacing.sm) {
-                    Image(systemName: "checkmark.circle.fill")
-                        .foregroundStyle(Color.flSuccess)
-                        .symbolRenderingMode(.hierarchical)
-
-                    Text(settingsMessage)
-                        .font(.caption)
-                        .foregroundStyle(Color.flTextSecondary)
-
-                    Spacer()
-                }
-                .padding(.horizontal, FLSpacing.lg)
-                .padding(.vertical, FLSpacing.sm)
+            if let message = controller.settingsMessage {
+                FLRule()
+                Text(message)
+                    .font(FLTypography.caption)
+                    .foregroundStyle(Color.flInkSoft)
+                    .padding(.horizontal, 26)
+                    .padding(.vertical, 10)
             }
         }
-        .background(Color.flBackground)
-        .frame(minWidth: 460, minHeight: 520)
     }
 
     private var header: some View {
-        HStack(spacing: FLSpacing.md) {
-            Image(systemName: "gearshape.fill")
-                .font(.title2)
-                .foregroundStyle(Color.flFocus)
-                .frame(width: 44, height: 44)
-                .background(Color.flFocusSurface, in: RoundedRectangle(cornerRadius: FLRadius.lg, style: .continuous))
-                .symbolRenderingMode(.hierarchical)
+        VStack(alignment: .leading, spacing: 3) {
+            Text("Settings")
+                .font(FLTypography.display)
+                .foregroundStyle(Color.flInk)
 
-            VStack(alignment: .leading, spacing: FLSpacing.xs) {
-                Text("Settings")
-                    .font(FLTypography.title)
-                    .foregroundStyle(Color.flTextPrimary)
-
-                Text("Configure durations, blocking behavior, and blocked apps.")
-                    .font(.callout)
-                    .foregroundStyle(Color.flTextSecondary)
-            }
-
-            Spacer()
+            Text("Durations, guarding behaviour, and how LockIn shows itself.")
+                .font(FLTypography.caption)
+                .foregroundStyle(Color.flInkSoft)
         }
+        .padding(.horizontal, 26)
+        .padding(.top, 28)
+        .padding(.bottom, 20)
     }
 
-    private var timerSection: some View {
-        FLSurface {
-            VStack(alignment: .leading, spacing: FLSpacing.md) {
-                FLSectionHeader(title: "Durations", systemImage: "timer")
+    // MARK: Sections
 
-                HStack(spacing: FLSpacing.md) {
-                    durationControl(
-                        title: "Focus duration",
-                        value: Binding(
-                            get: { controller.config.focusMinutes },
-                            set: { controller.updateFocusMinutes($0) }
-                        ),
-                        range: 1...180,
-                        systemImage: "target"
-                    )
+    private var durationsSection: some View {
+        section("Durations") {
+            HStack(spacing: FLSpacing.xl) {
+                stepperRow(
+                    label: "Focus",
+                    suffix: "min",
+                    value: Binding(
+                        get: { controller.config.focusMinutes },
+                        set: { controller.updateFocusMinutes($0) }
+                    ),
+                    range: 1...180
+                )
 
-                    durationControl(
-                        title: "Break duration",
-                        value: Binding(
-                            get: { controller.config.breakMinutes },
-                            set: { controller.updateBreakMinutes($0) }
-                        ),
-                        range: 0...60,
-                        systemImage: "cup.and.saucer"
-                    )
-                }
+                stepperRow(
+                    label: "Break",
+                    suffix: "min",
+                    value: Binding(
+                        get: { controller.config.breakMinutes },
+                        set: { controller.updateBreakMinutes($0) }
+                    ),
+                    range: 0...60
+                )
+
+                Spacer()
             }
         }
     }
 
-    private func durationControl(title: String, value: Binding<Int>, range: ClosedRange<Int>, systemImage: String) -> some View {
-        VStack(alignment: .leading, spacing: FLSpacing.sm) {
-            HStack(spacing: FLSpacing.sm) {
-                Image(systemName: systemImage)
-                    .foregroundStyle(Color.flFocus)
-                    .frame(width: 28, height: 28)
-                    .background(Color.flFocusSubtle, in: RoundedRectangle(cornerRadius: FLRadius.sm, style: .continuous))
-                    .symbolRenderingMode(.hierarchical)
-
-                VStack(alignment: .leading, spacing: 1) {
-                    Text(title)
-                        .font(.callout.weight(.semibold))
-                        .foregroundStyle(Color.flTextPrimary)
-
-                    Text("\(value.wrappedValue) min")
-                        .font(.caption.monospacedDigit())
-                        .foregroundStyle(Color.flTextSecondary)
-                }
-            }
-
-            Stepper("\(title) duration", value: value, in: range)
-                .labelsHidden()
-        }
-        .padding(FLSpacing.md)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color.primary.opacity(0.035), in: RoundedRectangle(cornerRadius: FLRadius.md, style: .continuous))
-    }
-
-    private var blockingSection: some View {
-        FLSurface {
-            VStack(alignment: .leading, spacing: FLSpacing.md) {
-                FLSectionHeader(title: "Blocking behavior", systemImage: "shield.lefthalf.filled")
-
-                Picker("Behavior", selection: Binding(
-                    get: { controller.config.blockerMode },
-                    set: { controller.updateBlockerMode($0) }
-                )) {
+    private var behaviourSection: some View {
+        section("Default guarding behaviour") {
+            VStack(alignment: .leading, spacing: 12) {
+                // A stock segmented picker paints its selection in the system
+                // accent colour, which fights the palette. This one is ours.
+                HStack(spacing: 0) {
                     ForEach(BlockerMode.allCases) { mode in
-                        Text(mode.displayName).tag(mode)
+                        behaviourOption(mode)
                     }
                 }
-                .pickerStyle(.segmented)
+                .padding(3)
+                .background(
+                    Capsule().fill(Color.flCanvasWarm)
+                )
+                .overlay(
+                    Capsule().strokeBorder(Color.flHairline, lineWidth: 1)
+                )
+                .fixedSize()
 
-                HStack(alignment: .top, spacing: FLSpacing.sm) {
-                    Image(systemName: "info.circle")
-                        .foregroundStyle(Color.flFocus)
-                        .padding(.top, 1)
+                Text(controller.config.blockerMode.helperText)
+                    .font(FLTypography.caption)
+                    .foregroundStyle(Color.flInkSoft)
+                    .fixedSize(horizontal: false, vertical: true)
 
-                    Text(controller.config.blockerMode.helperText)
-                        .font(.caption)
-                        .foregroundStyle(Color.flTextSecondary)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-                .padding(FLSpacing.md)
-                .background(Color.flFocusSubtle, in: RoundedRectangle(cornerRadius: FLRadius.md, style: .continuous))
-
-                BlockedAppsView()
+                Text("Individual apps can override this from the Blocked apps list.")
+                    .font(.system(size: 11))
+                    .foregroundStyle(Color.flInkSoft.opacity(0.8))
             }
         }
+    }
+
+    private var sessionSection: some View {
+        section("When a break ends") {
+            VStack(alignment: .leading, spacing: 12) {
+                HStack(spacing: 0) {
+                    ForEach(BreakEndBehavior.allCases) { behavior in
+                        breakEndOption(behavior)
+                    }
+                }
+                .padding(3)
+                .background(
+                    Capsule().fill(Color.flCanvasWarm)
+                )
+                .overlay(
+                    Capsule().strokeBorder(Color.flHairline, lineWidth: 1)
+                )
+                .fixedSize()
+
+                Text(controller.config.breakEndBehavior.helperText)
+                    .font(FLTypography.caption)
+                    .foregroundStyle(Color.flInkSoft)
+                    .fixedSize(horizontal: false, vertical: true)
+
+                if controller.config.breakEndBehavior == .autopilot {
+                    autopilotDetails
+                }
+            }
+        }
+    }
+
+    /// Only shown once autopilot is chosen — the two numbers that decide how
+    /// patient it is before it takes the screen.
+    private var autopilotDetails: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            choiceRow(
+                label: "Nudge after",
+                options: AutoResumePlanner.graceOptions,
+                selection: controller.config.autoResume.graceMinutes,
+                title: { "\($0) min" },
+                onSelect: { controller.updateAutoResumeGrace(minutes: $0) }
+            )
+
+            choiceRow(
+                label: "Warning",
+                options: AutoResumePlanner.countdownOptions,
+                selection: controller.config.autoResume.countdownSeconds,
+                title: { $0 < 60 ? "\($0) sec" : "\($0 / 60) min" },
+                onSelect: { controller.updateAutoResumeCountdown(seconds: $0) }
+            )
+
+            Text("Idle \(controller.config.autoResume.graceMinutes) minutes after a break and LockIn takes the screen, counts down \(countdownLabel), then starts the next block. You can always start now, push it back, or end the cycle.")
+                .font(.system(size: 11))
+                .foregroundStyle(Color.flInkSoft.opacity(0.8))
+                .fixedSize(horizontal: false, vertical: true)
+                .frame(maxWidth: 560, alignment: .leading)
+        }
+        .padding(.top, 4)
+    }
+
+    private var countdownLabel: String {
+        let seconds = controller.config.autoResume.countdownSeconds
+        return seconds < 60 ? "\(seconds) seconds" : "\(seconds / 60) minute\(seconds == 60 ? "" : "s")"
+    }
+
+    private func breakEndOption(_ behavior: BreakEndBehavior) -> some View {
+        let isSelected = controller.config.breakEndBehavior == behavior
+
+        return Button {
+            controller.updateBreakEndBehavior(behavior)
+        } label: {
+            Text(behavior.displayName)
+                .font(.system(size: 12.5, weight: isSelected ? .semibold : .regular))
+                .foregroundStyle(isSelected ? Color.flCanvas : Color.flInkSoft)
+                .padding(.horizontal, 16)
+                .frame(height: 28)
+                .background(
+                    Capsule().fill(isSelected ? Color.flAccentDeep : .clear)
+                )
+                .contentShape(Capsule())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(behavior.displayName)
+        .accessibilityAddTraits(isSelected ? [.isSelected] : [])
+    }
+
+    private func choiceRow(
+        label: String,
+        options: [Int],
+        selection: Int,
+        title: @escaping (Int) -> String,
+        onSelect: @escaping (Int) -> Void
+    ) -> some View {
+        HStack(spacing: FLSpacing.md) {
+            Text(label)
+                .font(FLTypography.body)
+                .foregroundStyle(Color.flInk)
+                .frame(width: 86, alignment: .leading)
+
+            HStack(spacing: 8) {
+                ForEach(options, id: \.self) { option in
+                    let isSelected = option == selection
+
+                    Button {
+                        onSelect(option)
+                    } label: {
+                        Text(title(option))
+                            .font(.system(size: 12, weight: isSelected ? .semibold : .regular))
+                            .foregroundStyle(isSelected ? Color.flAccentDeep : Color.flInkSoft)
+                            .padding(.horizontal, 12)
+                            .frame(height: 26)
+                            .background(
+                                Capsule().fill(isSelected ? Color.flAccentSoft.opacity(0.6) : .clear)
+                            )
+                            .overlay(
+                                Capsule().strokeBorder(
+                                    isSelected ? Color.flAccentDeep.opacity(0.35) : Color.flHairline,
+                                    lineWidth: 1
+                                )
+                            )
+                            .contentShape(Capsule())
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("\(label) \(title(option))")
+                    .accessibilityAddTraits(isSelected ? [.isSelected] : [])
+                }
+            }
+        }
+    }
+
+    private var hudSection: some View {
+        section("Floating HUD") {
+            toggleRow(
+                title: "Pin the countdown above every window",
+                detail: "A thin strip stays on screen during a session so the time left is always one glance away.",
+                isOn: Binding(
+                    get: { controller.config.pinnedHUDEnabled },
+                    set: { controller.updatePinnedHUD(enabled: $0) }
+                )
+            )
+        }
+    }
+
+    private func behaviourOption(_ mode: BlockerMode) -> some View {
+        let isSelected = controller.config.blockerMode == mode
+
+        return Button {
+            controller.updateBlockerMode(mode)
+        } label: {
+            Text(mode.displayName)
+                .font(.system(size: 12.5, weight: isSelected ? .semibold : .regular))
+                .foregroundStyle(isSelected ? Color.flCanvas : Color.flInkSoft)
+                .padding(.horizontal, 16)
+                .frame(height: 28)
+                .background(
+                    Capsule().fill(isSelected ? Color.flAccentDeep : .clear)
+                )
+                .contentShape(Capsule())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(mode.displayName)
+        .accessibilityAddTraits(isSelected ? [.isSelected] : [])
+    }
+
+    // MARK: Building blocks
+
+    private func section<Content: View>(_ title: String, @ViewBuilder content: () -> Content) -> some View {
+        VStack(alignment: .leading, spacing: 14) {
+            FLMicroLabel(text: title)
+            content()
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.horizontal, 26)
+        .padding(.vertical, 22)
+    }
+
+    private func stepperRow(label: String, suffix: String, value: Binding<Int>, range: ClosedRange<Int>) -> some View {
+        HStack(spacing: FLSpacing.sm) {
+            Text(label)
+                .font(FLTypography.body)
+                .foregroundStyle(Color.flInk)
+                .frame(width: 46, alignment: .leading)
+
+            Text("\(value.wrappedValue) \(suffix)")
+                .font(.system(size: 15, design: .serif))
+                .monospacedDigit()
+                .foregroundStyle(Color.flInk)
+                .frame(minWidth: 62, alignment: .leading)
+
+            Stepper(label, value: value, in: range)
+                .labelsHidden()
+        }
+    }
+
+    private func toggleRow(title: String, detail: String, isOn: Binding<Bool>) -> some View {
+        HStack(alignment: .top, spacing: FLSpacing.md) {
+            VStack(alignment: .leading, spacing: 3) {
+                Text(title)
+                    .font(FLTypography.body)
+                    .foregroundStyle(Color.flInk)
+
+                Text(detail)
+                    .font(FLTypography.caption)
+                    .foregroundStyle(Color.flInkSoft)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
+            Spacer(minLength: FLSpacing.md)
+
+            Toggle("", isOn: isOn)
+                .toggleStyle(.switch)
+                .tint(Color.flAccentDeep)
+                .labelsHidden()
+                .accessibilityLabel(title)
+        }
+        .frame(maxWidth: 560, alignment: .leading)
     }
 }

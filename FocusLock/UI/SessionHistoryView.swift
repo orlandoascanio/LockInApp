@@ -5,135 +5,194 @@ struct SessionHistoryView: View {
     @EnvironmentObject private var controller: MenuBarController
 
     private var stats: SessionStats {
-        controller.stats()
+        controller.sessionStats
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: FLSpacing.lg) {
+        VStack(alignment: .leading, spacing: 0) {
             header
-
-            statsGrid
-
-            FLSurface {
-                historyList
-            }
-        }
-        .padding(FLSpacing.lg)
-        .background(Color.flBackground)
-        .frame(minWidth: 720, minHeight: 540)
-    }
-
-    private var header: some View {
-        HStack(alignment: .top, spacing: FLSpacing.md) {
-            Image(systemName: "chart.bar.xaxis")
-                .font(.title2)
-                .foregroundStyle(Color.flFocus)
-                .frame(width: 44, height: 44)
-                .background(Color.flFocusSurface, in: RoundedRectangle(cornerRadius: FLRadius.lg, style: .continuous))
-                .symbolRenderingMode(.hierarchical)
-
-            VStack(alignment: .leading, spacing: FLSpacing.xs) {
-                Text("Session History")
-                    .font(FLTypography.title)
-                    .foregroundStyle(Color.flTextPrimary)
-
-                Text("Track sessions and export the data.")
-                    .font(.callout)
-                    .foregroundStyle(Color.flTextSecondary)
-            }
-            .layoutPriority(1)
-
-            Spacer(minLength: FLSpacing.md)
-
-            ExportView()
-        }
-    }
-
-    private var statsGrid: some View {
-        Grid(alignment: .leading, horizontalSpacing: FLSpacing.sm, verticalSpacing: FLSpacing.sm) {
-            GridRow {
-                FLStatCard(value: "\(stats.focusMinutesToday)m", label: "Today's focus minutes", systemImage: "target")
-                FLStatCard(value: "\(stats.sessionsCompletedToday)", label: "Completed sessions today", systemImage: "checkmark.circle.fill", accent: .flSuccess)
-                FLStatCard(value: "\(stats.sessionsCompletedThisWeek)", label: "Completed sessions this week", systemImage: "calendar")
-                FLStatCard(value: "\(stats.totalSessions)", label: "Total sessions", systemImage: "infinity")
-            }
-        }
-    }
-
-    private var historyList: some View {
-        VStack(alignment: .leading, spacing: FLSpacing.md) {
-            FLSectionHeader(title: "Sessions", systemImage: "list.bullet.rectangle")
 
             if controller.history.isEmpty {
                 FLEmptyState(
                     systemImage: "clock",
                     title: "No sessions yet",
-                    detail: "Start a focus session to track your progress."
+                    detail: "Finish a focus block and it will be recorded here."
                 )
-                .frame(maxWidth: .infinity, minHeight: 200)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else {
-                VStack(spacing: FLSpacing.xs) {
-                    historyHeader
+                summaryRow
+                FLRule()
+                columnHeaders
+                Rectangle().fill(Color.flHairline).frame(height: 1).padding(.horizontal, 26)
+                rows
+            }
 
-                    ScrollView {
-                        VStack(spacing: FLSpacing.xs) {
-                            ForEach(controller.history) { entry in
-                                HistoryRow(entry: entry)
-                            }
-                        }
-                    }
-                    .frame(minHeight: 260)
+            if let message = controller.exportMessage {
+                FLRule()
+                Text(message)
+                    .font(FLTypography.caption)
+                    .foregroundStyle(Color.flInkSoft)
+                    .padding(.horizontal, 26)
+                    .padding(.vertical, 10)
+            }
+        }
+    }
+
+    private var header: some View {
+        HStack(alignment: .center) {
+            VStack(alignment: .leading, spacing: 3) {
+                Text("History")
+                    .font(FLTypography.display)
+                    .foregroundStyle(Color.flInk)
+
+                Text("\(controller.history.count) session\(controller.history.count == 1 ? "" : "s") recorded")
+                    .font(FLTypography.caption)
+                    .foregroundStyle(Color.flInkSoft)
+            }
+
+            Spacer()
+
+            ExportView()
+        }
+        .padding(.horizontal, 26)
+        .padding(.top, 28)
+        .padding(.bottom, 20)
+    }
+
+    private var summaryRow: some View {
+        HStack(spacing: FLSpacing.xl) {
+            summaryItem(formatted(minutes: stats.focusMinutesToday), "focused today")
+            summaryItem("\(stats.sessionsCompletedToday)", "sessions today")
+            summaryItem(formatted(minutes: stats.focusMinutesThisWeek), "this week")
+            summaryItem("\(controller.streak)", controller.streak == 1 ? "day streak" : "day streak")
+            Spacer()
+        }
+        .padding(.horizontal, 26)
+        .padding(.bottom, 22)
+    }
+
+    private func summaryItem(_ value: String, _ label: String) -> some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text(value)
+                .font(.system(size: 26, design: .serif))
+                .monospacedDigit()
+                .foregroundStyle(Color.flInk)
+
+            Text(label)
+                .font(FLTypography.caption)
+                .foregroundStyle(Color.flInkSoft)
+        }
+    }
+
+    private var columnHeaders: some View {
+        HStack(spacing: 0) {
+            FLMicroLabel(text: "When").frame(width: 190, alignment: .leading)
+            FLMicroLabel(text: "Focus").frame(width: 90, alignment: .leading)
+            FLMicroLabel(text: "Outcome").frame(width: 130, alignment: .leading)
+            Spacer(minLength: 0)
+            FLMicroLabel(text: "Guarded")
+        }
+        .padding(.horizontal, 26)
+        .padding(.bottom, 10)
+    }
+
+    private var rows: some View {
+        ScrollView {
+            LazyVStack(spacing: 0) {
+                ForEach(controller.history) { entry in
+                    HistoryRow(entry: entry, peakMinutes: peakMinutes)
+                    Rectangle()
+                        .fill(Color.flHairline.opacity(0.5))
+                        .frame(height: 1)
+                        .padding(.horizontal, 26)
                 }
             }
         }
     }
 
-    private var historyHeader: some View {
-        Grid(alignment: .leading, horizontalSpacing: FLSpacing.sm) {
-            GridRow {
-                Text("Date").frame(width: 112, alignment: .leading)
-                Text("Start").frame(width: 72, alignment: .leading)
-                Text("End").frame(width: 72, alignment: .leading)
-                Text("Duration").frame(width: 84, alignment: .leading)
-                Text("Status").frame(width: 96, alignment: .leading)
-                Text("Apps").frame(width: 56, alignment: .leading)
-            }
+    private var peakMinutes: Int {
+        max(controller.history.map(\.focusMinutes).max() ?? 1, 1)
+    }
+
+    private func formatted(minutes: Int) -> String {
+        guard minutes >= 60 else {
+            return "\(minutes)m"
         }
-        .font(.caption.weight(.semibold))
-        .foregroundStyle(Color.flTextTertiary)
-        .padding(.horizontal, FLSpacing.sm)
+        let hours = minutes / 60
+        let remainder = minutes % 60
+        return remainder == 0 ? "\(hours)h" : "\(hours)h \(remainder)m"
     }
 }
 
 private struct HistoryRow: View {
-    var entry: SessionHistoryEntry
+    let entry: SessionHistoryEntry
+    let peakMinutes: Int
 
     var body: some View {
-        Grid(alignment: .leading, horizontalSpacing: FLSpacing.sm) {
-            GridRow {
-                Text(Self.dateFormatter.string(from: entry.startedAt))
-                    .frame(width: 112, alignment: .leading)
-                Text(Self.timeFormatter.string(from: entry.startedAt))
-                    .frame(width: 72, alignment: .leading)
+        HStack(spacing: 0) {
+            Text(Self.stamp(for: entry.startedAt))
+                .font(.system(size: 12.5))
+                .foregroundStyle(Color.flInkSoft)
+                .frame(width: 190, alignment: .leading)
+
+            // The bar makes long and short blocks comparable at a glance,
+            // without a second chart.
+            HStack(spacing: 8) {
+                Rectangle()
+                    .fill(tint)
+                    .frame(width: barWidth, height: 8)
+
+                Text("\(entry.focusMinutes)m")
+                    .font(.system(size: 12.5, design: .serif))
                     .monospacedDigit()
-                Text(Self.timeFormatter.string(from: entry.endedAt))
-                    .frame(width: 72, alignment: .leading)
-                    .monospacedDigit()
-                Text("\(entry.durationMinutes)m")
-                    .frame(width: 84, alignment: .leading)
-                    .monospacedDigit()
-                Text(entry.status.displayName)
-                    .foregroundStyle(entry.status == .completed ? Color.flSuccess : Color.flWarning)
-                    .frame(width: 96, alignment: .leading)
-                Text("\(entry.blockedAppsCount)")
-                    .frame(width: 56, alignment: .leading)
-                    .monospacedDigit()
+                    .foregroundStyle(Color.flInk)
             }
+            .frame(width: 90, alignment: .leading)
+
+            Text(entry.status.displayName)
+                .font(.system(size: 12.5))
+                .foregroundStyle(tint)
+                .frame(width: 130, alignment: .leading)
+
+            Spacer(minLength: 0)
+
+            Text("\(entry.blockedAppsCount)")
+                .font(.system(size: 12.5, design: .serif))
+                .monospacedDigit()
+                .foregroundStyle(Color.flInkSoft)
         }
-        .font(.callout)
-        .padding(.horizontal, FLSpacing.sm)
-        .padding(.vertical, FLSpacing.sm)
-        .background(Color.primary.opacity(0.03), in: RoundedRectangle(cornerRadius: FLRadius.sm, style: .continuous))
+        .padding(.horizontal, 26)
+        .frame(height: 46)
+        .accessibilityElement(children: .combine)
+    }
+
+    private var barWidth: CGFloat {
+        let ratio = CGFloat(entry.focusMinutes) / CGFloat(peakMinutes)
+        return max(4, 44 * ratio)
+    }
+
+    private var tint: Color {
+        switch entry.status {
+        case .completed:
+            return .flAccent
+        case .cancelled:
+            return .flInkSoft
+        case .abandoned:
+            return .flClay
+        }
+    }
+
+    private static func stamp(for date: Date) -> String {
+        let calendar = Calendar.current
+        let time = timeFormatter.string(from: date)
+
+        if calendar.isDateInToday(date) {
+            return "Today, \(time)"
+        }
+        if calendar.isDateInYesterday(date) {
+            return "Yesterday, \(time)"
+        }
+        return "\(dateFormatter.string(from: date)), \(time)"
     }
 
     private static let dateFormatter: DateFormatter = {

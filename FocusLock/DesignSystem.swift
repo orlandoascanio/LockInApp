@@ -2,35 +2,63 @@ import AppKit
 import SwiftUI
 
 // MARK: - Colors
+//
+// Sand canvas, moss accent, clay for anything you would regret. The palette is
+// fixed rather than derived from the system appearance: LockIn's guard screen
+// has to feel like the same paper every time it appears, whatever the OS theme
+// is doing behind it.
 
 enum FLColor {
-    static let focus = NSColor(named: "FocusAccent", bundle: .module) ?? NSColor(hex: "#0ABFA3")
-    static let focusPressed = NSColor(hex: "#088975")
-    static let focusControl = NSColor(hex: "#076B5E")
-    static let focusSubtle = focus.withAlphaComponent(0.10)
-    static let focusSurface = focus.withAlphaComponent(0.16)
+    static let accent = NSColor(hex: "#618C69")
+    static let accentDeep = NSColor(hex: "#3B6148")
+    static let accentSoft = NSColor(hex: "#D9E0D1")
+    static let canvas = NSColor(hex: "#F5F2E8")
+    static let canvasWarm = NSColor(hex: "#EDE9D9")
+    static let ink = NSColor(hex: "#293129")
+    static let inkSoft = NSColor(hex: "#737B6E")
+    static let hairline = NSColor(hex: "#CCC7B5")
+    static let clay = NSColor(hex: "#B87355")
 
-    static let success = NSColor.systemGreen
-    static let warning = NSColor.systemOrange
-    static let destructive = NSColor.systemRed
+    static let success = accentDeep
+    static let warning = NSColor(hex: "#B8874A")
+    static let destructive = clay
+}
 
-    static let textPrimary = NSColor.labelColor
-    static let textSecondary = NSColor.secondaryLabelColor
-    static let textTertiary = NSColor.tertiaryLabelColor
-    static let separator = NSColor.separatorColor
-    static let background = NSColor.windowBackgroundColor
-    static let surface = NSColor.controlBackgroundColor
-    static let elevatedSurface = NSColor.textBackgroundColor
+extension Color {
+    static let flAccent = Color(nsColor: FLColor.accent)
+    static let flAccentDeep = Color(nsColor: FLColor.accentDeep)
+    static let flAccentSoft = Color(nsColor: FLColor.accentSoft)
+    static let flCanvas = Color(nsColor: FLColor.canvas)
+    static let flCanvasWarm = Color(nsColor: FLColor.canvasWarm)
+    static let flInk = Color(nsColor: FLColor.ink)
+    static let flInkSoft = Color(nsColor: FLColor.inkSoft)
+    static let flHairline = Color(nsColor: FLColor.hairline)
+    static let flClay = Color(nsColor: FLColor.clay)
+    static let flDestructive = Color(nsColor: FLColor.destructive)
+    static let flWarning = Color(nsColor: FLColor.warning)
+}
+
+extension NSColor {
+    convenience init(hex: String) {
+        let value = hex.trimmingCharacters(in: CharacterSet(charactersIn: "#"))
+        let number = UInt64(value, radix: 16) ?? 0
+
+        self.init(
+            srgbRed: CGFloat((number >> 16) & 0xFF) / 255,
+            green: CGFloat((number >> 8) & 0xFF) / 255,
+            blue: CGFloat(number & 0xFF) / 255,
+            alpha: 1
+        )
+    }
 }
 
 // MARK: - Radius
 
 enum FLRadius {
-    static let sm: CGFloat = 6
-    static let md: CGFloat = 10
-    static let lg: CGFloat = 14
-    static let xl: CGFloat = 18
-    static let xxl: CGFloat = 22
+    static let sm: CGFloat = 4
+    static let md: CGFloat = 6
+    static let lg: CGFloat = 10
+    static let xl: CGFloat = 14
 }
 
 // MARK: - Spacing
@@ -44,107 +72,74 @@ enum FLSpacing {
 }
 
 // MARK: - Typography
+//
+// Serif for anything numeric that the eye lands on — the countdown, durations,
+// counts. Sans for labels and controls. Micro-caps with wide tracking stand in
+// for section headers so the layout needs no boxes to separate its regions.
 
 enum FLTypography {
-    static let timerLarge = Font.system(size: 58, weight: .bold, design: .rounded)
-    static let timerOverlay = Font.system(size: 56, weight: .semibold, design: .rounded)
-    static let display = Font.system(size: 34, weight: .semibold, design: .rounded)
-    static let title = Font.title2.weight(.semibold)
-    static let headline = Font.headline
-    static let body = Font.body
-    static let caption = Font.caption
-    static let stat = Font.title.weight(.semibold)
+    static func timer(_ size: CGFloat) -> Font {
+        .system(size: size, weight: .regular, design: .serif)
+    }
+
+    static let timerLarge = timer(88)
+    static let timerOverlay = timer(64)
+    static let timerHUD = timer(30)
+    static let display = Font.system(size: 22, weight: .regular, design: .serif)
+    static let title = Font.system(size: 19, weight: .regular, design: .serif)
+    static let headline = Font.system(size: 13, weight: .semibold)
+    static let body = Font.system(size: 13)
+    static let caption = Font.system(size: 11.5)
+    static let micro = Font.system(size: 9.5, weight: .semibold)
 }
 
 // MARK: - Animation
 
 enum FLAnimation {
-    static let quick = Animation.easeOut(duration: 0.2)
-    static let standard = Animation.easeOut(duration: 0.25)
-    static let entrance = Animation.spring(response: 0.4, dampingFraction: 0.85)
-}
-
-// MARK: - Color helpers
-
-extension Color {
-    static let flFocus = Color(nsColor: FLColor.focus)
-    static let flFocusPressed = Color(nsColor: FLColor.focusPressed)
-    static let flFocusControl = Color(nsColor: FLColor.focusControl)
-    static let flFocusSubtle = Color(nsColor: FLColor.focusSubtle)
-    static let flFocusSurface = Color(nsColor: FLColor.focusSurface)
-    static let flSuccess = Color(nsColor: FLColor.success)
-    static let flWarning = Color(nsColor: FLColor.warning)
-    static let flDestructive = Color(nsColor: FLColor.destructive)
-    static let flTextPrimary = Color(nsColor: FLColor.textPrimary)
-    static let flTextSecondary = Color(nsColor: FLColor.textSecondary)
-    static let flTextTertiary = Color(nsColor: FLColor.textTertiary)
-    static let flSeparator = Color(nsColor: FLColor.separator)
-    static let flBackground = Color(nsColor: FLColor.background)
-    static let flSurface = Color(nsColor: FLColor.surface)
-    static let flElevatedSurface = Color(nsColor: FLColor.elevatedSurface)
-}
-
-extension NSColor {
-    convenience init(hex: String) {
-        let value = hex.trimmingCharacters(in: CharacterSet(charactersIn: "#"))
-        let number = UInt64(value, radix: 16)!
-
-        self.init(
-            red: CGFloat((number >> 16) & 0xFF) / 255,
-            green: CGFloat((number >> 8) & 0xFF) / 255,
-            blue: CGFloat(number & 0xFF) / 255,
-            alpha: 1
-        )
-    }
+    static let quick = Animation.easeOut(duration: 0.16)
+    static let standard = Animation.easeOut(duration: 0.22)
+    static let entrance = Animation.easeOut(duration: 0.28)
 }
 
 // MARK: - Shared components
 
-struct FLSectionHeader: View {
-    let title: String
-    var systemImage: String?
+/// Wide-tracked micro-caps label. Replaces boxed section headers.
+struct FLMicroLabel: View {
+    let text: String
+    var tint: Color = .flInkSoft
 
     var body: some View {
-        HStack(spacing: FLSpacing.xs) {
-            if let systemImage {
-                Image(systemName: systemImage)
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(Color.flFocus)
-                    .symbolRenderingMode(.hierarchical)
-            }
-
-            Text(title)
-                .font(.subheadline.weight(.semibold))
-                .foregroundStyle(Color.flTextPrimary)
-        }
+        Text(text.uppercased())
+            .font(FLTypography.micro)
+            .tracking(1.6)
+            .foregroundStyle(tint)
     }
 }
 
-struct FLStatusPill: View {
-    let label: String
-    var accent: Bool = false
-    var systemImage: String?
+/// Full-width hairline. The only separator in the design.
+struct FLRule: View {
+    var body: some View {
+        Rectangle()
+            .fill(Color.flHairline.opacity(0.7))
+            .frame(height: 1)
+    }
+}
+
+/// Outlined capsule used for behaviour and status badges.
+struct FLBadge: View {
+    let text: String
+    var tint: Color = .flInkSoft
+    var borderTint: Color?
 
     var body: some View {
-        HStack(spacing: FLSpacing.xs) {
-            if let systemImage {
-                Image(systemName: systemImage)
-                    .font(.caption2.weight(.bold))
-            }
-            Text(label)
-        }
-        .font(.caption.weight(.medium))
-        .foregroundStyle(accent ? Color.flFocus : Color.flTextSecondary)
-        .padding(.horizontal, FLSpacing.sm)
-        .padding(.vertical, FLSpacing.xs)
-        .background(
-            (accent ? Color.flFocusSurface : Color.primary.opacity(0.06)),
-            in: Capsule()
-        )
-        .overlay(
-            Capsule()
-                .strokeBorder(accent ? Color.flFocus.opacity(0.25) : Color.flSeparator.opacity(0.45), lineWidth: 1)
-        )
+        Text(text)
+            .font(FLTypography.caption)
+            .foregroundStyle(tint)
+            .padding(.horizontal, 9)
+            .padding(.vertical, 4)
+            .overlay(
+                Capsule().strokeBorder(borderTint ?? Color.flHairline, lineWidth: 1)
+            )
     }
 }
 
@@ -156,112 +151,23 @@ struct FLEmptyState: View {
     var body: some View {
         VStack(spacing: FLSpacing.sm) {
             Image(systemName: systemImage)
-                .font(.title)
-                .foregroundStyle(Color.flTextTertiary)
-                .symbolRenderingMode(.hierarchical)
+                .font(.system(size: 22, weight: .light))
+                .foregroundStyle(Color.flInkSoft.opacity(0.6))
 
             Text(title)
-                .font(.headline)
-                .foregroundStyle(Color.flTextPrimary)
+                .font(FLTypography.display)
+                .foregroundStyle(Color.flInk)
 
             Text(detail)
-                .font(.caption)
-                .foregroundStyle(Color.flTextSecondary)
-                .frame(maxWidth: 280)
+                .font(FLTypography.caption)
+                .foregroundStyle(Color.flInkSoft)
+                .frame(maxWidth: 300)
         }
         .multilineTextAlignment(.center)
     }
 }
 
-struct FLStatCard: View {
-    let value: String
-    let label: String
-    var systemImage: String?
-    var accent: Color = .flFocus
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: FLSpacing.md) {
-            HStack(alignment: .top) {
-                if let systemImage {
-                    Image(systemName: systemImage)
-                        .font(.headline)
-                        .foregroundStyle(accent)
-                        .frame(width: 28, height: 28)
-                        .background(accent.opacity(0.12), in: RoundedRectangle(cornerRadius: FLRadius.sm, style: .continuous))
-                        .symbolRenderingMode(.hierarchical)
-                }
-
-                Spacer(minLength: 0)
-            }
-
-            VStack(alignment: .leading, spacing: FLSpacing.xs) {
-                Text(value)
-                    .font(FLTypography.stat)
-                    .monospacedDigit()
-                    .foregroundStyle(Color.flTextPrimary)
-
-                Text(label)
-                    .font(.caption.weight(.medium))
-                    .foregroundStyle(Color.flTextSecondary)
-                    .lineLimit(2)
-            }
-        }
-        .padding(FLSpacing.md)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color.flSurface, in: RoundedRectangle(cornerRadius: FLRadius.lg, style: .continuous))
-        .overlay(
-            RoundedRectangle(cornerRadius: FLRadius.lg, style: .continuous)
-                .strokeBorder(Color.flSeparator.opacity(0.55), lineWidth: 1)
-        )
-    }
-}
-
-struct FLSubtleDivider: View {
-    var body: some View {
-        Rectangle()
-            .fill(Color.flSeparator.opacity(0.5))
-            .frame(height: 1)
-    }
-}
-
-struct FLIconButton: View {
-    let title: String
-    let systemImage: String
-    let action: () -> Void
-
-    var body: some View {
-        Button(action: action) {
-            Label(title, systemImage: systemImage)
-                .frame(maxWidth: .infinity)
-        }
-        .buttonStyle(FLActionButtonStyle(variant: .secondary))
-        .controlSize(.regular)
-    }
-}
-
-struct FLSurface<Content: View>: View {
-    var padding: CGFloat = FLSpacing.md
-    var radius: CGFloat = FLRadius.lg
-    private let content: Content
-
-    init(padding: CGFloat = FLSpacing.md, radius: CGFloat = FLRadius.lg, @ViewBuilder content: () -> Content) {
-        self.padding = padding
-        self.radius = radius
-        self.content = content()
-    }
-
-    var body: some View {
-        content
-            .padding(padding)
-            .background(Color.flSurface, in: RoundedRectangle(cornerRadius: radius, style: .continuous))
-            .overlay(
-                RoundedRectangle(cornerRadius: radius, style: .continuous)
-                    .strokeBorder(Color.flSeparator.opacity(0.55), lineWidth: 1)
-            )
-            .shadow(color: Color.black.opacity(0.04), radius: 10, x: 0, y: 4)
-    }
-}
-
+/// The one filled button per screen, plus its quieter companions.
 struct FLActionButtonStyle: ButtonStyle {
     enum Variant {
         case primary
@@ -272,72 +178,256 @@ struct FLActionButtonStyle: ButtonStyle {
     }
 
     var variant: Variant = .secondary
+    var minHeight: CGFloat = 40
 
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
-            .font(.callout.weight(.semibold))
-            .foregroundStyle(foregroundColor)
+            .font(.system(size: 13.5, weight: variant == .quiet ? .regular : .semibold))
+            .foregroundStyle(foreground(isPressed: configuration.isPressed))
             .lineLimit(1)
-            .minimumScaleFactor(0.85)
-            .padding(.horizontal, isQuiet ? FLSpacing.sm : FLSpacing.md)
-            .frame(minHeight: isQuiet ? 36 : 44)
-            .background(backgroundColor(isPressed: configuration.isPressed), in: RoundedRectangle(cornerRadius: FLRadius.md, style: .continuous))
-            .overlay(
-                RoundedRectangle(cornerRadius: FLRadius.md, style: .continuous)
-                    .strokeBorder(borderColor, lineWidth: variant == .primary ? 0 : 1)
-            )
-            .shadow(
-                color: variant == .primary ? Color.flFocus.opacity(configuration.isPressed ? 0.10 : 0.22) : Color.clear,
-                radius: configuration.isPressed ? 4 : 10,
-                x: 0,
-                y: configuration.isPressed ? 2 : 6
-            )
-            .scaleEffect(configuration.isPressed ? 0.98 : 1)
+            .padding(.horizontal, variant == .quiet ? FLSpacing.sm : 22)
+            .frame(minHeight: minHeight)
+            .background(background(isPressed: configuration.isPressed), in: Capsule())
+            .overlay(Capsule().strokeBorder(border, lineWidth: 1.2))
+            .contentShape(Capsule())
+            .opacity(configuration.isPressed && variant == .quiet ? 0.6 : 1)
             .animation(FLAnimation.quick, value: configuration.isPressed)
     }
 
-    private var foregroundColor: Color {
+    private func foreground(isPressed: Bool) -> Color {
         switch variant {
         case .primary:
-            return .white
-        case .destructive:
-            return .flDestructive
-        case .destructiveQuiet:
-            return .flDestructive
-        case .secondary, .quiet:
-            return .flTextPrimary
+            return .flCanvas
+        case .secondary:
+            return .flAccentDeep
+        case .destructive, .destructiveQuiet:
+            return .flClay
+        case .quiet:
+            return .flInkSoft
         }
     }
 
-    private var borderColor: Color {
+    private func background(isPressed: Bool) -> Color {
+        switch variant {
+        case .primary:
+            return isPressed ? .flAccent : .flAccentDeep
+        case .secondary:
+            return isPressed ? Color.flAccentSoft.opacity(0.5) : .clear
+        case .destructive:
+            return isPressed ? Color.flClay.opacity(0.12) : .clear
+        case .quiet, .destructiveQuiet:
+            return .clear
+        }
+    }
+
+    private var border: Color {
         switch variant {
         case .primary:
             return .clear
-        case .destructive:
-            return Color.flDestructive.opacity(0.35)
-        case .destructiveQuiet:
-            return Color.flDestructive.opacity(0.18)
-        case .secondary, .quiet:
-            return Color.flSeparator.opacity(0.6)
-        }
-    }
-
-    private func backgroundColor(isPressed: Bool) -> Color {
-        switch variant {
-        case .primary:
-            return isPressed ? .flFocusPressed : .flFocusControl
-        case .destructive:
-            return Color.flDestructive.opacity(isPressed ? 0.16 : 0.10)
-        case .destructiveQuiet:
-            return Color.flDestructive.opacity(isPressed ? 0.12 : 0.06)
         case .secondary:
-            return Color.primary.opacity(isPressed ? 0.10 : 0.055)
-        case .quiet:
-            return Color.primary.opacity(isPressed ? 0.08 : 0.025)
+            return Color.flAccentDeep.opacity(0.35)
+        case .destructive:
+            return Color.flClay.opacity(0.35)
+        case .quiet, .destructiveQuiet:
+            return .clear
+        }
+    }
+}
+
+/// Underlined text link — used where a control should not look like a button.
+struct FLLinkButtonStyle: ButtonStyle {
+    var tint: Color = .flAccentDeep
+
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .font(.system(size: 13))
+            .foregroundStyle(tint)
+            .underline()
+            .opacity(configuration.isPressed ? 0.6 : 1)
+    }
+}
+
+/// Real macOS app icon for a bundle id, with a neutral placeholder for apps
+/// that are not installed (or were renamed) so rows never collapse.
+struct FLAppIcon: View {
+    let bundleId: String
+    var size: CGFloat = 26
+    var isDimmed: Bool = false
+
+    var body: some View {
+        Group {
+            if let icon = Self.icon(for: bundleId) {
+                Image(nsImage: icon)
+                    .resizable()
+                    .interpolation(.high)
+                    .aspectRatio(contentMode: .fit)
+            } else {
+                RoundedRectangle(cornerRadius: FLRadius.md, style: .continuous)
+                    .fill(Color.flHairline.opacity(0.55))
+                    .overlay(
+                        Image(systemName: "questionmark")
+                            .font(.system(size: size * 0.42, weight: .medium))
+                            .foregroundStyle(Color.flInkSoft)
+                    )
+            }
+        }
+        .frame(width: size, height: size)
+        .opacity(isDimmed ? 0.4 : 1)
+        .accessibilityHidden(true)
+    }
+
+    private static var cache: [String: NSImage] = [:]
+
+    private static func icon(for bundleId: String) -> NSImage? {
+        if let cached = cache[bundleId] {
+            return cached
+        }
+
+        guard let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleId) else {
+            return nil
+        }
+
+        let icon = NSWorkspace.shared.icon(forFile: url.path)
+        cache[bundleId] = icon
+        return icon
+    }
+}
+
+/// Overlapping icon stack used to summarise the guarded list in one line.
+struct FLAppPile: View {
+    let apps: [BlockedAppSummary]
+    var size: CGFloat = 24
+
+    struct BlockedAppSummary: Identifiable {
+        let id: String
+        let bundleId: String
+    }
+
+    var body: some View {
+        HStack(spacing: -size * 0.29) {
+            ForEach(apps.prefix(4)) { app in
+                FLAppIcon(bundleId: app.bundleId, size: size)
+                    .background(
+                        RoundedRectangle(cornerRadius: FLRadius.md, style: .continuous)
+                            .fill(Color.flCanvas)
+                    )
+                    .overlay(
+                        RoundedRectangle(cornerRadius: FLRadius.md, style: .continuous)
+                            .strokeBorder(Color.flCanvas, lineWidth: 2)
+                    )
+            }
+
+            if apps.count > 4 {
+                Text("+\(apps.count - 4)")
+                    .font(.system(size: size * 0.38, weight: .semibold))
+                    .foregroundStyle(Color.flInkSoft)
+                    .frame(width: size, height: size)
+                    .background(Circle().fill(Color.flCanvasWarm))
+                    .overlay(Circle().strokeBorder(Color.flCanvas, lineWidth: 2))
+            }
+        }
+    }
+}
+
+/// Weekly rhythm chart: bars on a shared baseline, today emphasised.
+struct FLWeeklyRhythm: View {
+    let days: [DailyFocusColumn]
+    var height: CGFloat = 62
+
+    struct DailyFocusColumn: Identifiable {
+        let id: Date
+        let label: String
+        let minutes: Int
+        let isToday: Bool
+    }
+
+    private var peak: Int {
+        max(days.map(\.minutes).max() ?? 0, 1)
+    }
+
+    var body: some View {
+        VStack(spacing: 0) {
+            HStack(alignment: .bottom, spacing: 12) {
+                ForEach(days) { day in
+                    Rectangle()
+                        .fill(day.isToday ? Color.flAccentDeep : Color.flAccent.opacity(0.5))
+                        .frame(height: barHeight(for: day))
+                        .frame(maxWidth: .infinity)
+                        .accessibilityLabel("\(day.label): \(day.minutes) focus minutes")
+                }
+            }
+            .frame(height: height, alignment: .bottom)
+
+            Rectangle().fill(Color.flHairline).frame(height: 1)
+
+            HStack(spacing: 12) {
+                ForEach(days) { day in
+                    Text(day.label)
+                        .font(.system(size: 10, weight: day.isToday ? .semibold : .regular))
+                        .foregroundStyle(day.isToday ? Color.flInk : Color.flInkSoft)
+                        .frame(maxWidth: .infinity)
+                }
+            }
+            .padding(.top, 7)
         }
     }
 
-    private var isQuiet: Bool {
-        variant == .quiet || variant == .destructiveQuiet
+    private func barHeight(for day: DailyFocusColumn) -> CGFloat {
+        guard day.minutes > 0 else {
+            return 2
+        }
+        return max(3, height * CGFloat(day.minutes) / CGFloat(peak))
+    }
+}
+
+/// Small progress ring used in the HUD and menu bar tuck.
+struct FLProgressRing: View {
+    let progress: Double
+    var size: CGFloat = 22
+    var lineWidth: CGFloat = 2
+
+    var body: some View {
+        ZStack {
+            Circle()
+                .stroke(Color.flAccent.opacity(0.22), lineWidth: lineWidth)
+            Circle()
+                .trim(from: 0, to: max(0.001, min(1, progress)))
+                .stroke(Color.flAccentDeep, style: StrokeStyle(lineWidth: lineWidth, lineCap: .round))
+                .rotationEffect(.degrees(-90))
+        }
+        .frame(width: size, height: size)
+        .accessibilityHidden(true)
+    }
+}
+
+/// Session beads: how many blocks are done, which one is running.
+struct FLSessionBeads: View {
+    let total: Int
+    let completed: Int
+    var isRunning: Bool
+
+    var body: some View {
+        HStack(spacing: 6) {
+            ForEach(0..<max(1, total), id: \.self) { index in
+                Capsule()
+                    .fill(fill(for: index))
+                    .frame(width: isCurrent(index) ? 26 : 16, height: 3)
+            }
+        }
+        .accessibilityLabel("Session \(min(completed + 1, total)) of \(total)")
+    }
+
+    private func isCurrent(_ index: Int) -> Bool {
+        isRunning && index == completed
+    }
+
+    private func fill(for index: Int) -> Color {
+        if index < completed {
+            return .flAccentDeep
+        }
+        if isCurrent(index) {
+            return .flAccent
+        }
+        return .flHairline
     }
 }

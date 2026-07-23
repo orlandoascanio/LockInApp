@@ -5,7 +5,7 @@ import UniformTypeIdentifiers
 
 enum FocusPreset: String, CaseIterable, Identifiable {
     case twentyFiveFive
-    case fortyFiveTen
+    case fiftyTen
     case custom
 
     var id: String { rawValue }
@@ -14,8 +14,8 @@ enum FocusPreset: String, CaseIterable, Identifiable {
         switch self {
         case .twentyFiveFive:
             return "25 / 5"
-        case .fortyFiveTen:
-            return "45 / 10"
+        case .fiftyTen:
+            return "50 / 10"
         case .custom:
             return "Custom"
         }
@@ -25,8 +25,8 @@ enum FocusPreset: String, CaseIterable, Identifiable {
         switch self {
         case .twentyFiveFive:
             return (25, 5)
-        case .fortyFiveTen:
-            return (45, 10)
+        case .fiftyTen:
+            return (50, 10)
         case .custom:
             return nil
         }
@@ -38,9 +38,21 @@ final class MenuBarController: NSObject, ObservableObject {
     @Published var config: AppConfig
     @Published var snapshot: TimerSnapshot
     @Published var history: [SessionHistoryEntry]
-    @Published var preset: FocusPreset = .twentyFiveFive
+    @Published var preset: FocusPreset = .fiftyTen
     @Published var settingsMessage: String?
     @Published var exportMessage: String?
+
+    /// Which pane the sidebar is showing. Settings and History are panes now
+    /// rather than separate windows, so navigation lives here.
+    @Published var page: MainPage = .focus
+
+    /// Focus minutes per weekday for the current week, and the run of days with
+    /// at least one completed session. Cached because both are read on every
+    /// redraw but only change when a session ends.
+    @Published private(set) var weeklyRhythm: [DailyFocus] = []
+    @Published private(set) var streak: Int = 0
+    @Published private(set) var blockedTodayCounts: [String: Int] = [:]
+    @Published private(set) var sessionStats: SessionStats = .empty
 
     private let stateStore: StateStore
     private let historyStore: SessionHistoryStore
@@ -48,19 +60,25 @@ final class MenuBarController: NSObject, ObservableObject {
     private let notificationService: NotificationService
     private let blocker: AppBlocker
     private let timerEngine: TimerEngine
+    private let activityStore = BlockActivityStore()
     private let overlay = FocusOverlayController()
     private let breakEndedOverlay = BreakEndedWindowController()
+    private let autoResumeOverlay = AutoResumeOverlayController()
+    private let pinnedHUD = PinnedHUDController()
 
     private let snoozeMinutes = 5
     private let breakSnoozeMinutes = 2
     private var lastInterceptedBundleId: String?
 
+    /// When autopilot started counting the current wait: the moment the break
+    /// ended, or the moment the takeover was last pushed away. In memory only —
+    /// quitting ends the cycle anyway.
+    private var autoResumeAnchor: Date?
+
     private var tickTimer: Timer?
     private var statusItem: NSStatusItem?
     private let popover = NSPopover()
     private var mainWindow: NSWindow?
-    private var settingsWindow: NSWindow?
-    private var historyWindow: NSWindow?
     private var reopenObserver: NSObjectProtocol?
     private var blockerRunning = false
     private var hasSetup = false
@@ -78,6 +96,65 @@ final class MenuBarController: NSObject, ObservableObject {
 
     var isSessionActive: Bool {
         snapshot.phase == .focus || snapshot.phase == .break
+    }
+
+    /// Apps that are actually guarded right now — entries toggled off stay in
+    /// the list but are excluded everywhere the count is shown.
+    var activeBlockedApps: [BlockedApp] {
+        config.blockedApps.filter(\.isEnabled)
+    }
+
+    func blockedTodayCount(for app: BlockedApp) -> Int {
+        blockedTodayCounts[app.bundleId] ?? 0
+    }
+
+    /// What the clock should read. Idle and finished states show the duration
+    /// that pressing Start would run, rather than a bare 00:00 that looks like
+    /// a session ended badly.
+    var displayCountdown: String {
+        switch snapshot.phase {
+        case .focus, .break, .paused:
+            return snapshot.formattedRemaining
+        case .breakEnded:
+            return String(format: "%02d:00", config.focusMinutes)
+        default:
+            return String(format: "%02d:00", config.focusMinutes)
+        }
+    }
+
+    /// What autopilot is about to do, for the main window. `nil` whenever
+    /// autopilot has nothing pending — a break that is over is the only moment
+    /// it has an opinion.
+    var autoResumeStatusLine: String? {
+        guard
+            config.breakEndBehavior == .autopilot,
+            snapshot.phase == .breakEnded,
+            let breakEndedAt = snapshot.breakEndedAt
+        else {
+            return nil
+        }
+
+        switch config.autoResume.stage(since: autoResumeAnchor ?? breakEndedAt, now: Date()) {
+        case .waiting(let secondsUntilCountdown):
+            let minutes = max(1, Int((secondsUntilCountdown / 60).rounded(.up)))
+            return "Autopilot takes over in \(minutes) min"
+        case .countdown(let remaining):
+            return "Autopilot starts focus in \(Self.formatCountdown(remaining))"
+        case .start:
+            return "Autopilot is starting the next block"
+        }
+    }
+
+    /// Fraction of the current phase already elapsed, for the HUD ring.
+    var phaseProgress: Double {
+        let totalMinutes = snapshot.phase == .break ? snapshot.breakMinutes : snapshot.focusMinutes
+        let total = TimeInterval(totalMinutes * 60)
+
+        guard total > 0 else {
+            return 0
+        }
+
+        return min(1, max(0, (total - snapshot.remainingSeconds) / total))
     }
 
     override init() {
@@ -109,8 +186,48 @@ final class MenuBarController: NSObject, ObservableObject {
         }
 
         self.blocker.delegate = self
+        self.blocker.onInterception = { [weak self] app in
+            Task { @MainActor in
+                self?.recordInterception(of: app)
+            }
+        }
+
         configureOverlayHandlers()
         configureBreakEndedHandlers()
+        configureAutoResumeHandlers()
+        configurePinnedHUDHandlers()
+        refreshDerivedStats()
+    }
+
+    private func configurePinnedHUDHandlers() {
+        pinnedHUD.onEnd = { [weak self] in
+            self?.stopSession()
+        }
+        pinnedHUD.onUnpin = { [weak self] in
+            self?.updatePinnedHUD(enabled: false)
+        }
+    }
+
+    private func recordInterception(of app: InterceptedApp) {
+        blockedTodayCounts = activityStore.recordInterception(bundleId: app.bundleId)
+    }
+
+    /// Re-reads the history file and everything derived from it. Every code
+    /// path that can append an entry goes through here so the sidebar streak
+    /// and week chart never lag behind the list.
+    private func reloadHistory() {
+        history = historyStore.loadHistory()
+        refreshDerivedStats()
+    }
+
+    /// Recomputes the week chart, streak, and today's block counts. Called
+    /// whenever history changes rather than on every redraw, since each read
+    /// walks the whole history file.
+    private func refreshDerivedStats() {
+        sessionStats = historyStore.stats()
+        weeklyRhythm = historyStore.weeklyRhythm()
+        streak = historyStore.focusStreak()
+        blockedTodayCounts = activityStore.countsToday()
     }
 
     private func configureOverlayHandlers() {
@@ -135,6 +252,20 @@ final class MenuBarController: NSObject, ObservableObject {
             self?.snoozeBreakEndedOverlay()
         }
         breakEndedOverlay.onEndCycle = { [weak self] in
+            self?.endCycleFromBreakEndedOverlay()
+        }
+    }
+
+    private func configureAutoResumeHandlers() {
+        autoResumeOverlay.onStartNow = { [weak self] in
+            self?.autoResumeOverlay.dismiss()
+            self?.startFocus()
+        }
+        autoResumeOverlay.onPostpone = { [weak self] in
+            self?.postponeAutoResume()
+        }
+        autoResumeOverlay.onEndCycle = { [weak self] in
+            self?.autoResumeOverlay.dismiss()
             self?.endCycleFromBreakEndedOverlay()
         }
     }
@@ -177,8 +308,18 @@ final class MenuBarController: NSObject, ObservableObject {
         blocker.stop()
     }
 
+    /// Quitting mid-session ends it: stop guarding and record an interrupted
+    /// focus block as abandoned before the process exits.
+    func handleAppWillTerminate() {
+        blocker.stop()
+        pinnedHUD.dismiss()
+        timerEngine.recordAbandonmentIfNeeded()
+    }
+
     func startFocus() {
         breakEndedOverlay.dismiss()
+        autoResumeOverlay.dismiss()
+        autoResumeAnchor = nil
         saveConfig()
         timerEngine.startFocus(
             focusMinutes: config.focusMinutes,
@@ -186,15 +327,19 @@ final class MenuBarController: NSObject, ObservableObject {
             blockedAppsCount: config.blockedApps.count,
             strictMode: config.strictMode
         )
-        history = historyStore.loadHistory()
+        reloadHistory()
         syncBlocker()
+        syncPinnedHUD()
     }
 
     func stopSession() {
         breakEndedOverlay.dismiss()
+        autoResumeOverlay.dismiss()
+        autoResumeAnchor = nil
         timerEngine.stopSession()
-        history = historyStore.loadHistory()
+        reloadHistory()
         syncBlocker()
+        syncPinnedHUD()
     }
 
     func selectPreset(_ newPreset: FocusPreset) {
@@ -223,6 +368,58 @@ final class MenuBarController: NSObject, ObservableObject {
 
     func updateBlockerMode(_ blockerMode: BlockerMode) {
         config.blockerMode = blockerMode
+        saveConfig()
+        syncBlocker()
+    }
+
+    func updateBreakEndBehavior(_ behavior: BreakEndBehavior) {
+        config.breakEndBehavior = behavior
+        saveConfig()
+        syncAutoResume()
+    }
+
+    func updateAutoResumeGrace(minutes: Int) {
+        config.autoResume = AutoResumePlanner(
+            graceMinutes: minutes,
+            countdownSeconds: config.autoResume.countdownSeconds
+        )
+        saveConfig()
+        syncAutoResume()
+    }
+
+    func updateAutoResumeCountdown(seconds: Int) {
+        config.autoResume = AutoResumePlanner(
+            graceMinutes: config.autoResume.graceMinutes,
+            countdownSeconds: seconds
+        )
+        saveConfig()
+        syncAutoResume()
+    }
+
+    func updatePinnedHUD(enabled: Bool) {
+        config.pinnedHUDEnabled = enabled
+        saveConfig()
+        syncPinnedHUD()
+    }
+
+    /// Per-app behaviour override. `nil` puts the app back on the global
+    /// default from Settings.
+    func setBlockedApp(_ app: BlockedApp, behavior: BlockerMode?) {
+        guard let index = config.blockedApps.firstIndex(where: { $0.bundleId == app.bundleId }) else {
+            return
+        }
+
+        config.blockedApps[index].behavior = behavior
+        saveConfig()
+        syncBlocker()
+    }
+
+    func setBlockedApp(_ app: BlockedApp, enabled: Bool) {
+        guard let index = config.blockedApps.firstIndex(where: { $0.bundleId == app.bundleId }) else {
+            return
+        }
+
+        config.blockedApps[index].isEnabled = enabled
         saveConfig()
         syncBlocker()
     }
@@ -284,33 +481,28 @@ final class MenuBarController: NSObject, ObservableObject {
     }
 
     func openMainWindow() {
+        popover.performClose(nil)
         mainWindow = presentWindow(
             existingWindow: mainWindow,
             title: AppIdentity.name,
-            size: NSSize(width: 396, height: 620),
-            rootView: MenuBarPopoverView().environmentObject(self)
+            size: NSSize(width: 900, height: 620),
+            rootView: MainWindowView().environmentObject(self)
         )
     }
 
+    /// Settings and History are panes of the one window now, so "open" means
+    /// select the pane and bring that window forward.
     func openSettings() {
-        FocusLockLog.debug("settings window opened")
-        settingsWindow = presentWindow(
-            existingWindow: settingsWindow,
-            title: "\(AppIdentity.name) Settings",
-            size: NSSize(width: 460, height: 520),
-            rootView: SettingsView().environmentObject(self)
-        )
+        FocusLockLog.debug("settings pane opened")
+        page = .settings
+        openMainWindow()
     }
 
     func openHistory() {
-        FocusLockLog.debug("history window opened")
-        history = historyStore.loadHistory()
-        historyWindow = presentWindow(
-            existingWindow: historyWindow,
-            title: "\(AppIdentity.name) Session History",
-            size: NSSize(width: 760, height: 560),
-            rootView: SessionHistoryView().environmentObject(self)
-        )
+        FocusLockLog.debug("history pane opened")
+        reloadHistory()
+        page = .history
+        openMainWindow()
     }
 
     func exportCSVFromPanel() {
@@ -341,14 +533,59 @@ final class MenuBarController: NSObject, ObservableObject {
     private func apply(_ newSnapshot: TimerSnapshot) {
         let previousPhase = snapshot.phase
         snapshot = newSnapshot
-        history = historyStore.loadHistory()
+
+        // History only changes when the phase does; re-reading the file every
+        // tick would be wasteful.
+        if previousPhase != newSnapshot.phase {
+            reloadHistory()
+        }
+
         updateStatusItem()
         syncBlocker()
+        syncPinnedHUD()
         handleBreakEndedTransition(from: previousPhase, to: newSnapshot.phase)
+        syncAutoResume()
 
         if overlay.isShowing {
             overlay.updateCountdown(snapshot.formattedRemaining)
         }
+    }
+
+    /// The HUD is only on screen while a session is running and the preference
+    /// is on, so an idle LockIn leaves no residue over your work.
+    private func syncPinnedHUD() {
+        guard config.pinnedHUDEnabled, isSessionActive else {
+            pinnedHUD.dismiss()
+            return
+        }
+
+        pinnedHUD.show()
+        pinnedHUD.update(
+            countdown: snapshot.formattedRemaining,
+            phaseLabel: hudPhaseLabel,
+            guardedLine: hudGuardedLine,
+            progress: phaseProgress
+        )
+    }
+
+    private var hudPhaseLabel: String {
+        switch snapshot.phase {
+        case .break:
+            return "Break"
+        default:
+            return "Focus · \(config.focusMinutes)/\(config.breakMinutes)"
+        }
+    }
+
+    private var hudGuardedLine: String {
+        let apps = activeBlockedApps
+        guard !apps.isEmpty else {
+            return "No apps guarded"
+        }
+
+        let names = apps.prefix(3).map(\.name).joined(separator: ", ")
+        let extra = apps.count - min(3, apps.count)
+        return extra > 0 ? "\(names) +\(extra)" : names
     }
 
     private func setupStatusItem() {
@@ -367,7 +604,7 @@ final class MenuBarController: NSObject, ObservableObject {
         FocusLockLog.debug("NSStatusItem created")
 
         popover.behavior = .transient
-        popover.contentSize = NSSize(width: 360, height: 600)
+        popover.contentSize = NSSize(width: 404, height: 110)
         popover.delegate = self
         popover.contentViewController = NSHostingController(
             rootView: MenuBarPopoverView()
@@ -499,11 +736,97 @@ final class MenuBarController: NSObject, ObservableObject {
             return
         }
 
-        if config.autoStartFocusAfterBreak {
+        switch config.breakEndBehavior {
+        case .startImmediately:
             startFocus()
-        } else {
+        case .ask, .autopilot:
+            // Autopilot still asks first — it only takes the screen once the
+            // grace period has gone by with no answer.
+            autoResumeAnchor = snapshot.breakEndedAt
             breakEndedOverlay.show()
         }
+    }
+
+    /// Runs on every tick while a break is over and unanswered. Waits out the
+    /// grace period, then puts the takeover up and lets it count down.
+    private func syncAutoResume(now: Date = Date()) {
+        guard
+            config.breakEndBehavior == .autopilot,
+            snapshot.phase == .breakEnded,
+            let breakEndedAt = snapshot.breakEndedAt
+        else {
+            autoResumeOverlay.dismiss()
+            return
+        }
+
+        let anchor = autoResumeAnchor ?? breakEndedAt
+        autoResumeAnchor = anchor
+
+        let awayMinutes = Int(max(0, now.timeIntervalSince(breakEndedAt)) / 60)
+
+        switch config.autoResume.stage(since: anchor, now: now) {
+        case .waiting:
+            autoResumeOverlay.dismiss()
+        case .countdown(let remaining):
+            let progress = config.autoResume.countdownProgress(remainingSeconds: remaining)
+
+            if autoResumeOverlay.isShowing {
+                autoResumeOverlay.update(
+                    countdown: Self.formatCountdown(remaining),
+                    progress: progress,
+                    awayMinutes: awayMinutes
+                )
+            } else {
+                breakEndedOverlay.dismiss()
+                autoResumeOverlay.show(
+                    countdown: Self.formatCountdown(remaining),
+                    progress: progress,
+                    awayMinutes: awayMinutes,
+                    focusMinutes: config.focusMinutes,
+                    postponeMinutes: config.autoResume.graceMinutes
+                )
+            }
+        case .start:
+            // Nobody has touched the machine in a long while: it is asleep, or
+            // the desk is empty. Starting a block now would log focus that never
+            // happened, so hold the takeover and hand out a fresh countdown when
+            // they come back to it.
+            guard systemIdleSeconds < Self.unattendedIdleSeconds else {
+                autoResumeAnchor = now.addingTimeInterval(-config.autoResume.graceSeconds)
+                FocusLockLog.debug("autopilot held: no input for \(Int(systemIdleSeconds))s")
+                return
+            }
+
+            autoResumeOverlay.dismiss()
+            FocusLockLog.debug("autopilot started the next focus block")
+            startFocus()
+        }
+    }
+
+    /// Zero keyboard or mouse input for this long means the user is not there.
+    /// Long enough that sitting through a video without touching anything does
+    /// not read as absence.
+    private static let unattendedIdleSeconds: TimeInterval = 25 * 60
+
+    private var systemIdleSeconds: TimeInterval {
+        guard let anyInputEvent = CGEventType(rawValue: ~0) else {
+            return 0
+        }
+
+        return CGEventSource.secondsSinceLastEventType(.hidSystemState, eventType: anyInputEvent)
+    }
+
+    /// "Not yet" restarts the wait rather than cancelling it — the whole point
+    /// is that the nudge comes back.
+    private func postponeAutoResume() {
+        autoResumeOverlay.dismiss()
+        autoResumeAnchor = Date()
+        breakEndedOverlay.show()
+    }
+
+    private static func formatCountdown(_ seconds: TimeInterval) -> String {
+        let whole = max(0, Int(seconds.rounded(.up)))
+        return String(format: "%02d:%02d", whole / 60, whole % 60)
     }
 
     private func saveConfig() {
@@ -551,7 +874,7 @@ final class MenuBarController: NSObject, ObservableObject {
     }
 
     private func exportHistoryFromPanel(kind: ExportKind) {
-        history = historyStore.loadHistory()
+        reloadHistory()
 
         let panel = NSSavePanel()
         panel.title = "Export \(AppIdentity.name) history"
@@ -592,13 +915,21 @@ final class MenuBarController: NSObject, ObservableObject {
 
         let window = NSWindow(
             contentRect: NSRect(origin: .zero, size: size),
-            styleMask: [.titled, .closable, .miniaturizable, .resizable],
+            styleMask: [.titled, .closable, .miniaturizable, .resizable, .fullSizeContentView],
             backing: .buffered,
             defer: false
         )
         window.title = title
-        window.minSize = NSSize(width: min(size.width, 420), height: min(size.height, 420))
+        window.minSize = NSSize(width: min(size.width, 820), height: min(size.height, 580))
         window.isReleasedWhenClosed = false
+
+        // The sand canvas runs edge to edge; a stock titlebar would cut a white
+        // band across the top of it.
+        window.titlebarAppearsTransparent = true
+        window.titleVisibility = .hidden
+        window.backgroundColor = FLColor.canvasWarm
+        window.isMovableByWindowBackground = true
+
         window.contentView = NSHostingView(rootView: rootView)
         window.center()
         window.setFrameAutosaveName(title)
@@ -798,14 +1129,14 @@ private extension MenuBarController {
             blockedAppsCount: config.blockedApps.count,
             strictMode: config.strictMode
         )
-        history = historyStore.loadHistory()
+        reloadHistory()
         syncBlocker()
     }
 
     func endCycleFromBreakEndedOverlay() {
         breakEndedOverlay.dismiss()
         timerEngine.endCycle()
-        history = historyStore.loadHistory()
+        reloadHistory()
         syncBlocker()
     }
 
