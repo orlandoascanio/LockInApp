@@ -46,7 +46,7 @@ final class TimerEngineTests: XCTestCase {
         XCTAssertTrue(notifications.events.contains("breakEnded"))
     }
 
-    func testRecoveryUsesSavedStartTimeInsteadOfMemoryCountdown() throws {
+    func testRelaunchDuringFocusLogsAbandonedSessionAndStartsFresh() throws {
         let directory = try temporaryDirectory()
         let stateStore = StateStore(baseDirectory: directory)
         let historyStore = SessionHistoryStore(baseDirectory: directory)
@@ -67,11 +67,16 @@ final class TimerEngineTests: XCTestCase {
             clock: { start.addingTimeInterval(600) }
         )
 
-        XCTAssertEqual(engine.snapshot.phase, .focus)
-        XCTAssertEqual(Int(engine.snapshot.remainingSeconds), 900)
+        // Quitting mid-focus ends the session: no resume, one abandoned entry.
+        XCTAssertEqual(engine.snapshot.phase, .idle)
+        XCTAssertNil(stateStore.loadSessionState())
+        let history = historyStore.loadHistory()
+        XCTAssertEqual(history.count, 1)
+        XCTAssertEqual(history.first?.status, .abandoned)
+        XCTAssertEqual(history.first?.durationMinutes, 10)
     }
 
-    func testRecoveryOfExpiredBreakShowsBreakEndedState() throws {
+    func testAbandonedFocusDurationIsCappedAtFocusWindow() throws {
         let directory = try temporaryDirectory()
         let stateStore = StateStore(baseDirectory: directory)
         let historyStore = SessionHistoryStore(baseDirectory: directory)
@@ -87,6 +92,8 @@ final class TimerEngineTests: XCTestCase {
             strictMode: false
         ))
 
+        // Relaunched long after the focus window would have ended; time spent
+        // with LockIn closed must not inflate the recorded focus duration.
         let engine = TimerEngine(
             stateStore: stateStore,
             historyStore: historyStore,
@@ -94,9 +101,71 @@ final class TimerEngineTests: XCTestCase {
             clock: { start.addingTimeInterval(2_000) }
         )
 
-        XCTAssertEqual(engine.snapshot.phase, .breakEnded)
-        XCTAssertEqual(stateStore.loadSessionState()?.state, .breakEnded)
-        XCTAssertEqual(historyStore.loadHistory().first?.status, .completed)
+        XCTAssertEqual(engine.snapshot.phase, .idle)
+        XCTAssertNil(stateStore.loadSessionState())
+        let history = historyStore.loadHistory()
+        XCTAssertEqual(history.count, 1)
+        XCTAssertEqual(history.first?.status, .abandoned)
+        XCTAssertEqual(history.first?.durationMinutes, 25)
+    }
+
+    func testRelaunchDuringBreakStartsFreshWithoutAbandonedEntry() throws {
+        let directory = try temporaryDirectory()
+        let stateStore = StateStore(baseDirectory: directory)
+        let historyStore = SessionHistoryStore(baseDirectory: directory)
+        let notifications = NoopNotificationService()
+        let start = Date(timeIntervalSince1970: 5_000)
+
+        // A break's focus was already recorded as completed before the break
+        // began, so relaunching during a break records nothing new.
+        try stateStore.saveSessionState(SessionState(
+            state: .break,
+            startedAt: start,
+            focusMinutes: 25,
+            breakMinutes: 5
+        ))
+
+        let engine = TimerEngine(
+            stateStore: stateStore,
+            historyStore: historyStore,
+            notificationService: notifications,
+            clock: { start.addingTimeInterval(1_600) }
+        )
+
+        XCTAssertEqual(engine.snapshot.phase, .idle)
+        XCTAssertNil(stateStore.loadSessionState())
+        XCTAssertTrue(historyStore.loadHistory().isEmpty)
+    }
+
+    func testRecordAbandonmentLogsAbandonedEntryOnQuit() throws {
+        let directory = try temporaryDirectory()
+        let stateStore = StateStore(baseDirectory: directory)
+        let historyStore = SessionHistoryStore(baseDirectory: directory)
+        let notifications = NoopNotificationService()
+        let start = Date(timeIntervalSince1970: 6_000)
+        let engine = TimerEngine(
+            stateStore: stateStore,
+            historyStore: historyStore,
+            notificationService: notifications,
+            clock: { start }
+        )
+
+        engine.startFocus(
+            focusMinutes: 45,
+            breakMinutes: 10,
+            blockedAppsCount: 1,
+            strictMode: false,
+            now: start
+        )
+
+        let didRecord = engine.recordAbandonmentIfNeeded(now: start.addingTimeInterval(300))
+
+        XCTAssertTrue(didRecord)
+        XCTAssertNil(stateStore.loadSessionState())
+        let history = historyStore.loadHistory()
+        XCTAssertEqual(history.count, 1)
+        XCTAssertEqual(history.first?.status, .abandoned)
+        XCTAssertEqual(history.first?.durationMinutes, 5)
     }
 
     func testCancelCreatesCancelledHistoryEntry() throws {

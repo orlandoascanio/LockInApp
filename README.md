@@ -8,7 +8,8 @@ The default blocking behavior is **Guard Screen**. When you open a guarded app d
 
 - Native macOS app, built with Swift, AppKit, SwiftUI, and Swift Package Manager.
 - Normal Dock app plus a menu bar status item.
-- Focus and break timers with `25 / 5`, `45 / 10`, and custom durations.
+- Focus and break timers with `25 / 5`, `50 / 10`, and custom durations.
+- Autopilot: if a finished break goes unanswered, LockIn takes the screen back, counts down, and starts the next block for you.
 - Guarded app list selected from `/Applications`.
 - Guard Screen, Hide Only, and explicit Quit App blocking behaviors.
 - Local config, active-session recovery, and session history.

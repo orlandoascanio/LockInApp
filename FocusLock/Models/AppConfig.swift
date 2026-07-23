@@ -34,8 +34,13 @@ public struct AppConfig: Codable, Equatable {
     public var focusMinutes: Int
     public var breakMinutes: Int
     public var blockerMode: BlockerMode
-    public var autoStartFocusAfterBreak: Bool
+    public var breakEndBehavior: BreakEndBehavior
+    /// Grace period and countdown used when `breakEndBehavior` is `.autopilot`.
+    public var autoResume: AutoResumePlanner
     public var blockedApps: [BlockedApp]
+
+    /// Keeps the countdown strip floating above every window during a session.
+    public var pinnedHUDEnabled: Bool
 
     public var strictMode: Bool {
         get { blockerMode != .guardScreen }
@@ -43,18 +48,22 @@ public struct AppConfig: Codable, Equatable {
     }
 
     public init(
-        focusMinutes: Int = 25,
-        breakMinutes: Int = 5,
+        focusMinutes: Int = 50,
+        breakMinutes: Int = 10,
         blockerMode: BlockerMode = .guardScreen,
         strictMode: Bool? = nil,
-        autoStartFocusAfterBreak: Bool = false,
-        blockedApps: [BlockedApp] = []
+        breakEndBehavior: BreakEndBehavior = .ask,
+        autoResume: AutoResumePlanner = .default,
+        blockedApps: [BlockedApp] = [],
+        pinnedHUDEnabled: Bool = true
     ) {
         self.focusMinutes = max(1, focusMinutes)
         self.breakMinutes = max(0, breakMinutes)
         self.blockerMode = strictMode.map { $0 ? .hideOnly : .guardScreen } ?? blockerMode
-        self.autoStartFocusAfterBreak = autoStartFocusAfterBreak
+        self.breakEndBehavior = breakEndBehavior
+        self.autoResume = autoResume
         self.blockedApps = blockedApps
+        self.pinnedHUDEnabled = pinnedHUDEnabled
     }
 
     public static let `default` = AppConfig()
@@ -64,22 +73,33 @@ public struct AppConfig: Codable, Equatable {
         case breakMinutes
         case blockerMode
         case strictMode
+        case breakEndBehavior
         case autoStartFocusAfterBreak
+        case autoResume
         case blockedApps
+        case pinnedHUDEnabled
     }
 
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
-        focusMinutes = max(1, try container.decodeIfPresent(Int.self, forKey: .focusMinutes) ?? 25)
-        breakMinutes = max(0, try container.decodeIfPresent(Int.self, forKey: .breakMinutes) ?? 5)
+        focusMinutes = max(1, try container.decodeIfPresent(Int.self, forKey: .focusMinutes) ?? 50)
+        breakMinutes = max(0, try container.decodeIfPresent(Int.self, forKey: .breakMinutes) ?? 10)
         if let decodedMode = try container.decodeIfPresent(BlockerMode.self, forKey: .blockerMode) {
             blockerMode = decodedMode
         } else {
             let legacyStrictMode = try container.decodeIfPresent(Bool.self, forKey: .strictMode) ?? false
             blockerMode = legacyStrictMode ? .hideOnly : .guardScreen
         }
-        autoStartFocusAfterBreak = try container.decodeIfPresent(Bool.self, forKey: .autoStartFocusAfterBreak) ?? false
+        if let decodedBehavior = try container.decodeIfPresent(BreakEndBehavior.self, forKey: .breakEndBehavior) {
+            breakEndBehavior = decodedBehavior
+        } else {
+            // Configs written before autopilot existed only knew "ask" or "go".
+            let legacyAutoStart = try container.decodeIfPresent(Bool.self, forKey: .autoStartFocusAfterBreak) ?? false
+            breakEndBehavior = legacyAutoStart ? .startImmediately : .ask
+        }
+        autoResume = try container.decodeIfPresent(AutoResumePlanner.self, forKey: .autoResume) ?? .default
         blockedApps = try container.decodeIfPresent([BlockedApp].self, forKey: .blockedApps) ?? []
+        pinnedHUDEnabled = try container.decodeIfPresent(Bool.self, forKey: .pinnedHUDEnabled) ?? true
     }
 
     public func encode(to encoder: Encoder) throws {
@@ -87,7 +107,9 @@ public struct AppConfig: Codable, Equatable {
         try container.encode(focusMinutes, forKey: .focusMinutes)
         try container.encode(breakMinutes, forKey: .breakMinutes)
         try container.encode(blockerMode, forKey: .blockerMode)
-        try container.encode(autoStartFocusAfterBreak, forKey: .autoStartFocusAfterBreak)
+        try container.encode(breakEndBehavior, forKey: .breakEndBehavior)
+        try container.encode(autoResume, forKey: .autoResume)
         try container.encode(blockedApps, forKey: .blockedApps)
+        try container.encode(pinnedHUDEnabled, forKey: .pinnedHUDEnabled)
     }
 }

@@ -3,6 +3,10 @@ import Foundation
 public enum SessionHistoryStatus: String, Codable, Equatable {
     case completed
     case cancelled
+    /// A focus session that ended because LockIn was quit (or relaunched) while
+    /// it was still running. The guard is friction, not a cage — but the ledger
+    /// records that you walked away.
+    case abandoned
 
     public var displayName: String {
         switch self {
@@ -10,6 +14,8 @@ public enum SessionHistoryStatus: String, Codable, Equatable {
             return "Completed"
         case .cancelled:
             return "Cancelled"
+        case .abandoned:
+            return "Abandoned"
         }
     }
 }
@@ -46,6 +52,22 @@ public struct SessionHistoryEntry: Codable, Equatable, Identifiable {
 
     public var durationMinutes: Int {
         max(0, Int(endedAt.timeIntervalSince(startedAt) / 60))
+    }
+}
+
+/// One column of the weekly rhythm chart.
+public struct DailyFocus: Equatable, Identifiable {
+    public var id: Date { date }
+    public var date: Date
+    public var label: String
+    public var minutes: Int
+    public var isToday: Bool
+
+    public init(date: Date, label: String, minutes: Int, isToday: Bool) {
+        self.date = date
+        self.label = label
+        self.minutes = max(0, minutes)
+        self.isToday = isToday
     }
 }
 

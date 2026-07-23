@@ -91,8 +91,8 @@ public struct TimerSnapshot: Equatable {
         sessionStartedAt: Date? = nil,
         phaseEndsAt: Date? = nil,
         remainingSeconds: TimeInterval = 0,
-        focusMinutes: Int = 25,
-        breakMinutes: Int = 5
+        focusMinutes: Int = 50,
+        breakMinutes: Int = 10
     ) {
         self.phase = phase
         self.sessionStartedAt = sessionStartedAt
@@ -104,6 +104,18 @@ public struct TimerSnapshot: Equatable {
 
     public var isBlockingPhase: Bool {
         phase == .focus
+    }
+
+    /// When the break ran out, for the phase that is waiting on the user. The
+    /// timer never persists this separately — a cycle is `startedAt` plus its
+    /// two durations — so autopilot can measure the wait even across a snooze,
+    /// which rewrites `sessionStartedAt`.
+    public var breakEndedAt: Date? {
+        guard phase == .breakEnded, let sessionStartedAt else {
+            return nil
+        }
+
+        return sessionStartedAt.addingTimeInterval(TimeInterval((focusMinutes + breakMinutes) * 60))
     }
 
     public var formattedRemaining: String {

@@ -111,7 +111,52 @@ public final class TimerEngine {
     }
 
     public func restore(now: Date? = nil) {
-        refresh(now: now ?? clock())
+        let currentDate = now ?? clock()
+
+        guard
+            let state = stateStore.loadSessionState(),
+            state.state == .focus || state.state == .break || state.state == .breakEnded
+        else {
+            refresh(now: currentDate)
+            return
+        }
+
+        // Quitting or relaunching ends a session — it never silently resumes.
+        // A focus block interrupted this way is logged as abandoned; a break is
+        // simply dropped (its focus was already recorded when it completed).
+        recordAbandonmentIfNeeded(now: currentDate)
+        snapshot = TimerSnapshot(
+            phase: .idle,
+            focusMinutes: state.focusMinutes,
+            breakMinutes: state.breakMinutes
+        )
+    }
+
+    /// Records an interrupted focus block as an abandoned session and clears the
+    /// persisted state. Called both when LockIn terminates mid-session and when
+    /// it relaunches to find leftover state (e.g. after a crash). Break and
+    /// break-ended phases produce no entry because the focus they follow was
+    /// already logged as completed.
+    ///
+    /// The abandoned entry's end time is capped at the focus window so time
+    /// spent with LockIn closed cannot inflate the recorded focus duration.
+    @discardableResult
+    public func recordAbandonmentIfNeeded(now: Date? = nil) -> Bool {
+        guard let state = stateStore.loadSessionState() else {
+            return false
+        }
+
+        let currentDate = now ?? clock()
+        let interrupted = state.state == .focus || state.state == .break || state.state == .breakEnded
+
+        if state.state == .focus {
+            let focusEndsAt = state.startedAt.addingTimeInterval(TimeInterval(state.focusMinutes * 60))
+            appendHistory(for: state, endedAt: min(currentDate, focusEndsAt), status: .abandoned)
+        }
+
+        try? stateStore.clearSessionState()
+        lastPersistedPhase = .idle
+        return interrupted
     }
 
     public func refresh(now: Date? = nil) {

@@ -133,6 +133,11 @@ public final class AppBlocker {
 
     public weak var delegate: AppBlockerDelegate?
 
+    /// Fires for every interception regardless of behaviour, so the UI can count
+    /// how often each app was reached for today. `delegate` only fires for
+    /// guard-screen mode, which would undercount hide-only and quit apps.
+    public var onInterception: ((InterceptedApp) -> Void)?
+
     private let activationMonitor: AppActivationMonitoring
     private let frontmostApplicationProvider: FrontmostApplicationProvider
     private let notificationService: NotificationSending
@@ -278,8 +283,9 @@ public final class AppBlocker {
             return nil
         }
 
-        let blockedBundleIds = Set(blockedApps.map(\.bundleId))
-        guard blockedBundleIds.contains(bundleId) else {
+        // A disabled entry stays in the list but is not guarded, so it counts as
+        // an allowed app rather than one that is silently skipped.
+        guard let blockedApp = blockedApps.first(where: { $0.bundleId == bundleId && $0.isEnabled }) else {
             lastAllowedApplication = InterceptedApp(
                 name: app.localizedName ?? bundleId,
                 bundleId: bundleId
@@ -287,7 +293,8 @@ public final class AppBlocker {
             return nil
         }
 
-        let name = app.localizedName ?? blockedApps.first(where: { $0.bundleId == bundleId })?.name ?? bundleId
+        let name = app.localizedName ?? blockedApp.name
+        let mode = blockedApp.effectiveBehavior(default: blockerMode)
 
         guard !Self.isProtected(bundleId: bundleId, name: name, ownBundleIdentifier: ownBundleIdentifier) else {
             return nil
@@ -297,11 +304,11 @@ public final class AppBlocker {
             return nil
         }
 
-        switch blockerMode {
+        switch mode {
         case .guardScreen, .hideOnly:
             _ = app.hide()
             schedulePostInterceptionHideRetries(for: app, bundleId: bundleId, name: name)
-            FocusLockLog.debug("blocked app hidden: \(name) (\(bundleId)), mode=\(blockerMode.rawValue)")
+            FocusLockLog.debug("blocked app hidden: \(name) (\(bundleId)), mode=\(mode.rawValue)")
         case .quitApp:
             if !app.terminate() {
                 _ = app.hide()
@@ -312,7 +319,9 @@ public final class AppBlocker {
         notificationService.blockedAppHidden(name: name)
 
         let intercepted = InterceptedApp(name: name, bundleId: bundleId)
-        if blockerMode == .guardScreen {
+        onInterception?(intercepted)
+
+        if mode == .guardScreen {
             delegate?.appBlocker(self, didIntercept: intercepted)
         }
         return intercepted
@@ -360,11 +369,11 @@ public final class AppBlocker {
             return
         }
 
-        guard blockedApps.contains(where: { $0.bundleId == bundleId }) else {
+        guard let blockedApp = blockedApps.first(where: { $0.bundleId == bundleId && $0.isEnabled }) else {
             return
         }
 
-        switch blockerMode {
+        switch blockedApp.effectiveBehavior(default: blockerMode) {
         case .guardScreen, .hideOnly:
             break
         case .quitApp:
