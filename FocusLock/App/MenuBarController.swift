@@ -42,8 +42,8 @@ final class MenuBarController: NSObject, ObservableObject {
     @Published var settingsMessage: String?
     @Published var exportMessage: String?
 
-    /// Which pane the sidebar is showing. Settings and History are panes now
-    /// rather than separate windows, so navigation lives here.
+    /// Which pane the sidebar is showing. Settings, History, and Analytics are
+    /// panes rather than separate windows, so navigation lives here.
     @Published var page: MainPage = .focus
 
     /// Focus minutes per weekday for the current week, and the run of days with
@@ -490,8 +490,8 @@ final class MenuBarController: NSObject, ObservableObject {
         )
     }
 
-    /// Settings and History are panes of the one window now, so "open" means
-    /// select the pane and bring that window forward.
+    /// These destinations are panes of the one window, so "open" means select
+    /// the pane and bring that window forward.
     func openSettings() {
         FocusLockLog.debug("settings pane opened")
         page = .settings
@@ -502,6 +502,13 @@ final class MenuBarController: NSObject, ObservableObject {
         FocusLockLog.debug("history pane opened")
         reloadHistory()
         page = .history
+        openMainWindow()
+    }
+
+    func openAnalytics() {
+        FocusLockLog.debug("analytics pane opened")
+        reloadHistory()
+        page = .analytics
         openMainWindow()
     }
 
@@ -1050,6 +1057,11 @@ extension MenuBarController: NSMenuItemValidation {
         let history = NSMenuItem(title: "Session History", action: #selector(menuOpenHistory(_:)), keyEquivalent: "y")
         history.target = self
         menu.addItem(history)
+
+        let analytics = NSMenuItem(title: "Analytics", action: #selector(menuOpenAnalytics(_:)), keyEquivalent: "y")
+        analytics.keyEquivalentModifierMask = [.command, .shift]
+        analytics.target = self
+        menu.addItem(analytics)
         menu.addItem(.separator())
 
         let exportCSV = NSMenuItem(title: "Export to CSV…", action: #selector(menuExportCSV(_:)), keyEquivalent: "e")
@@ -1102,6 +1114,7 @@ extension MenuBarController: NSMenuItemValidation {
     @objc private func menuOpenSettings(_ sender: Any?) { openSettings() }
     @objc private func menuOpenMainWindow(_ sender: Any?) { openMainWindow() }
     @objc private func menuOpenHistory(_ sender: Any?) { openHistory() }
+    @objc private func menuOpenAnalytics(_ sender: Any?) { openAnalytics() }
     @objc private func menuExportCSV(_ sender: Any?) { exportCSVFromPanel() }
     @objc private func menuExportJSON(_ sender: Any?) { exportJSONFromPanel() }
     @objc private func menuQuit(_ sender: Any?) { quit() }

@@ -5,6 +5,7 @@ enum MainPage: String, CaseIterable, Identifiable {
     case focus
     case blockedApps
     case history
+    case analytics
     case settings
 
     var id: String { rawValue }
@@ -17,6 +18,8 @@ enum MainPage: String, CaseIterable, Identifiable {
             return "Blocked apps"
         case .history:
             return "History"
+        case .analytics:
+            return "Analytics"
         case .settings:
             return "Settings"
         }
@@ -30,6 +33,8 @@ enum MainPage: String, CaseIterable, Identifiable {
             return "shield"
         case .history:
             return "clock.arrow.circlepath"
+        case .analytics:
+            return "chart.bar.xaxis"
         case .settings:
             return "gearshape"
         }
@@ -55,6 +60,8 @@ struct MainWindowView: View {
                     BlockedAppsView()
                 case .history:
                     SessionHistoryView()
+                case .analytics:
+                    AnalyticsView()
                 case .settings:
                     SettingsView()
                 }
