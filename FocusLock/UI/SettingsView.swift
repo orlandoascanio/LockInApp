@@ -52,20 +52,18 @@ struct SettingsView: View {
     private var durationsSection: some View {
         section("Durations") {
             HStack(spacing: FLSpacing.xl) {
-                stepperRow(
+                FLDurationField(
                     label: "Focus",
-                    suffix: "min",
-                    value: Binding(
+                    minutes: Binding(
                         get: { controller.config.focusMinutes },
                         set: { controller.updateFocusMinutes($0) }
                     ),
                     range: 1...180
                 )
 
-                stepperRow(
+                FLDurationField(
                     label: "Break",
-                    suffix: "min",
-                    value: Binding(
+                    minutes: Binding(
                         get: { controller.config.breakMinutes },
                         set: { controller.updateBreakMinutes($0) }
                     ),
@@ -280,24 +278,6 @@ struct SettingsView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.horizontal, 26)
         .padding(.vertical, 22)
-    }
-
-    private func stepperRow(label: String, suffix: String, value: Binding<Int>, range: ClosedRange<Int>) -> some View {
-        HStack(spacing: FLSpacing.sm) {
-            Text(label)
-                .font(FLTypography.body)
-                .foregroundStyle(Color.flInk)
-                .frame(width: 46, alignment: .leading)
-
-            Text("\(value.wrappedValue) \(suffix)")
-                .font(.system(size: 15, design: .serif))
-                .monospacedDigit()
-                .foregroundStyle(Color.flInk)
-                .frame(minWidth: 62, alignment: .leading)
-
-            Stepper(label, value: value, in: range)
-                .labelsHidden()
-        }
     }
 
     private func toggleRow(title: String, detail: String, isOn: Binding<Bool>) -> some View {

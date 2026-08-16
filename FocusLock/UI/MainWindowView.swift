@@ -392,18 +392,18 @@ struct FocusPageView: View {
 
     private var customDurations: some View {
         HStack(spacing: FLSpacing.xl) {
-            durationStepper(
+            FLDurationField(
                 label: "Focus",
-                value: Binding(
+                minutes: Binding(
                     get: { controller.config.focusMinutes },
                     set: { controller.updateFocusMinutes($0) }
                 ),
                 range: 1...180
             )
 
-            durationStepper(
+            FLDurationField(
                 label: "Break",
-                value: Binding(
+                minutes: Binding(
                     get: { controller.config.breakMinutes },
                     set: { controller.updateBreakMinutes($0) }
                 ),
@@ -414,23 +414,6 @@ struct FocusPageView: View {
         }
         .padding(.horizontal, 26)
         .frame(height: 56)
-    }
-
-    private func durationStepper(label: String, value: Binding<Int>, range: ClosedRange<Int>) -> some View {
-        HStack(spacing: FLSpacing.sm) {
-            Text(label)
-                .font(FLTypography.caption)
-                .foregroundStyle(Color.flInkSoft)
-
-            Text("\(value.wrappedValue)m")
-                .font(.system(size: 15, design: .serif))
-                .monospacedDigit()
-                .foregroundStyle(Color.flInk)
-                .frame(minWidth: 38, alignment: .leading)
-
-            Stepper(label, value: value, in: range)
-                .labelsHidden()
-        }
     }
 
     // MARK: Guarded summary
