@@ -23,7 +23,6 @@ struct SessionHistoryView: View {
                 summaryRow
                 FLRule()
                 columnHeaders
-                Rectangle().fill(Color.flHairline).frame(height: 1).padding(.horizontal, 26)
                 rows
             }
 
@@ -85,15 +84,27 @@ struct SessionHistoryView: View {
     }
 
     private var columnHeaders: some View {
-        HStack(spacing: 0) {
-            FLMicroLabel(text: "When").frame(width: 190, alignment: .leading)
-            FLMicroLabel(text: "Focus").frame(width: 90, alignment: .leading)
-            FLMicroLabel(text: "Outcome").frame(width: 130, alignment: .leading)
-            Spacer(minLength: 0)
+        HStack(spacing: HistoryTableLayout.columnSpacing) {
+            FLMicroLabel(text: "When")
+                .frame(maxWidth: .infinity, alignment: .leading)
+
+            FLMicroLabel(text: "Focus")
+                .frame(width: HistoryTableLayout.focusWidth, alignment: .leading)
+
+            FLMicroLabel(text: "Outcome")
+                .frame(width: HistoryTableLayout.outcomeWidth, alignment: .leading)
+
             FLMicroLabel(text: "Guarded")
+                .frame(width: HistoryTableLayout.guardedWidth, alignment: .trailing)
         }
         .padding(.horizontal, 26)
-        .padding(.bottom, 10)
+        .padding(.vertical, 11)
+        .background(Color.flCanvasWarm.opacity(0.46))
+        .overlay(alignment: .bottom) {
+            Rectangle()
+                .fill(Color.flHairline.opacity(0.72))
+                .frame(height: 1)
+        }
     }
 
     private var rows: some View {
@@ -124,45 +135,74 @@ struct SessionHistoryView: View {
     }
 }
 
+private enum HistoryTableLayout {
+    static let columnSpacing: CGFloat = 16
+    static let focusWidth: CGFloat = 116
+    static let outcomeWidth: CGFloat = 112
+    static let guardedWidth: CGFloat = 74
+}
+
 private struct HistoryRow: View {
     let entry: SessionHistoryEntry
     let peakMinutes: Int
+    @State private var isHovered = false
 
     var body: some View {
-        HStack(spacing: 0) {
+        HStack(spacing: HistoryTableLayout.columnSpacing) {
             Text(Self.stamp(for: entry.startedAt))
                 .font(.system(size: 12.5))
-                .foregroundStyle(Color.flInkSoft)
-                .frame(width: 190, alignment: .leading)
+                .foregroundStyle(Color.flInk)
+                .lineLimit(1)
+                .frame(maxWidth: .infinity, alignment: .leading)
 
             // The bar makes long and short blocks comparable at a glance,
             // without a second chart.
             HStack(spacing: 8) {
-                Rectangle()
-                    .fill(tint)
-                    .frame(width: barWidth, height: 8)
+                ZStack(alignment: .leading) {
+                    Capsule()
+                        .fill(Color.flHairline.opacity(0.48))
+
+                    Capsule()
+                        .fill(tint)
+                        .frame(width: barWidth)
+                }
+                .frame(width: 44, height: 6)
 
                 Text("\(entry.focusMinutes)m")
                     .font(.system(size: 12.5, design: .serif))
                     .monospacedDigit()
                     .foregroundStyle(Color.flInk)
             }
-            .frame(width: 90, alignment: .leading)
+            .frame(width: HistoryTableLayout.focusWidth, alignment: .leading)
 
-            Text(entry.status.displayName)
-                .font(.system(size: 12.5))
-                .foregroundStyle(tint)
-                .frame(width: 130, alignment: .leading)
+            HStack(spacing: 7) {
+                Circle()
+                    .fill(tint)
+                    .frame(width: 6, height: 6)
 
-            Spacer(minLength: 0)
+                Text(entry.status.displayName)
+                    .font(.system(size: 12.5))
+                    .foregroundStyle(Color.flInk)
+            }
+            .frame(width: HistoryTableLayout.outcomeWidth, alignment: .leading)
 
-            Text("\(entry.blockedAppsCount)")
-                .font(.system(size: 12.5, design: .serif))
-                .monospacedDigit()
-                .foregroundStyle(Color.flInkSoft)
+            HStack(spacing: 6) {
+                Image(systemName: "shield.fill")
+                    .font(.system(size: 9, weight: .medium))
+                    .foregroundStyle(Color.flInkSoft.opacity(0.72))
+
+                Text("\(entry.blockedAppsCount)")
+                    .font(.system(size: 12.5, design: .serif))
+                    .monospacedDigit()
+                    .foregroundStyle(Color.flInk)
+            }
+            .frame(width: HistoryTableLayout.guardedWidth, alignment: .trailing)
         }
         .padding(.horizontal, 26)
         .frame(height: 46)
+        .background(isHovered ? Color.flCanvasWarm.opacity(0.38) : .clear)
+        .contentShape(Rectangle())
+        .onHover { isHovered = $0 }
         .accessibilityElement(children: .combine)
     }
 
