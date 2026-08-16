@@ -34,7 +34,7 @@ final class PinnedHUDController {
         // .nonactivatingPanel keeps the frontmost app frontmost when the HUD is
         // clicked, so using it never steals focus from what you are working in.
         let panel = NSPanel(
-            contentRect: NSRect(x: 0, y: 0, width: 452, height: 98),
+            contentRect: NSRect(x: 0, y: 0, width: 468, height: 114),
             styleMask: [.borderless, .nonactivatingPanel],
             backing: .buffered,
             defer: false

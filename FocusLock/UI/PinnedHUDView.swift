@@ -79,8 +79,11 @@ struct PinnedHUDView: View {
             RoundedRectangle(cornerRadius: FLRadius.xl, style: .continuous)
                 .strokeBorder(Color.flHairline.opacity(0.9), lineWidth: 1)
         )
-        .shadow(color: .black.opacity(0.18), radius: 18, x: 0, y: 8)
-        .padding(FLSpacing.md)
+        .shadow(color: .black.opacity(0.16), radius: 14, x: 0, y: 5)
+        // Generous padding so the soft shadow has room to fall off before it
+        // hits the transparent panel's edge — a tighter margin here clips the
+        // blur into a hard rectangular line.
+        .padding(FLSpacing.lg)
         .onHover { hovering in
             withAnimation(FLAnimation.quick) {
                 isHovering = hovering
