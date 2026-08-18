@@ -31,6 +31,10 @@ public enum BlockerMode: String, Codable, Equatable, CaseIterable, Identifiable 
 }
 
 public struct AppConfig: Codable, Equatable {
+    /// Focus blocks can span a full day while still keeping timer arithmetic
+    /// and accidental input within a practical bound.
+    public static let focusMinutesRange = 1...1_440
+
     public var focusMinutes: Int
     public var breakMinutes: Int
     public var blockerMode: BlockerMode
@@ -57,7 +61,7 @@ public struct AppConfig: Codable, Equatable {
         blockedApps: [BlockedApp] = [],
         pinnedHUDEnabled: Bool = true
     ) {
-        self.focusMinutes = max(1, focusMinutes)
+        self.focusMinutes = Self.normalizedFocusMinutes(focusMinutes)
         self.breakMinutes = max(0, breakMinutes)
         self.blockerMode = strictMode.map { $0 ? .hideOnly : .guardScreen } ?? blockerMode
         self.breakEndBehavior = breakEndBehavior
@@ -82,7 +86,9 @@ public struct AppConfig: Codable, Equatable {
 
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
-        focusMinutes = max(1, try container.decodeIfPresent(Int.self, forKey: .focusMinutes) ?? 50)
+        focusMinutes = Self.normalizedFocusMinutes(
+            try container.decodeIfPresent(Int.self, forKey: .focusMinutes) ?? 50
+        )
         breakMinutes = max(0, try container.decodeIfPresent(Int.self, forKey: .breakMinutes) ?? 10)
         if let decodedMode = try container.decodeIfPresent(BlockerMode.self, forKey: .blockerMode) {
             blockerMode = decodedMode
@@ -111,5 +117,9 @@ public struct AppConfig: Codable, Equatable {
         try container.encode(autoResume, forKey: .autoResume)
         try container.encode(blockedApps, forKey: .blockedApps)
         try container.encode(pinnedHUDEnabled, forKey: .pinnedHUDEnabled)
+    }
+
+    public static func normalizedFocusMinutes(_ minutes: Int) -> Int {
+        min(focusMinutesRange.upperBound, max(focusMinutesRange.lowerBound, minutes))
     }
 }

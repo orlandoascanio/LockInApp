@@ -355,7 +355,7 @@ final class MenuBarController: NSObject, ObservableObject {
     }
 
     func updateFocusMinutes(_ minutes: Int) {
-        config.focusMinutes = min(180, max(1, minutes))
+        config.focusMinutes = AppConfig.normalizedFocusMinutes(minutes)
         preset = matchingPreset() ?? .custom
         saveConfig()
     }

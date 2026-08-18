@@ -21,4 +21,9 @@ final class MinuteInputTests: XCTestCase {
         XCTAssertNil(MinuteInput.parseMinutes("60m"))
         XCTAssertNil(MinuteInput.parseMinutes("-5"))
     }
+
+    func testSupportsFourAndAHalfHourFocusDuration() {
+        XCTAssertTrue(AppConfig.focusMinutesRange.contains(270))
+        XCTAssertEqual(AppConfig.normalizedFocusMinutes(270), 270)
+    }
 }

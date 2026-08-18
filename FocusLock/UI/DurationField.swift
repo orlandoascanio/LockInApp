@@ -32,8 +32,8 @@ struct FLDurationField: View {
                 .onSubmit(commit)
                 .onExitCommand(perform: cancel)
                 .accessibilityLabel("\(label) duration")
-                .accessibilityHint("Enter a number of minutes")
-                .help("Type a number of minutes")
+                .accessibilityHint("Enter \(range.lowerBound) to \(range.upperBound) minutes")
+                .help("\(label): \(range.lowerBound)–\(range.upperBound) minutes")
 
             Text("min")
                 .font(FLTypography.caption)
@@ -52,6 +52,11 @@ struct FLDurationField: View {
             let digits = MinuteInput.digitsOnly(newValue)
             if digits != newValue {
                 text = digits
+                return
+            }
+
+            if let parsed = MinuteInput.parseMinutes(digits), range.contains(parsed), parsed != minutes {
+                minutes = parsed
             }
         }
         .onChange(of: minutes) { newValue in

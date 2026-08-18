@@ -398,7 +398,7 @@ struct FocusPageView: View {
                     get: { controller.config.focusMinutes },
                     set: { controller.updateFocusMinutes($0) }
                 ),
-                range: 1...180
+                range: AppConfig.focusMinutesRange
             )
 
             FLDurationField(
