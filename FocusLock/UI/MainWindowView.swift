@@ -3,6 +3,7 @@ import SwiftUI
 
 enum MainPage: String, CaseIterable, Identifiable {
     case focus
+    case stream
     case blockedApps
     case history
     case analytics
@@ -14,6 +15,8 @@ enum MainPage: String, CaseIterable, Identifiable {
         switch self {
         case .focus:
             return "Focus"
+        case .stream:
+            return "Stream"
         case .blockedApps:
             return "Blocked apps"
         case .history:
@@ -29,6 +32,8 @@ enum MainPage: String, CaseIterable, Identifiable {
         switch self {
         case .focus:
             return "timer"
+        case .stream:
+            return "rectangle.on.rectangle"
         case .blockedApps:
             return "shield"
         case .history:
@@ -56,6 +61,8 @@ struct MainWindowView: View {
                 switch controller.page {
                 case .focus:
                     FocusPageView()
+                case .stream:
+                    StreamSetupView()
                 case .blockedApps:
                     BlockedAppsView()
                 case .history:
@@ -115,7 +122,11 @@ struct MainWindowView: View {
 
     private func navItem(_ page: MainPage) -> some View {
         let isSelected = controller.page == page
-        let badge = page == .blockedApps ? controller.config.blockedApps.count : 0
+        // The blocked-apps badge is a count; the stream badge is a queue that
+        // wants answering, so it is drawn to be noticed.
+        let badge = page == .blockedApps ? controller.config.blockedApps.count
+            : page == .stream ? controller.roster.held.count : 0
+        let needsAnswer = page == .stream && badge > 0
 
         return Button {
             controller.page = page
@@ -134,7 +145,12 @@ struct MainWindowView: View {
                     Text("\(badge)")
                         .font(.system(size: 10, weight: .semibold))
                         .monospacedDigit()
-                        .foregroundStyle(isSelected ? Color.flCanvas.opacity(0.9) : Color.flInkSoft)
+                        .foregroundStyle(needsAnswer ? Color.flCanvas
+                                         : isSelected ? Color.flCanvas.opacity(0.9) : Color.flInkSoft)
+                        .padding(.horizontal, needsAnswer ? 6 : 0)
+                        .padding(.vertical, needsAnswer ? 2 : 0)
+                        .background(needsAnswer ? Color.flAccentDeep : .clear,
+                                    in: Capsule())
                 }
             }
             .foregroundStyle(isSelected ? Color.flCanvas : Color.flInk.opacity(0.75))
@@ -249,6 +265,17 @@ struct FocusPageView: View {
 
             controls
                 .padding(.top, 24)
+
+            Button {
+                controller.page = .stream
+            } label: {
+                Label(controller.config.stream.goal.isEmpty ? "Set a goal · Bring your own task" : controller.config.stream.goal,
+                      systemImage: "rectangle.on.rectangle")
+                    .font(.caption).lineLimit(1)
+            }
+            .buttonStyle(.plain)
+            .foregroundStyle(Color.flAccentDeep)
+            .padding(.top, 12)
 
             Text(scheduleLine)
                 .font(FLTypography.caption)

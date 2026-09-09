@@ -41,6 +41,15 @@ final class MenuBarController: NSObject, ObservableObject {
     @Published var preset: FocusPreset = .fiftyTen
     @Published var settingsMessage: String?
     @Published var exportMessage: String?
+    @Published var streamMessage: String?
+
+    /// Everyone working alongside the host. Fed by chat later; by hand today.
+    @Published var roster = AudienceRoster()
+
+    /// When the current run began. Kept after the run ends so the recap is
+    /// still there when you go looking for it, and replaced only when the
+    /// next run starts.
+    @Published private(set) var runStartedAt: Date?
 
     /// Which pane the sidebar is showing. Settings, History, and Analytics are
     /// panes rather than separate windows, so navigation lives here.
@@ -79,6 +88,7 @@ final class MenuBarController: NSObject, ObservableObject {
     private var statusItem: NSStatusItem?
     private let popover = NSPopover()
     private var mainWindow: NSWindow?
+    private var streamWindow: NSWindow?
     private var reopenObserver: NSObjectProtocol?
     private var blockerRunning = false
     private var hasSetup = false
@@ -128,6 +138,7 @@ final class MenuBarController: NSObject, ObservableObject {
     var autoResumeStatusLine: String? {
         guard
             config.breakEndBehavior == .autopilot,
+            snapshot.task?.shared != true,
             snapshot.phase == .breakEnded,
             let breakEndedAt = snapshot.breakEndedAt
         else {
@@ -278,6 +289,7 @@ final class MenuBarController: NSObject, ObservableObject {
         }
 
         hasSetup = true
+        syncRosterSettings()
         reopenObserver = NotificationCenter.default.addObserver(
             forName: .lockInShowMainWindow,
             object: nil,
@@ -316,7 +328,180 @@ final class MenuBarController: NSObject, ObservableObject {
         timerEngine.recordAbandonmentIfNeeded()
     }
 
+    func updateStream(_ update: (inout StreamSettings) -> Void) {
+        update(&config.stream)
+        streamWindow?.appearance = NSAppearance(named: config.stream.darkAppearance ? .darkAqua : .aqua)
+        saveConfig()
+    }
+
+    var streamTask: SessionTask {
+        switch snapshot.phase {
+        case .idle: return config.stream.task
+        default: return snapshot.task ?? config.stream.task
+        }
+    }
+
+    var checkInEntry: SessionHistoryEntry? {
+        guard snapshot.phase == .break || snapshot.phase == .breakEnded || snapshot.phase == .completed,
+              let taskID = snapshot.task?.id else { return nil }
+        return history.first { $0.task?.id == taskID && $0.status == .completed }
+    }
+
+    func saveCheckIn(outcome: CheckInOutcome, note: String) {
+        guard let entry = checkInEntry, let taskID = entry.task?.id else { return }
+        do {
+            try historyStore.saveCheckIn(taskID: taskID, checkIn: SessionCheckIn(outcome: outcome, note: note))
+            reloadHistory()
+            var clearedGoal = false
+            updateStream { clearedGoal = $0.clearCompletedGoal(matching: entry.task, outcome: outcome) }
+            streamMessage = clearedGoal
+                ? "Check-in saved. Your note stays private. Goal cleared — set the next one when you're ready."
+                : "Check-in saved. Your note stays private."
+        } catch {
+            streamMessage = "Could not save your check-in: \(error.localizedDescription)"
+        }
+    }
+
+    private var audienceAlerts = AudienceAlertThrottle()
+
+    /// Silent by default. A sound can reach the broadcast through desktop
+    /// audio and a banner can reach it through a display capture, so both are
+    /// opt-in and the banner never carries a viewer's words.
+    private func alertIfSomeoneIsWaiting() {
+        updateStatusItem()
+        guard !config.stream.autoApproveTasks else { return }
+        guard audienceAlerts.shouldAlert(waiting: roster.held.count, at: Date()) else { return }
+
+        if config.stream.alertSound {
+            NSSound(named: "Tink")?.play()
+        }
+        if config.stream.alertBanner {
+            notificationService.audienceTasksWaiting(count: roster.held.count)
+        }
+    }
+
+    func submitAudienceTask(name: String, text: String) {
+        defer { alertIfSomeoneIsWaiting() }
+        switch roster.submit(name: name, text: text) {
+        case .admitted:
+            streamMessage = "\(name) is on the wall."
+        case .held:
+            streamMessage = "\(name) is waiting for you to approve them."
+        case .rejected(.empty):
+            streamMessage = "That needs both a name and a task."
+        case .rejected(.blocked):
+            streamMessage = "\(name) is blocked for this stream."
+        case .rejected(.tooSoon):
+            streamMessage = "\(name) just posted — give it a moment."
+        case .rejected(.containsLink):
+            streamMessage = "Refused: that reads as a link, and links do not go on the wall."
+        case .rejected(.blockedWord):
+            streamMessage = "Refused: that contains a word on your blocked list."
+        }
+    }
+
+    func handleAudienceMessage(from name: String, message: String) {
+        guard let command = AudienceCommand.parse(message) else { return }
+        roster.apply(command, from: name)
+        alertIfSomeoneIsWaiting()
+    }
+
+    func syncRosterSettings() {
+        roster.autoApprove = config.stream.autoApproveTasks
+        roster.blockedTerms = AudienceFilter.defaultTerms
+            .union(AudienceFilter.terms(fromFileAt: blockedWordsURL))
+    }
+
+    /// One term per line. Kept beside the other LockIn data so it survives an
+    /// app update and can be edited without the app running.
+    var blockedWordsURL: URL {
+        stateStore.configURL.deletingLastPathComponent().appendingPathComponent("blocked-words.txt")
+    }
+
+    func revealBlockedWordsFile() {
+        if !FileManager.default.fileExists(atPath: blockedWordsURL.path) {
+            let template = """
+            # One blocked word or phrase per line. Lines starting with # are ignored.
+            # LockIn already folds spacing, punctuation, accents, repeated letters,
+            # and digits-for-letters, so one entry catches its variants.
+            # Add the slurs and platform-specific terms you want refused here.
+
+            """
+            try? template.write(to: blockedWordsURL, atomically: true, encoding: .utf8)
+        }
+        NSWorkspace.shared.activateFileViewerSelecting([blockedWordsURL])
+    }
+
+    var streamRecap: StreamRecap {
+        guard let runStartedAt else { return StreamRecap.make(from: [], since: .distantFuture) }
+        return StreamRecap.make(from: history, since: runStartedAt, companions: roster.admitted.count)
+    }
+
+    func copyRecap() {
+        let recap = streamRecap
+        guard !recap.isEmpty else { return }
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(recap.text, forType: .string)
+        streamMessage = "Recap copied."
+    }
+
+    func setAudienceAutoApprove(_ isOn: Bool) {
+        updateStream { $0.autoApproveTasks = isOn }
+        roster.autoApprove = isOn
+    }
+
+    /// Apps you are guarding that this stream depends on.
+    var streamHazards: [StreamHazard] {
+        StreamHazard.hazards(in: config.blockedApps)
+    }
+
+    /// Leaves the app in the list so it is guarded again next session — the
+    /// point is to get through the stream, not to rebuild the list afterwards.
+    func unguard(_ hazard: StreamHazard) {
+        guard let index = config.blockedApps.firstIndex(where: { $0.bundleId == hazard.app.bundleId }) else { return }
+        config.blockedApps[index].isEnabled = false
+        saveConfig()
+        syncBlocker()
+        streamMessage = "\(hazard.app.name) is no longer guarded. Turn it back on in Blocked apps when you're done."
+    }
+
+    func apply(_ preset: StreamPreset) {
+        preset.apply(to: &config)
+        syncPresetFromConfig()
+        saveConfig()
+        streamMessage = "\(preset.name) · \(config.focusMinutes)/\(config.breakMinutes) minutes, \(config.stream.plannedBlocks) blocks."
+    }
+
+    /// LockIn never plays or rebroadcasts audio; it only hands the link to
+    /// whichever app owns it.
+    func openPlaylist() {
+        guard let url = config.stream.playlistDestination else {
+            streamMessage = "That playlist link is not one LockIn can open. Paste a web or Spotify link."
+            return
+        }
+        NSWorkspace.shared.open(url)
+    }
+
+    func openStreamWindow() {
+        streamWindow = presentWindow(
+            existingWindow: streamWindow,
+            title: "LockIn Stream",
+            size: NSSize(width: 960, height: 600),
+            rootView: StreamAudienceView().environmentObject(self)
+        )
+        streamWindow?.appearance = NSAppearance(named: config.stream.darkAppearance ? .darkAqua : .aqua)
+        streamWindow?.titleVisibility = .visible
+        streamWindow?.minSize = NSSize(width: 640, height: 420)
+    }
+
     func startFocus() {
+        guard !isSessionActive else { return }
+        streamMessage = nil
+        let cycle = snapshot.phase == .breakEnded ? snapshot.currentCycle + 1 : 1
+        if cycle == 1 {
+            runStartedAt = Date()
+            roster.clear()
+        }
         breakEndedOverlay.dismiss()
         autoResumeOverlay.dismiss()
         autoResumeAnchor = nil
@@ -325,7 +510,10 @@ final class MenuBarController: NSObject, ObservableObject {
             focusMinutes: config.focusMinutes,
             breakMinutes: config.breakMinutes,
             blockedAppsCount: config.blockedApps.count,
-            strictMode: config.strictMode
+            strictMode: config.strictMode,
+            task: config.stream.task,
+            // Continuing a run keeps counting; anything else starts one.
+            cycle: cycle
         )
         reloadHistory()
         syncBlocker()
@@ -488,6 +676,9 @@ final class MenuBarController: NSObject, ObservableObject {
             size: NSSize(width: 900, height: 620),
             rootView: MainWindowView().environmentObject(self)
         )
+        // SwiftUI installs its Settings-scene menu after launch. Restore our
+        // app commands once the actual main window has been presented.
+        setupMainMenu()
     }
 
     /// These destinations are panes of the one window, so "open" means select
@@ -544,6 +735,9 @@ final class MenuBarController: NSObject, ObservableObject {
         // History only changes when the phase does; re-reading the file every
         // tick would be wasteful.
         if previousPhase != newSnapshot.phase {
+            if newSnapshot.task?.shared == true && (newSnapshot.phase == .break || newSnapshot.phase == .completed) {
+                page = .stream
+            }
             reloadHistory()
         }
 
@@ -638,8 +832,14 @@ final class MenuBarController: NSObject, ObservableObject {
             return
         }
 
-        updateTitleForActiveSession(countdown: statusCountdownTitle)
-        button.toolTip = statusTooltip
+        let waiting = roster.held.count
+        // A dot rather than a number: the menu bar is not the place to read a
+        // queue, only to notice there is one.
+        let countdown = statusCountdownTitle.map { waiting > 0 ? "\($0) •" : $0 }
+        updateTitleForActiveSession(countdown: countdown)
+        button.toolTip = waiting > 0
+            ? "\(waiting) waiting for you to approve · \(statusTooltip)"
+            : statusTooltip
     }
 
     private var statusCountdownTitle: String? {
@@ -743,6 +943,12 @@ final class MenuBarController: NSObject, ObservableObject {
             return
         }
 
+        if snapshot.task?.shared == true {
+            // The host chooses when the next block begins after checking in.
+            page = .stream
+            return
+        }
+
         switch config.breakEndBehavior {
         case .startImmediately:
             startFocus()
@@ -759,6 +965,7 @@ final class MenuBarController: NSObject, ObservableObject {
     private func syncAutoResume(now: Date = Date()) {
         guard
             config.breakEndBehavior == .autopilot,
+            snapshot.task?.shared != true,
             snapshot.phase == .breakEnded,
             let breakEndedAt = snapshot.breakEndedAt
         else {
@@ -1087,6 +1294,9 @@ extension MenuBarController: NSMenuItemValidation {
         )
         mainWindow.target = self
         menu.addItem(mainWindow)
+        let stream = NSMenuItem(title: "Stream Window", action: #selector(menuOpenStream(_:)), keyEquivalent: "2")
+        stream.target = self
+        menu.addItem(stream)
         menu.addItem(.separator())
 
         menu.addItem(withTitle: "Minimize", action: #selector(NSWindow.performMiniaturize(_:)), keyEquivalent: "m")
@@ -1109,6 +1319,7 @@ extension MenuBarController: NSMenuItemValidation {
         }
     }
 
+    @objc private func menuOpenStream(_ sender: Any?) { openStreamWindow() }
     @objc private func menuStartFocus(_ sender: Any?) { startFocus() }
     @objc private func menuStopSession(_ sender: Any?) { stopSession() }
     @objc private func menuOpenSettings(_ sender: Any?) { openSettings() }
