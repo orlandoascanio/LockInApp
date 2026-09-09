@@ -9,6 +9,7 @@ public protocol NotificationSending: AnyObject {
     func breakEnded()
     func sessionCancelled()
     func blockedAppHidden(name: String)
+    func audienceTasksWaiting(count: Int)
 }
 
 public final class NotificationService: NSObject, NotificationSending, UNUserNotificationCenterDelegate {
@@ -58,6 +59,15 @@ public final class NotificationService: NSObject, NotificationSending, UNUserNot
         send(title: "Session cancelled", body: "Blocking has stopped.")
     }
 
+    /// Deliberately carries no viewer-written text — not the task, not even the
+    /// name. A banner is drawn on screen, and a screen is often what is being
+    /// captured; putting unreviewed words in it would hand a stranger the
+    /// broadcast that approve-first exists to protect.
+    public func audienceTasksWaiting(count: Int) {
+        send(title: "Someone wants to join in",
+             body: "\(count) waiting for you to approve.")
+    }
+
     public func blockedAppHidden(name: String) {
         send(title: "\(name) is guarded during focus mode.", body: "It keeps running in the background.")
     }
@@ -101,6 +111,10 @@ public final class NoopNotificationService: NotificationSending {
 
     public func focusStarted(minutes: Int) {
         events.append("focusStarted:\(minutes)")
+    }
+
+    public func audienceTasksWaiting(count: Int) {
+        events.append("audienceTasksWaiting:\(count)")
     }
 
     public func focusCompleted() {
