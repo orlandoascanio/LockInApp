@@ -3,9 +3,28 @@ import SwiftUI
 
 struct SessionHistoryView: View {
     @EnvironmentObject private var controller: MenuBarController
+    @State private var selectedCategory = ""
 
     private var stats: SessionStats {
-        controller.sessionStats
+        selectedCategory.isEmpty ? controller.sessionStats : SessionStats.make(from: filteredHistory)
+    }
+
+    /// Entries with no category — including everything recorded before
+    /// categories existed — collect under one name rather than an empty label.
+    private func categoryName(for entry: SessionHistoryEntry) -> String {
+        let name = entry.task?.category ?? ""
+        return name.isEmpty ? "Uncategorized" : name
+    }
+
+    private var categories: [String] {
+        Array(Set(controller.history.map(categoryName))).sorted()
+    }
+
+    private var filteredHistory: [SessionHistoryEntry] {
+        guard !selectedCategory.isEmpty else {
+            return controller.history
+        }
+        return controller.history.filter { categoryName(for: $0) == selectedCategory }
     }
 
     var body: some View {
@@ -20,6 +39,15 @@ struct SessionHistoryView: View {
                 )
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else {
+                HStack {
+                    Picker("Category", selection: $selectedCategory) {
+                        Text("All categories").tag("")
+                        ForEach(categories, id: \.self) {
+                            Text($0).tag($0)
+                        }
+                    }.frame(maxWidth: 300)
+                    Spacer()
+                }.padding(.horizontal, 26).padding(.bottom, 16)
                 summaryRow
                 FLRule()
                 columnHeaders
@@ -44,7 +72,7 @@ struct SessionHistoryView: View {
                     .font(FLTypography.display)
                     .foregroundStyle(Color.flInk)
 
-                Text("\(controller.history.count) session\(controller.history.count == 1 ? "" : "s") recorded")
+                Text(countLine)
                     .font(FLTypography.caption)
                     .foregroundStyle(Color.flInkSoft)
             }
@@ -58,12 +86,20 @@ struct SessionHistoryView: View {
         .padding(.bottom, 20)
     }
 
+    private var countLine: String {
+        let count = filteredHistory.count
+        let noun = "\(count) session\(count == 1 ? "" : "s")"
+        return selectedCategory.isEmpty ? "\(noun) recorded" : "\(noun) in \(selectedCategory)"
+    }
+
     private var summaryRow: some View {
         HStack(spacing: FLSpacing.xl) {
             summaryItem(formatted(minutes: stats.focusMinutesToday), "focused today")
             summaryItem("\(stats.sessionsCompletedToday)", "sessions today")
             summaryItem(formatted(minutes: stats.focusMinutesThisWeek), "this week")
-            summaryItem("\(controller.streak)", controller.streak == 1 ? "day streak" : "day streak")
+            if selectedCategory.isEmpty {
+                summaryItem("\(controller.streak)", "day streak")
+            }
             Spacer()
         }
         .padding(.horizontal, 26)
@@ -110,7 +146,7 @@ struct SessionHistoryView: View {
     private var rows: some View {
         ScrollView {
             LazyVStack(spacing: 0) {
-                ForEach(controller.history) { entry in
+                ForEach(filteredHistory) { entry in
                     HistoryRow(entry: entry, peakMinutes: peakMinutes)
                     Rectangle()
                         .fill(Color.flHairline.opacity(0.5))
@@ -122,7 +158,7 @@ struct SessionHistoryView: View {
     }
 
     private var peakMinutes: Int {
-        max(controller.history.map(\.focusMinutes).max() ?? 1, 1)
+        max(filteredHistory.map(\.focusMinutes).max() ?? 1, 1)
     }
 
     private func formatted(minutes: Int) -> String {
@@ -149,11 +185,23 @@ private struct HistoryRow: View {
 
     var body: some View {
         HStack(spacing: HistoryTableLayout.columnSpacing) {
-            Text(Self.stamp(for: entry.startedAt))
-                .font(.system(size: 12.5))
-                .foregroundStyle(Color.flInk)
-                .lineLimit(1)
-                .frame(maxWidth: .infinity, alignment: .leading)
+            VStack(alignment: .leading, spacing: 4) {
+                Text(Self.stamp(for: entry.startedAt)).font(.system(size: 12.5))
+                if let task = entry.task {
+                    Text(task.goal.isEmpty ? task.category : "\(task.category) · \(task.goal)")
+                        .font(.caption).foregroundStyle(Color.flInkSoft).lineLimit(2)
+                        .help(task.goal)
+                }
+                if let checkIn = entry.checkIn {
+                    Text(checkIn.outcome.title).font(.caption).foregroundStyle(Color.flAccentDeep)
+                    if !checkIn.note.isEmpty {
+                        Text(checkIn.note).font(.caption).foregroundStyle(Color.flInkSoft)
+                            .lineLimit(2).help(checkIn.note)
+                    }
+                }
+            }
+            .foregroundStyle(Color.flInk)
+            .frame(maxWidth: .infinity, alignment: .leading)
 
             // The bar makes long and short blocks comparable at a glance,
             // without a second chart.
@@ -199,7 +247,8 @@ private struct HistoryRow: View {
             .frame(width: HistoryTableLayout.guardedWidth, alignment: .trailing)
         }
         .padding(.horizontal, 26)
-        .frame(height: 46)
+        .padding(.vertical, 12)
+        .frame(minHeight: 46)
         .background(isHovered ? Color.flCanvasWarm.opacity(0.38) : .clear)
         .contentShape(Rectangle())
         .onHover { isHovered = $0 }
