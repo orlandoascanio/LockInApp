@@ -17,6 +17,103 @@ The default blocking behavior is **Guard Screen**. When you open a guarded app d
 - No account required.
 - No internet required.
 
+## Bring your own task streams
+
+Open **Stream** in the sidebar to host a study/work-with-me session. Everyone
+brings their own task; LockIn gives the group a shared focus/break rhythm.
+
+1. Turn on **Host a shared session**. Set your goal, choose or add a category,
+   and set focus and break durations.
+2. Pick a **session type** — Read with me, Build with me, Language practice,
+   Deep work — or keep Bring your own task. Presets set durations, category,
+   planned blocks, and the line the audience sees; your goal is left alone.
+   LockIn warns you here if you are guarding OBS, your browser, or your music
+   app, and can unguard one in a click.
+3. Open the **stream window** (also **Window → Stream Window**, `Cmd+2`).
+   Choose the dark or light canvas and whether to show your goal.
+4. In OBS, add **macOS Screen Capture**, select **Window** capture, and choose
+   **LockIn Stream**. Crop the title bar if desired. Start the broadcast in OBS.
+   Capture this audience window rather than the entire desktop; the host window
+   contains private notes and app controls. Keep OBS and any apps needed for
+   hosting out of your guarded apps list.
+5. Start focus. The audience sees the countdown, your category and optional
+   goal, and an invitation to work on their own task. Goal/category edits during
+   a block apply to the next block, preserving the current block's history.
+6. During the break, invite a chat check-in and save your own outcome: **Goal
+   done**, **Made progress**, or **Got stuck**, with an optional private note.
+   Notes never appear in the audience window. **Goal done** clears the goal so
+   the next block starts fresh; a goal you already rewrote during the block is
+   kept. History always keeps the goal each block actually ran with.
+7. Shared sessions wait after the break, even if Settings uses Autopilot or
+   immediate restart. Choose **Start next block** when you and chat are ready,
+   or **Finish for now**. Closing the audience window does not stop the timer.
+
+The audience window shows which block you are on out of how many planned, and
+during a break it shows the clock time you will be back, not just a countdown.
+
+## The wall
+
+Viewers appear on the stream by name. Type `!task read chapter 3` in chat and
+that person shows up beside your countdown; `!done` checks theirs off. `!goal`,
+`!doing`, `!working` and `!focus` all work too, so nobody is met with silence
+for guessing. You can also add someone by hand from the Stream page.
+
+Each person carries a small count of how long they have been working alongside
+you, so a room that has been going a while looks like one.
+
+New tasks wait for your approval before they appear — text you have not read
+should not go out on your own broadcast. Turn on **Show tasks without asking
+me first** only when chat outruns you. Anything that reads as a link is refused
+outright, names and tasks are trimmed to fit, one task per person with the
+latest winning, and blocking someone takes their text off screen at once.
+
+Words are checked against a list before anything is shown, and the check folds
+spacing, punctuation, accents, repeated letters, and digits standing in for
+letters, so one entry catches its variants rather than needing one line per
+spelling. Names are held to the same standard, since they appear on screen too.
+Two deliberate attempts — a blocked word or a link — and that person is blocked
+for the rest of the stream.
+
+When someone is waiting, the Stream tab shows a count and the menu bar shows a
+dot — both silent. A sound and a notification are available and both start off,
+because both can reach the broadcast: a sound goes out if OBS is capturing
+desktop audio, and a banner is drawn on screen if you capture a display rather
+than a window. The notification carries no viewer-written text at all, not even
+a name — only how many are waiting. Arrivals are grouped, so a rush is one
+interruption rather than twenty, and clearing the queue lets the next person
+through immediately.
+
+The shipped list is a starting point. Add your own terms to `blocked-words.txt`
+in the LockIn support folder (**Edit list** on the Stream page opens it), one
+per line. No word list is complete, and anyone determined will get past one —
+approve-first is what actually protects the stream; the list is what makes
+approve-first survivable when chat is busy.
+
+## Recap
+
+When a run finishes, the Stream page shows what it added up to — blocks, focus
+time, categories, goals finished, and how many people worked alongside you —
+with **Copy recap** to put it on the clipboard as plain text. It is rebuilt
+from history, so quitting mid-stream does not cost you the summary.
+
+Everyone gets their name up. Once more people are here than fit the window, the
+wall turns pages on its own, fast enough that a full pass finishes inside a
+focus block — at a hundred people that is roughly every twenty seconds, not a
+fixed minute that would leave the last page unseen for a quarter of an hour.
+
+A **playlist link** on the Stream page opens your music app in one click. LockIn
+never plays or rebroadcasts audio, and your music app is not part of the
+capture. Most commercial music is not cleared for streaming — check your
+platform's rules and use a DMCA-safe library.
+
+History includes goals, categories, and check-ins, with category filtering.
+The Stream page summarizes completed focus minutes by category for this week.
+CSV and JSON exports include the new fields; existing history remains readable.
+Shared-session settings, categories, and the next goal are saved locally.
+
+LockIn supplies a capture window, not broadcasting or chat services. Viewers
+participate through your streaming platform's chat; they do not need LockIn.
+
 ## Not Included Yet
 
 - No website blocking.
