@@ -8,7 +8,7 @@ public final class ExportService {
     public init() {}
 
     public func csvString(from history: [SessionHistoryEntry]) -> String {
-        let header = "id,startedAt,endedAt,durationMinutes,focusMinutes,breakMinutes,status,blockedAppsCount,strictMode"
+        let header = "id,startedAt,endedAt,durationMinutes,focusMinutes,breakMinutes,status,blockedAppsCount,strictMode,category,goal,shared,checkIn,note"
 
         let rows = history
             .sorted { $0.startedAt < $1.startedAt }
@@ -22,7 +22,12 @@ public final class ExportService {
                     String(entry.breakMinutes),
                     entry.status.rawValue,
                     String(entry.blockedAppsCount),
-                    String(entry.strictMode)
+                    String(entry.strictMode),
+                    Self.spreadsheetText(entry.task?.category ?? ""),
+                    Self.spreadsheetText(entry.task?.goal ?? ""),
+                    entry.task.map { String($0.shared) } ?? "",
+                    entry.checkIn?.outcome.title ?? "",
+                    Self.spreadsheetText(entry.checkIn?.note ?? "")
                 ]
                 .map(Self.csvEscape)
                 .joined(separator: ",")
@@ -51,8 +56,15 @@ public final class ExportService {
         ISO8601DateFormatter().string(from: date)
     }
 
+    /// User-authored goals and notes must remain text when opened in a spreadsheet.
+    private static func spreadsheetText(_ value: String) -> String {
+        let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard let first = trimmed.first, "=+-@".contains(first) else { return value }
+        return "'" + value
+    }
+
     private static func csvEscape(_ value: String) -> String {
-        guard value.contains(",") || value.contains("\"") || value.contains("\n") else {
+        guard value.contains(",") || value.contains("\"") || value.contains("\n") || value.contains("\r") else {
             return value
         }
 

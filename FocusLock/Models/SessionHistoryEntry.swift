@@ -28,6 +28,8 @@ public struct SessionHistoryEntry: Codable, Equatable, Identifiable {
     public var breakMinutes: Int
     public var status: SessionHistoryStatus
     public var blockedAppsCount: Int
+    public var task: SessionTask?
+    public var checkIn: SessionCheckIn?
     public var strictMode: Bool
 
     public init(
@@ -38,7 +40,9 @@ public struct SessionHistoryEntry: Codable, Equatable, Identifiable {
         breakMinutes: Int,
         status: SessionHistoryStatus,
         blockedAppsCount: Int,
-        strictMode: Bool
+        strictMode: Bool,
+        task: SessionTask? = nil,
+        checkIn: SessionCheckIn? = nil
     ) {
         self.id = id
         self.startedAt = startedAt
@@ -48,6 +52,8 @@ public struct SessionHistoryEntry: Codable, Equatable, Identifiable {
         self.status = status
         self.blockedAppsCount = max(0, blockedAppsCount)
         self.strictMode = strictMode
+        self.task = task
+        self.checkIn = checkIn
     }
 
     public var durationMinutes: Int {
@@ -78,6 +84,33 @@ public struct SessionStats: Equatable {
     public var focusMinutesThisWeek: Int
     public var totalCompletedSessions: Int
     public var totalSessions: Int
+
+    /// Derived from whichever entries are passed in, so the same summary can
+    /// describe all of history or a single category.
+    public static func make(
+        from history: [SessionHistoryEntry],
+        referenceDate: Date = Date(),
+        calendar: Calendar = .current
+    ) -> SessionStats {
+        let completed = history.filter { $0.status == .completed }
+        let today = completed.filter { calendar.isDate($0.startedAt, inSameDayAs: referenceDate) }
+        let weekInterval = calendar.dateInterval(of: .weekOfYear, for: referenceDate)
+        let thisWeek = completed.filter { entry in
+            guard let weekInterval else {
+                return false
+            }
+            return weekInterval.contains(entry.startedAt)
+        }
+
+        return SessionStats(
+            sessionsCompletedToday: today.count,
+            focusMinutesToday: today.reduce(0) { $0 + $1.focusMinutes },
+            sessionsCompletedThisWeek: thisWeek.count,
+            focusMinutesThisWeek: thisWeek.reduce(0) { $0 + $1.focusMinutes },
+            totalCompletedSessions: completed.count,
+            totalSessions: history.count
+        )
+    }
 
     public static let empty = SessionStats(
         sessionsCompletedToday: 0,

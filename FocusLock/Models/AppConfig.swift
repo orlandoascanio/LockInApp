@@ -43,6 +43,9 @@ public struct AppConfig: Codable, Equatable {
     public var autoResume: AutoResumePlanner
     public var blockedApps: [BlockedApp]
 
+    /// Goal, category, and canvas options used when hosting a shared session.
+    public var stream: StreamSettings
+
     /// Keeps the countdown strip floating above every window during a session.
     public var pinnedHUDEnabled: Bool
 
@@ -59,7 +62,8 @@ public struct AppConfig: Codable, Equatable {
         breakEndBehavior: BreakEndBehavior = .ask,
         autoResume: AutoResumePlanner = .default,
         blockedApps: [BlockedApp] = [],
-        pinnedHUDEnabled: Bool = true
+        pinnedHUDEnabled: Bool = true,
+        stream: StreamSettings = StreamSettings()
     ) {
         self.focusMinutes = Self.normalizedFocusMinutes(focusMinutes)
         self.breakMinutes = max(0, breakMinutes)
@@ -68,6 +72,7 @@ public struct AppConfig: Codable, Equatable {
         self.autoResume = autoResume
         self.blockedApps = blockedApps
         self.pinnedHUDEnabled = pinnedHUDEnabled
+        self.stream = stream
     }
 
     public static let `default` = AppConfig()
@@ -82,6 +87,7 @@ public struct AppConfig: Codable, Equatable {
         case autoResume
         case blockedApps
         case pinnedHUDEnabled
+        case stream
     }
 
     public init(from decoder: Decoder) throws {
@@ -105,6 +111,7 @@ public struct AppConfig: Codable, Equatable {
         }
         autoResume = try container.decodeIfPresent(AutoResumePlanner.self, forKey: .autoResume) ?? .default
         blockedApps = try container.decodeIfPresent([BlockedApp].self, forKey: .blockedApps) ?? []
+        stream = try container.decodeIfPresent(StreamSettings.self, forKey: .stream) ?? StreamSettings()
         pinnedHUDEnabled = try container.decodeIfPresent(Bool.self, forKey: .pinnedHUDEnabled) ?? true
     }
 
@@ -117,6 +124,7 @@ public struct AppConfig: Codable, Equatable {
         try container.encode(autoResume, forKey: .autoResume)
         try container.encode(blockedApps, forKey: .blockedApps)
         try container.encode(pinnedHUDEnabled, forKey: .pinnedHUDEnabled)
+        try container.encode(stream, forKey: .stream)
     }
 
     public static func normalizedFocusMinutes(_ minutes: Int) -> Int {

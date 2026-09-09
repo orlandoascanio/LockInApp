@@ -35,6 +35,8 @@ public final class TimerEngine {
         breakMinutes: Int,
         blockedAppsCount: Int,
         strictMode: Bool,
+        task: SessionTask? = nil,
+        cycle: Int = 1,
         now: Date? = nil
     ) {
         let startedAt = now ?? clock()
@@ -43,8 +45,10 @@ public final class TimerEngine {
             startedAt: startedAt,
             focusMinutes: focusMinutes,
             breakMinutes: breakMinutes,
+            currentCycle: cycle,
             blockedAppsCount: blockedAppsCount,
-            strictMode: strictMode
+            strictMode: strictMode,
+            task: task
         )
 
         try? stateStore.saveSessionState(state)
@@ -71,7 +75,9 @@ public final class TimerEngine {
             sessionStartedAt: state.startedAt,
             remainingSeconds: 0,
             focusMinutes: state.focusMinutes,
-            breakMinutes: state.breakMinutes
+            breakMinutes: state.breakMinutes,
+            task: state.task,
+            currentCycle: state.currentCycle
         )
     }
 
@@ -90,8 +96,10 @@ public final class TimerEngine {
             startedAt: breakStartedAt,
             focusMinutes: normalizedFocusMinutes,
             breakMinutes: max(1, minutes),
+            currentCycle: stateStore.loadSessionState()?.currentCycle ?? 1,
             blockedAppsCount: blockedAppsCount,
-            strictMode: strictMode
+            strictMode: strictMode,
+            task: stateStore.loadSessionState()?.task
         )
 
         try? stateStore.saveSessionState(state)
@@ -128,7 +136,9 @@ public final class TimerEngine {
         snapshot = TimerSnapshot(
             phase: .idle,
             focusMinutes: state.focusMinutes,
-            breakMinutes: state.breakMinutes
+            breakMinutes: state.breakMinutes,
+            task: state.task,
+            currentCycle: state.currentCycle
         )
     }
 
@@ -233,7 +243,9 @@ public final class TimerEngine {
             sessionStartedAt: state.startedAt,
             remainingSeconds: 0,
             focusMinutes: state.focusMinutes,
-            breakMinutes: state.breakMinutes
+            breakMinutes: state.breakMinutes,
+            task: state.task,
+            currentCycle: state.currentCycle
         )
     }
 
@@ -262,7 +274,8 @@ public final class TimerEngine {
             breakMinutes: state.breakMinutes,
             status: status,
             blockedAppsCount: state.blockedAppsCount,
-            strictMode: state.strictMode
+            strictMode: state.strictMode,
+            task: state.task
         )
 
         try? historyStore.append(entry)
@@ -288,7 +301,9 @@ public final class TimerEngine {
             phaseEndsAt: phaseEndsAt,
             remainingSeconds: phaseEndsAt.timeIntervalSince(now),
             focusMinutes: state.focusMinutes,
-            breakMinutes: state.breakMinutes
+            breakMinutes: state.breakMinutes,
+            task: state.task,
+            currentCycle: state.currentCycle
         )
     }
 }

@@ -17,7 +17,7 @@ final class ExportServiceTests: XCTestCase {
 
         let csv = service.csvString(from: [entry])
 
-        XCTAssertTrue(csv.hasPrefix("id,startedAt,endedAt,durationMinutes,focusMinutes,breakMinutes,status,blockedAppsCount,strictMode\n"))
+        XCTAssertTrue(csv.hasPrefix("id,startedAt,endedAt,durationMinutes,focusMinutes,breakMinutes,status,blockedAppsCount,strictMode,category,goal,shared,checkIn,note\n"))
         XCTAssertTrue(csv.contains("00000000-0000-0000-0000-000000000123,2026-06-12T10:00:00Z,2026-06-12T10:25:00Z,25,25,5,completed,3,true"))
     }
 

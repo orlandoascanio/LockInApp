@@ -1,5 +1,16 @@
 import Foundation
 
+public enum SessionHistoryError: LocalizedError {
+    case blockNotFound
+
+    public var errorDescription: String? {
+        switch self {
+        case .blockNotFound:
+            return "that focus block is no longer in your history"
+        }
+    }
+}
+
 public final class SessionHistoryStore {
     public let historyURL: URL
 
@@ -63,6 +74,22 @@ public final class SessionHistoryStore {
         data.append(lineData)
         data.append(UInt8(ascii: "\n"))
         try data.write(to: historyURL, options: [.atomic])
+    }
+
+    /// Replace only the matching record, preserving any unrecognized lines.
+    public func saveCheckIn(taskID: UUID, checkIn: SessionCheckIn) throws {
+        let contents = try String(contentsOf: historyURL, encoding: .utf8)
+        var found = false
+        let lines = try contents.components(separatedBy: "\n").map { line -> String in
+            guard let data = line.data(using: .utf8),
+                  var entry = try? FocusLockJSONCoding.decoder.decode(SessionHistoryEntry.self, from: data),
+                  entry.task?.id == taskID, entry.status == .completed else { return line }
+            entry.checkIn = checkIn
+            found = true
+            return String(decoding: try FocusLockJSONCoding.lineEncoder.encode(entry), as: UTF8.self)
+        }
+        guard found else { throw SessionHistoryError.blockNotFound }
+        try lines.joined(separator: "\n").write(to: historyURL, atomically: true, encoding: .utf8)
     }
 
     /// Focus minutes for each day of the week containing `referenceDate`,
@@ -135,26 +162,6 @@ public final class SessionHistoryStore {
     }
 
     public func stats(referenceDate: Date = Date(), calendar: Calendar = .current) -> SessionStats {
-        let history = loadHistory()
-        let completed = history.filter { $0.status == .completed }
-
-        let today = completed.filter { calendar.isDate($0.startedAt, inSameDayAs: referenceDate) }
-
-        let weekInterval = calendar.dateInterval(of: .weekOfYear, for: referenceDate)
-        let thisWeek = completed.filter { entry in
-            guard let weekInterval else {
-                return false
-            }
-            return weekInterval.contains(entry.startedAt)
-        }
-
-        return SessionStats(
-            sessionsCompletedToday: today.count,
-            focusMinutesToday: today.reduce(0) { $0 + $1.focusMinutes },
-            sessionsCompletedThisWeek: thisWeek.count,
-            focusMinutesThisWeek: thisWeek.reduce(0) { $0 + $1.focusMinutes },
-            totalCompletedSessions: completed.count,
-            totalSessions: history.count
-        )
+        SessionStats.make(from: loadHistory(), referenceDate: referenceDate, calendar: calendar)
     }
 }
