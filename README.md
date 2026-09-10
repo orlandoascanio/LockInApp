@@ -61,6 +61,11 @@ for guessing. You can also add someone by hand from the Stream page.
 Each person carries a small count of how long they have been working alongside
 you, so a room that has been going a while looks like one.
 
+Connect your channel on the Stream page and chat feeds the wall directly. The
+connection is anonymous and read-only — no login, no API key, no Twitch
+developer account, and LockIn never posts to your chat. It reconnects on its
+own if the connection drops mid-stream.
+
 New tasks wait for your approval before they appear — text you have not read
 should not go out on your own broadcast. Turn on **Show tasks without asking
 me first** only when chat outruns you. Anything that reads as a link is refused
