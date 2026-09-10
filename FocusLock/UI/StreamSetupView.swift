@@ -160,12 +160,45 @@ struct StreamSetupView: View {
                     Button("Open playlist") { controller.openPlaylist() }
                         .disabled(controller.config.stream.playlistDestination == nil)
                 }
-                Text("LockIn opens the link and nothing else — it never plays or rebroadcasts audio, and your music app stays out of the capture. Check your platform's music rules first: most commercial tracks are not cleared for streaming, and DMCA-safe libraries exist for exactly this.")
+                Text("LockIn opens the link and nothing else — it never plays or rebroadcasts audio, and your music app stays out of the capture. Most commercial tracks are not cleared for streaming, and a muted VOD is the usual way of finding out.")
+                    .font(.caption).foregroundStyle(Color.flInkSoft)
+                    .fixedSize(horizontal: false, vertical: true)
+
+                Text("Music meant for streaming").font(.headline)
+                VStack(spacing: 0) {
+                    ForEach(Array(StreamMusicSource.all.enumerated()), id: \.element.id) { index, source in
+                        if index > 0 { Divider() }
+                        musicSourceRow(source)
+                    }
+                }
+                .padding(.vertical, 2)
+                Text("Starting points, not clearances. What each one asks of you changes without notice and LockIn is not checking it for you — read their current terms, and your platform's, before you go live.")
                     .font(.caption).foregroundStyle(Color.flInkSoft)
                     .fixedSize(horizontal: false, vertical: true)
             }
             .padding(.top, 12)
         }
+    }
+
+    private func musicSourceRow(_ source: StreamMusicSource) -> some View {
+        HStack(alignment: .top, spacing: 12) {
+            VStack(alignment: .leading, spacing: 2) {
+                Text(source.name).font(.callout.weight(.medium))
+                Text(source.sound).font(.caption).foregroundStyle(Color.flInkSoft)
+                Text(source.terms)
+                    .font(.caption).foregroundStyle(Color.flInkSoft)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            Spacer(minLength: 0)
+            // Fills the field rather than opening anything: which tab opens on
+            // a machine that is about to go live is the host's call, not mine.
+            Button(controller.config.stream.playlistURL == source.link ? "Chosen" : "Use") {
+                controller.updateStream { $0.playlistURL = source.link }
+            }
+            .disabled(controller.config.stream.playlistURL == source.link)
+            .accessibilityLabel("Use \(source.name)")
+        }
+        .padding(.vertical, 8)
     }
 
     private var taskSetup: some View {

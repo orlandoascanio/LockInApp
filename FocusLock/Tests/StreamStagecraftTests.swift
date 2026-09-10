@@ -190,6 +190,30 @@ final class StreamStagecraftTests: XCTestCase {
         XCTAssertFalse(recap.detailLines.contains { $0.contains("tasks finished") })
     }
 
+    // MARK: - Music
+
+    func testEveryShippedMusicSourceOpens() {
+        XCTAssertFalse(StreamMusicSource.all.isEmpty)
+        for source in StreamMusicSource.all {
+            var settings = StreamSettings()
+            settings.playlistURL = source.link
+            XCTAssertNotNil(settings.playlistDestination,
+                            "\(source.name) is on the page, so its link has to survive the scheme check")
+            XCTAssertEqual(source.url?.scheme, "https",
+                           "\(source.name) sends a host to a browser; plain http is not good enough for that")
+            XCTAssertFalse(source.sound.isEmpty)
+            XCTAssertFalse(source.terms.isEmpty,
+                           "\(source.name) without its condition is the half of the advice that gets people muted")
+        }
+    }
+
+    func testMusicSourcesAreDistinctAndLofiLeads() {
+        XCTAssertEqual(Set(StreamMusicSource.all.map(\.id)).count, StreamMusicSource.all.count)
+        XCTAssertEqual(Set(StreamMusicSource.all.map(\.link)).count, StreamMusicSource.all.count)
+        XCTAssertTrue(StreamMusicSource.all[0].sound.lowercased().contains("lofi"),
+                      "a co-working room reaches for lofi first")
+    }
+
     func testGuardedAppsThatWouldBreakTheStreamAreFlagged() {
         let apps = [
             BlockedApp(name: "OBS", bundleId: "com.obsproject.obs-studio"),

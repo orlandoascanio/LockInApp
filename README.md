@@ -148,8 +148,18 @@ finished task holds a place.
 
 A **playlist link** on the Stream page opens your music app in one click. LockIn
 never plays or rebroadcasts audio, and your music app is not part of the
-capture. Most commercial music is not cleared for streaming — check your
-platform's rules and use a DMCA-safe library.
+capture. Most commercial music is not cleared for streaming, and a muted VOD is
+the usual way of finding that out.
+
+So the page also lists places that publish music meant to go out over a
+broadcast, with what each asks of you: **StreamBeats** (free, no credit asked),
+**Chillhop** (free through their creators programme, credit on a panel),
+**Pretzel** (free with a credit line in chat, paid tier drops it),
+**NoCopyrightSounds** (free with attribution) and **Epidemic Sound** (paid, and
+covers the VOD as well as the live stream). **Use** fills in the link; opening
+it is still your click. These are starting points and not clearances — terms
+change without notice, LockIn is not checking them for you, and the ones in
+force on the day are the ones that count.
 
 History includes goals, categories, and check-ins, with category filtering.
 The Stream page summarizes completed focus minutes by category for this week.
