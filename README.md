@@ -121,14 +121,30 @@ approve-first survivable when chat is busy.
 ## Recap
 
 When a run finishes, the Stream page shows what it added up to — blocks, focus
-time, categories, goals finished, and how many people worked alongside you —
-with **Copy recap** to put it on the clipboard as plain text. It is rebuilt
-from history, so quitting mid-stream does not cost you the summary.
+time, categories, goals finished, how many people worked alongside you, and how
+many of the room's tasks got crossed off — with **Copy recap** to put it on the
+clipboard as plain text. The numbers are rebuilt from history rather than
+tallied as you go.
+
+Quitting mid-stream costs you neither the summary nor the wall. Both are written
+down as they happen: when the run began, everyone on the wall, who is waiting,
+the count, and who has been blocked or is one attempt away from it. Relaunching
+picks the stream back up where it was. What is not saved is anything the app
+already knows — whether approval is automatic, and your blocked-word list —
+because a stale copy would quietly outrank a list you had edited in the
+meantime. The saved run outlives the run itself, so the recap is still there
+when you go looking for it; starting the next one replaces it.
 
 Everyone gets their name up. Once more people are here than fit the window, the
 wall turns pages on its own, fast enough that a full pass finishes inside a
 focus block — at a hundred people that is roughly every twenty seconds, not a
 fixed minute that would leave the last page unseen for a quarter of an hour.
+
+A long stream eventually fills the wall, and something has to give. Crossed-off
+lines go first, oldest first — they have had their moment and their number is
+safe in the count — and only once those are gone does anything anyone is still
+working on move. Nobody still working is pushed off a wall they can see while a
+finished task holds a place.
 
 A **playlist link** on the Stream page opens your music app in one click. LockIn
 never plays or rebroadcasts audio, and your music app is not part of the

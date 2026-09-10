@@ -22,9 +22,20 @@ public struct StreamRecap: Equatable {
     public let goalsCompleted: Int
     public let companions: Int
 
+    /// What the room got through, not just the host. On a stream where the
+    /// point is that everyone brought their own task, this is the number the
+    /// run was actually about.
+    public let tally: AudienceTally
+
     public var isEmpty: Bool { blocks == 0 }
 
-    public init(blocks: Int, focusMinutes: Int, categories: [CategoryMinutes], goalsCompleted: Int, companions: Int) {
+    public init(blocks: Int,
+                focusMinutes: Int,
+                categories: [CategoryMinutes],
+                goalsCompleted: Int,
+                companions: Int,
+                tally: AudienceTally = AudienceTally()) {
+        self.tally = tally
         self.blocks = blocks
         self.focusMinutes = focusMinutes
         self.categories = categories
@@ -32,7 +43,10 @@ public struct StreamRecap: Equatable {
         self.companions = companions
     }
 
-    public static func make(from history: [SessionHistoryEntry], since: Date, companions: Int = 0) -> StreamRecap {
+    public static func make(from history: [SessionHistoryEntry],
+                            since: Date,
+                            companions: Int = 0,
+                            tally: AudienceTally = AudienceTally()) -> StreamRecap {
         let run = history.filter { $0.status == .completed && $0.startedAt >= since }
         let grouped = Dictionary(grouping: run) { $0.task?.category ?? "Uncategorized" }
         let categories = grouped
@@ -44,7 +58,8 @@ public struct StreamRecap: Equatable {
             focusMinutes: run.reduce(0) { $0 + $1.focusMinutes },
             categories: categories,
             goalsCompleted: run.filter { $0.checkIn?.outcome == .done }.count,
-            companions: companions
+            companions: companions,
+            tally: tally
         )
     }
 
@@ -68,6 +83,9 @@ public struct StreamRecap: Equatable {
         }
         if companions > 0 {
             lines.append("\(companions) \(companions == 1 ? "person" : "people") worked alongside")
+        }
+        if tally.completed > 0 {
+            lines.append("\(tally.completed) of \(tally.total) tasks finished between us")
         }
         return lines
     }

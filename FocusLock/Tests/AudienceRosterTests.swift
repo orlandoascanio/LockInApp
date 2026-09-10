@@ -208,6 +208,104 @@ final class AudienceRosterTests: XCTestCase {
         XCTAssertLessThanOrEqual(roster.admitted.count, AudienceRoster.maxTracked)
     }
 
+    // MARK: - Running out of room
+
+    func testAFullWallDropsFinishedRowsBeforeAnyoneStillWorking() {
+        var roster = AudienceRoster(autoApprove: true, now: now)
+        let finishers = (0..<120).map { "finisher\($0)" }
+        for name in finishers {
+            roster.submit(name: name, text: "an early task", now: now)
+            roster.markDone(name: name)
+        }
+        for index in 0..<150 {
+            roster.submit(name: "worker\(index)", text: "still going", now: now)
+        }
+
+        XCTAssertEqual(roster.admitted.count, AudienceRoster.maxTracked)
+        XCTAssertEqual(roster.admitted.filter { !$0.isDone }.count, 150,
+                       "nobody still working should be pushed off a wall they can see")
+        XCTAssertEqual(roster.tally.total, 270, "ageing rows off is not withdrawing them")
+        XCTAssertEqual(roster.tally.completed, 120)
+
+        // Oldest finished first: the ones that survived are the recent ones.
+        let survivingFinishers = roster.admitted.filter(\.isDone).map(\.name)
+        XCTAssertEqual(survivingFinishers, Array(finishers.suffix(survivingFinishers.count)))
+    }
+
+    func testAWallOfNothingButOpenTasksStillGivesWay() {
+        var roster = AudienceRoster(autoApprove: true, now: now)
+        for index in 0..<(AudienceRoster.maxTracked + 30) {
+            roster.submit(name: "worker\(index)", text: "task \(index)", now: now)
+        }
+        XCTAssertEqual(roster.admitted.count, AudienceRoster.maxTracked)
+        XCTAssertEqual(roster.admitted.first?.name, "worker30",
+                       "with nothing finished to drop, the oldest rows are what goes")
+    }
+
+    // MARK: - Surviving a quit
+
+    func testTheWallIsWrittenDownAndReadBackAsItWas() throws {
+        var roster = AudienceRoster(autoApprove: true, now: now)
+        roster.submit(name: "maya", text: "read chapter 3", now: now)
+        roster.markDone(name: "maya")
+        roster.submit(name: "maya", text: "and then the dishes", now: now.addingTimeInterval(600))
+        roster.submit(name: "tomas", text: "rewrite my CV", now: now.addingTimeInterval(60))
+        roster.autoApprove = false
+        roster.submit(name: "kit", text: "waiting to be shown", now: now.addingTimeInterval(120))
+        roster.block(name: "spammer")
+
+        let data = try JSONEncoder().encode(roster)
+        let restored = try JSONDecoder().decode(AudienceRoster.self, from: data)
+
+        XCTAssertEqual(restored.admitted, roster.admitted)
+        XCTAssertEqual(restored.held, roster.held)
+        XCTAssertEqual(restored.blocked, roster.blocked)
+        XCTAssertEqual(restored.tally, roster.tally)
+        XCTAssertEqual(restored.anchor, roster.anchor,
+                       "paging is measured from the anchor, so a restored wall must not jump pages")
+    }
+
+    func testStrikesSurviveARelaunchSoNobodyGetsAFreshStart() throws {
+        var roster = AudienceRoster(autoApprove: true, now: now)
+        roster.submit(name: "chancer", text: "visit example.com now", now: now)
+        XCTAssertTrue(roster.blocked.isEmpty, "one attempt is a warning, not a block")
+
+        let data = try JSONEncoder().encode(roster)
+        var restored = try JSONDecoder().decode(AudienceRoster.self, from: data)
+        restored.submit(name: "chancer", text: "and also example.net", now: now.addingTimeInterval(60))
+        XCTAssertTrue(restored.blocked.contains("chancer"),
+                      "a relaunch must not hand someone their strikes back")
+    }
+
+    func testTheSavedWallNeverOutranksTheHostsOwnSettings() throws {
+        var roster = AudienceRoster(autoApprove: true, now: now)
+        roster.blockedTerms = ["somethingstale"]
+
+        let data = try JSONEncoder().encode(roster)
+        let restored = try JSONDecoder().decode(AudienceRoster.self, from: data)
+        XCTAssertFalse(restored.autoApprove,
+                       "approval is the host's setting, read back from config, never from here")
+        XCTAssertEqual(restored.blockedTerms, AudienceFilter.defaultTerms,
+                       "a stale word list on disk must not outrank one the host has edited")
+    }
+
+    func testOnlyChangesWorthSavingCountAsChanges() {
+        var roster = filled(2)
+        var same = roster
+        same.autoApprove.toggle()
+        same.blockedTerms = ["anything"]
+        XCTAssertTrue(roster.matchesSavedState(of: same),
+                      "settings read back from config are not a reason to rewrite the wall")
+
+        var struck = roster
+        struck.submit(name: "chancer", text: "visit example.com", now: now)
+        XCTAssertFalse(roster.matchesSavedState(of: struck),
+                       "a strike changes nothing on screen and still has to be written down")
+
+        roster.markDone(name: "viewer0")
+        XCTAssertFalse(same.matchesSavedState(of: roster))
+    }
+
     // MARK: - What must never reach the broadcast
 
     func testLinksAreRefusedButOrdinaryDotsSurvive() {

@@ -44,7 +44,13 @@ final class MenuBarController: NSObject, ObservableObject {
     @Published var streamMessage: String?
 
     /// Everyone working alongside the host, from chat or by hand.
-    @Published var roster = AudienceRoster()
+    ///
+    /// Written down on every change: the UI mutates this directly — approving,
+    /// taking rows down, blocking — so catching it here is the only way to
+    /// catch all of it.
+    @Published var roster = AudienceRoster() {
+        didSet { persistStreamRun(ifChangedFrom: oldValue) }
+    }
 
     @Published private(set) var chatState: TwitchChatClient.State = .idle
 
@@ -64,7 +70,9 @@ final class MenuBarController: NSObject, ObservableObject {
     /// When the current run began. Kept after the run ends so the recap is
     /// still there when you go looking for it, and replaced only when the
     /// next run starts.
-    @Published private(set) var runStartedAt: Date?
+    @Published private(set) var runStartedAt: Date? {
+        didSet { if runStartedAt != oldValue { persistStreamRun() } }
+    }
 
     /// Which pane the sidebar is showing. Settings, History, and Analytics are
     /// panes rather than separate windows, so navigation lives here.
@@ -195,6 +203,12 @@ final class MenuBarController: NSObject, ObservableObject {
         self.exportService = exportService
         self.config = stateStore.loadConfig()
         self.history = historyStore.loadHistory()
+        // Before any observer can fire: restoring the wall must not read as a
+        // hundred separate changes worth writing back out again.
+        if let run = stateStore.loadStreamRun() {
+            self.runStartedAt = run.startedAt
+            self.roster = run.roster
+        }
         self.timerEngine = TimerEngine(
             stateStore: stateStore,
             historyStore: historyStore,
@@ -218,6 +232,8 @@ final class MenuBarController: NSObject, ObservableObject {
             }
         }
 
+        // Only now, so the restore above stays a read.
+        isRestored = true
         configureOverlayHandlers()
         configureBreakEndedHandlers()
         configureAutoResumeHandlers()
@@ -468,9 +484,19 @@ final class MenuBarController: NSObject, ObservableObject {
         NSWorkspace.shared.activateFileViewerSelecting([blockedWordsURL])
     }
 
+    /// False only during `init`, while the saved run is being read back in.
+    private var isRestored = false
+
+    private func persistStreamRun(ifChangedFrom previous: AudienceRoster? = nil) {
+        guard isRestored, let runStartedAt else { return }
+        if let previous, previous.matchesSavedState(of: roster) { return }
+        try? stateStore.saveStreamRun(StreamRunState(startedAt: runStartedAt, roster: roster))
+    }
+
     var streamRecap: StreamRecap {
         guard let runStartedAt else { return StreamRecap.make(from: [], since: .distantFuture) }
-        return StreamRecap.make(from: history, since: runStartedAt, companions: roster.admitted.count)
+        return StreamRecap.make(from: history, since: runStartedAt,
+                                companions: roster.peopleCount, tally: roster.tally)
     }
 
     func copyRecap() {
@@ -583,8 +609,10 @@ final class MenuBarController: NSObject, ObservableObject {
         streamMessage = nil
         let cycle = snapshot.phase == .breakEnded ? snapshot.currentCycle + 1 : 1
         if cycle == 1 {
-            runStartedAt = Date()
+            // The wall belongs to one run, so a new one starts on an empty
+            // wall. Blocks are not tasks and survive it, here and on disk.
             roster.clear()
+            runStartedAt = Date()
         }
         breakEndedOverlay.dismiss()
         autoResumeOverlay.dismiss()

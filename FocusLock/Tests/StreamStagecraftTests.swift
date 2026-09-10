@@ -124,6 +124,72 @@ final class StreamStagecraftTests: XCTestCase {
         XCTAssertTrue(deep.matches(config))
     }
 
+    // MARK: - Surviving a quit
+
+    func testAStreamRunSurvivesAQuitWithItsWallAndItsStartTime() throws {
+        let store = StateStore(baseDirectory: try temporaryDirectory())
+        XCTAssertNil(store.loadStreamRun(), "nothing has run yet")
+
+        let startedAt = Date(timeIntervalSince1970: 1_700_000_000)
+        var roster = AudienceRoster(autoApprove: true, now: startedAt)
+        roster.submit(name: "maya", text: "read chapter 3", now: startedAt)
+        roster.markDone(name: "maya")
+        roster.submit(name: "tomas", text: "rewrite my CV", now: startedAt)
+
+        try store.saveStreamRun(StreamRunState(startedAt: startedAt, roster: roster))
+
+        let restored = try XCTUnwrap(store.loadStreamRun())
+        XCTAssertEqual(restored.startedAt, startedAt,
+                       "without this the recap has no run to measure and comes back empty")
+        XCTAssertEqual(restored.roster.admitted.map(\.text), ["read chapter 3", "rewrite my CV"])
+        XCTAssertEqual(restored.roster.tally.label, "1/2")
+    }
+
+    func testAHalfWrittenRunIsKeptAsideRatherThanCrashingTheApp() throws {
+        let directory = try temporaryDirectory()
+        let store = StateStore(baseDirectory: directory)
+        try store.prepareDirectory()
+        try Data("{ not json at all".utf8).write(to: store.streamRunURL)
+
+        XCTAssertNil(store.loadStreamRun())
+        let kept = try FileManager.default.contentsOfDirectory(atPath: directory.path)
+            .filter { $0.hasPrefix("stream-run.json.invalid-") }
+        XCTAssertEqual(kept.count, 1, "the only record of an hour's work is worth a copy")
+    }
+
+    func testAnEmptyRunFileStillYieldsAUsableRun() throws {
+        let store = StateStore(baseDirectory: try temporaryDirectory())
+        try store.prepareDirectory()
+        try Data("{}".utf8).write(to: store.streamRunURL)
+
+        let restored = try XCTUnwrap(store.loadStreamRun())
+        XCTAssertTrue(restored.roster.isEmpty)
+        XCTAssertTrue(restored.roster.tally.isEmpty)
+    }
+
+    // MARK: - Recap
+
+    func testTheRecapCarriesWhatTheRoomGotThroughNotJustTheHost() {
+        var roster = AudienceRoster(autoApprove: true, now: .distantPast)
+        for index in 0..<5 {
+            roster.submit(name: "viewer\(index)", text: "task \(index)", now: .distantPast)
+        }
+        roster.markDone(name: "viewer0")
+        roster.markDone(name: "viewer1")
+
+        let recap = StreamRecap(blocks: 3, focusMinutes: 150, categories: [], goalsCompleted: 1,
+                                companions: roster.peopleCount, tally: roster.tally)
+        XCTAssertTrue(recap.detailLines.contains("2 of 5 tasks finished between us"))
+        XCTAssertTrue(recap.text.contains("2 of 5 tasks finished between us"),
+                      "the copied recap is the one that gets posted, so it needs the number too")
+    }
+
+    func testARecapWithNothingFinishedDoesNotAdvertiseAZero() {
+        let recap = StreamRecap(blocks: 2, focusMinutes: 100, categories: [], goalsCompleted: 0,
+                                companions: 4, tally: AudienceTally())
+        XCTAssertFalse(recap.detailLines.contains { $0.contains("tasks finished") })
+    }
+
     func testGuardedAppsThatWouldBreakTheStreamAreFlagged() {
         let apps = [
             BlockedApp(name: "OBS", bundleId: "com.obsproject.obs-studio"),

@@ -50,7 +50,7 @@ public struct RosterPage: Equatable {
 /// The wall pages, and old rows fall off the end of a long session, so the
 /// rows on screen are always a slice. The tally is the part that lets an hour
 /// of work look like an hour of work.
-public struct AudienceTally: Equatable {
+public struct AudienceTally: Codable, Equatable {
     public private(set) var completed = 0
     public private(set) var total = 0
 
@@ -78,7 +78,7 @@ public struct AudienceTally: Equatable {
 }
 
 /// One viewer's task, as it appears on the audience window.
-public struct AudienceTask: Identifiable, Equatable {
+public struct AudienceTask: Codable, Identifiable, Equatable {
     public let id: UUID
     public let name: String
     public var text: String
@@ -195,6 +195,20 @@ public struct AudienceRoster: Equatable {
     }
 
     public var isEmpty: Bool { admitted.isEmpty }
+
+    /// Whether these two would be written to disk identically.
+    ///
+    /// Not `==`, which also compares the settings that are deliberately never
+    /// saved — approval and the word list. Toggling either is not a reason to
+    /// rewrite the wall, and a strike nobody can see still is.
+    public func matchesSavedState(of other: AudienceRoster) -> Bool {
+        admitted == other.admitted
+            && held == other.held
+            && blocked == other.blocked
+            && tally == other.tally
+            && anchor == other.anchor
+            && strikes == other.strikes
+    }
 
     /// Rows are tasks, not people — someone on their third task is still one
     /// person working alongside you. Anything that says "people" counts these.
@@ -361,11 +375,35 @@ public struct AudienceRoster: Equatable {
     private mutating func admit(_ task: AudienceTask) {
         admitted.append(task)
         tally.posted()
-        // Ageing the oldest rows off a very long wall is the wall running out
-        // of room, not those tasks being withdrawn, so the count keeps them.
-        if admitted.count > Self.maxTracked {
-            admitted.removeFirst(admitted.count - Self.maxTracked)
+        makeRoom()
+    }
+
+    /// A long stream fills the wall, and something has to go. Finished rows go
+    /// first, oldest first: a crossed-off task has had its moment and its
+    /// number is safe in the count, while dropping someone's open task takes a
+    /// person who is still working off a wall they can see. Only once the
+    /// finished ones are gone does anything else move.
+    ///
+    /// Ageing rows off is the wall running out of room, not those tasks being
+    /// withdrawn, so none of this touches the count.
+    private mutating func makeRoom() {
+        guard admitted.count > Self.maxTracked else { return }
+
+        var excess = admitted.count - Self.maxTracked
+        var kept: [AudienceTask] = []
+        kept.reserveCapacity(admitted.count)
+        for task in admitted {
+            if excess > 0, task.isDone {
+                excess -= 1
+            } else {
+                kept.append(task)
+            }
         }
+        // Everyone still working, and still too many: the oldest give way.
+        if excess > 0 {
+            kept.removeFirst(min(excess, kept.count))
+        }
+        admitted = kept
     }
 
     /// When someone posts their second task, they have been here since their
@@ -409,5 +447,40 @@ public struct AudienceRoster: Equatable {
             let suffix = host[host.index(after: dot)...].filter { $0.isLetter }
             return !suffix.isEmpty && linkTLDs.contains(String(suffix))
         }
+    }
+}
+
+/// The wall is written down between launches, so quitting mid-stream does not
+/// cost you an hour of crossed-off work. What is saved is what a stranger's
+/// words earned: the rows, the queue, the count, and who has been blocked or
+/// is one attempt away from it.
+///
+/// What is deliberately not saved is anything the app already knows on its own
+/// — whether approval is automatic, and the blocked-word list. Both are read
+/// back from config and from `blocked-words.txt` at launch, and a stale copy
+/// here would quietly outrank a list the host had edited in the meantime.
+extension AudienceRoster: Codable {
+    private enum CodingKeys: String, CodingKey {
+        case admitted, held, blocked, tally, anchor, strikes
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.init(now: try container.decodeIfPresent(Date.self, forKey: .anchor) ?? Date())
+        admitted = try container.decodeIfPresent([AudienceTask].self, forKey: .admitted) ?? []
+        held = try container.decodeIfPresent([AudienceTask].self, forKey: .held) ?? []
+        blocked = try container.decodeIfPresent(Set<String>.self, forKey: .blocked) ?? []
+        tally = try container.decodeIfPresent(AudienceTally.self, forKey: .tally) ?? AudienceTally()
+        strikes = try container.decodeIfPresent([String: Int].self, forKey: .strikes) ?? [:]
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(admitted, forKey: .admitted)
+        try container.encode(held, forKey: .held)
+        try container.encode(blocked, forKey: .blocked)
+        try container.encode(tally, forKey: .tally)
+        try container.encode(anchor, forKey: .anchor)
+        try container.encode(strikes, forKey: .strikes)
     }
 }
