@@ -229,7 +229,8 @@ final class AudienceRosterTests: XCTestCase {
 
     func testElapsedLabelReadsAsTimeSpentNotNoise() {
         let task = AudienceTask(name: "maya", text: "reading", joinedAt: now)
-        XCTAssertNil(task.elapsedLabel(at: now.addingTimeInterval(30)), "under a minute should show nothing")
+        XCTAssertEqual(task.elapsedLabel(at: now.addingTimeInterval(30)), "now",
+                       "someone who just arrived should not look like a forgotten row")
         XCTAssertEqual(task.elapsedLabel(at: now.addingTimeInterval(60)), "1m")
         XCTAssertEqual(task.elapsedLabel(at: now.addingTimeInterval(34 * 60)), "34m")
         XCTAssertEqual(task.elapsedLabel(at: now.addingTimeInterval(60 * 60)), "1h")

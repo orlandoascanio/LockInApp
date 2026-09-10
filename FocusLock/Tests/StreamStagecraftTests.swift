@@ -128,6 +128,12 @@ final class StreamStagecraftTests: XCTestCase {
         XCTAssertTrue(recap.text.contains("2 goals finished"))
         XCTAssertTrue(recap.text.contains("7 people worked alongside"))
         XCTAssertFalse(recap.text.contains("Study"))
+
+        // The end card sizes the headline and the detail differently, so it
+        // needs them apart rather than as one block of text.
+        XCTAssertEqual(recap.detailLines,
+                       ["Coding 1h 40m · Writing 25m", "2 goals finished", "7 people worked alongside"])
+        XCTAssertEqual(([recap.headline] + recap.detailLines).joined(separator: "\n"), recap.text)
     }
 
     func testRecapIsEmptyBeforeAnythingIsFinished() {
@@ -142,6 +148,7 @@ final class StreamStagecraftTests: XCTestCase {
         ], since: Date(timeIntervalSince1970: 0))
         XCTAssertEqual(one.headline, "1 block · 25m · Reading")
         XCTAssertEqual(one.text, "1 block · 25m · Reading")
+        XCTAssertTrue(one.detailLines.isEmpty, "a lone category should not repeat under itself")
     }
 
     func testPlannedBlocksStayInRangeWhenDecoded() throws {

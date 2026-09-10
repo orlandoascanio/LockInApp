@@ -56,10 +56,10 @@ public struct StreamRecap: Equatable {
         return parts.joined(separator: " · ")
     }
 
-    /// Plain text on purpose — it goes to a clipboard and from there into a
-    /// chat box, a post, or a note, none of which want markup.
-    public var text: String {
-        var lines = [headline]
+    /// Everything under the headline, for a surface that wants to size the two
+    /// differently rather than print one block of text.
+    public var detailLines: [String] {
+        var lines: [String] = []
         if categories.count > 1 {
             lines.append(categories.map { "\($0.name) \(Self.duration($0.minutes))" }.joined(separator: " · "))
         }
@@ -69,6 +69,14 @@ public struct StreamRecap: Equatable {
         if companions > 0 {
             lines.append("\(companions) \(companions == 1 ? "person" : "people") worked alongside")
         }
+        return lines
+    }
+
+    /// Plain text on purpose — it goes to a clipboard and from there into a
+    /// chat box, a post, or a note, none of which want markup.
+    public var text: String {
+        var lines = [headline]
+        lines.append(contentsOf: detailLines)
         return lines.joined(separator: "\n")
     }
 

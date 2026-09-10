@@ -60,11 +60,12 @@ public struct AudienceTask: Identifiable, Equatable {
         self.isDone = isDone
     }
 
-    /// How long they have been working alongside you. Nil under a minute,
-    /// because "0m" beside someone's name reads as a mistake.
-    public func elapsedLabel(at date: Date) -> String? {
+    /// How long they have been working alongside you. Under a minute reads as
+    /// "now": showing nothing at all made someone who had just arrived look
+    /// like a row the clock had forgotten, and "0m" reads as a stalled one.
+    public func elapsedLabel(at date: Date) -> String {
         let minutes = Int(date.timeIntervalSince(joinedAt) / 60)
-        guard minutes >= 1 else { return nil }
+        guard minutes >= 1 else { return "now" }
         guard minutes >= 60 else { return "\(minutes)m" }
         let hours = minutes / 60
         let remainder = minutes % 60

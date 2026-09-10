@@ -27,6 +27,50 @@ struct StreamAudienceView: View {
         return "Back at \(endsAt.formatted(date: .omitted, time: .shortened))"
     }
 
+    /// Rotates only while focusing. During a break the footer already carries
+    /// its own check-in copy, and someone arriving then still needs the plain
+    /// instruction rather than a rotation.
+    private var tickerLine: String {
+        guard controller.snapshot.phase == .focus else { return AudiencePrompts.primary }
+        let remaining = controller.snapshot.remainingSeconds
+        let elapsed = Double(controller.snapshot.focusMinutes * 60) - remaining
+        return AudiencePrompts.line(remaining: remaining,
+                                    elapsed: elapsed,
+                                    hasCompany: !controller.roster.isEmpty) ?? ""
+    }
+
+    /// A run that has ended has no countdown worth showing — "00:00" is not a
+    /// goodbye. The recap takes that space instead, and the wall stays up, so
+    /// the last thing on screen is what everyone did rather than a dead clock.
+    private var finishedRecap: StreamRecap? {
+        switch controller.snapshot.phase {
+        case .completed, .cancelled:
+            let recap = controller.streamRecap
+            return recap.isEmpty ? nil : recap
+        default:
+            return nil
+        }
+    }
+
+    private func recapCard(_ recap: StreamRecap, compact: Bool) -> some View {
+        VStack(spacing: compact ? 8 : 12) {
+            Text(recap.headline)
+                .font(.system(size: compact ? 32 : 44, weight: .light, design: .serif))
+                .monospacedDigit()
+                .multilineTextAlignment(.center)
+                .lineLimit(2)
+                .minimumScaleFactor(0.6)
+
+            ForEach(recap.detailLines, id: \.self) { detail in
+                Text(detail)
+                    .font(.system(size: compact ? 13 : 15))
+                    .foregroundStyle(ink.opacity(0.72))
+                    .multilineTextAlignment(.center)
+            }
+        }
+        .padding(.vertical, compact ? 6 : 12)
+    }
+
     private var countdown: String {
         switch controller.snapshot.phase {
         case .idle: return controller.displayCountdown
@@ -82,26 +126,27 @@ struct StreamAudienceView: View {
             .foregroundStyle(accent)
 
             ForEach(page.tasks) { task in
-                HStack(alignment: .firstTextBaseline, spacing: 6) {
-                    Text(task.name)
-                        .font(.system(size: compact ? 12 : 13, weight: .medium))
-                        .foregroundStyle(accent)
-                        .lineLimit(1)
+                VStack(alignment: .leading, spacing: 1) {
+                    HStack(alignment: .firstTextBaseline, spacing: 6) {
+                        Text(task.name)
+                            .font(.system(size: compact ? 12 : 13, weight: .medium))
+                            .foregroundStyle(accent)
+                            .lineLimit(1)
+                        Text(task.elapsedLabel(at: date))
+                            .font(.system(size: compact ? 10 : 11, design: .monospaced))
+                            .foregroundStyle(ink.opacity(0.45))
+                            .monospacedDigit()
+                        if task.isDone {
+                            Text("✓").foregroundStyle(accent).font(.system(size: 11))
+                        }
+                        Spacer(minLength: 0)
+                    }
                     Text(task.text)
                         .font(.system(size: compact ? 12 : 13))
                         .foregroundStyle(ink.opacity(task.isDone ? 0.45 : 0.85))
                         .strikethrough(task.isDone, color: ink.opacity(0.45))
                         .lineLimit(2)
-                    if task.isDone {
-                        Text("✓").foregroundStyle(accent).font(.system(size: 11))
-                    }
-                    Spacer(minLength: 4)
-                    if let elapsed = task.elapsedLabel(at: date) {
-                        Text(elapsed)
-                            .font(.system(size: compact ? 10 : 11, design: .monospaced))
-                            .foregroundStyle(ink.opacity(0.45))
-                            .monospacedDigit()
-                    }
+                        .fixedSize(horizontal: false, vertical: true)
                 }
             }
 
@@ -146,22 +191,26 @@ struct StreamAudienceView: View {
                     }
                 }
 
-                VStack(spacing: 4) {
-                    Text(countdown)
-                        .font(.system(size: compact ? 86 : 116, weight: .light, design: .monospaced))
-                        .monospacedDigit()
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.5)
-                        .accessibilityLabel("\(countdown) remaining")
+                if let finishedRecap {
+                    recapCard(finishedRecap, compact: compact)
+                } else {
+                    VStack(spacing: 4) {
+                        Text(countdown)
+                            .font(.system(size: compact ? 86 : 116, weight: .light, design: .monospaced))
+                            .monospacedDigit()
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.5)
+                            .accessibilityLabel("\(countdown) remaining")
 
-                    if let returnLine {
-                        Text(returnLine)
-                            .font(.system(size: compact ? 13 : 15, weight: .medium))
-                            .foregroundStyle(accent)
+                        if let returnLine {
+                            Text(returnLine)
+                                .font(.system(size: compact ? 13 : 15, weight: .medium))
+                                .foregroundStyle(accent)
+                        }
                     }
                 }
 
-                if controller.config.stream.showGoal && !controller.streamTask.goal.isEmpty {
+                if finishedRecap == nil, controller.config.stream.showGoal, !controller.streamTask.goal.isEmpty {
                     VStack(spacing: 6) {
                         Text("MY GOAL").font(.system(size: 10, weight: .semibold, design: .monospaced)).foregroundStyle(accent)
                         Text(controller.streamTask.goal)
@@ -180,10 +229,14 @@ struct StreamAudienceView: View {
                         .font(.system(size: compact ? 14 : 16))
                         .multilineTextAlignment(.center)
                         .fixedSize(horizontal: false, vertical: true)
-                    Text("Type \(AudienceCommand.advertised) what you're working on — you'll appear on the wall")
+                    // Rendered even when silent, so the footer keeps its
+                    // height and the layout does not jump on a broadcast.
+                    Text(tickerLine.isEmpty ? AudiencePrompts.primary : tickerLine)
                         .font(.system(size: compact ? 11 : 12, weight: .medium, design: .monospaced))
                         .foregroundStyle(accent)
                         .multilineTextAlignment(.center)
+                        .opacity(tickerLine.isEmpty ? 0 : 1)
+                        .animation(.easeInOut(duration: 0.45), value: tickerLine)
 
                     Text("Different tasks. A little company. One shared timer.")
                         .font(.system(size: 11))
