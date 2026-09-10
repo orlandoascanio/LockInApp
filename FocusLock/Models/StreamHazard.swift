@@ -1,21 +1,19 @@
 import Foundation
 
-/// An app you are guarding that your own stream depends on.
+/// An app you are guarding that your own broadcast depends on.
 ///
-/// Guarding OBS mid-session takes the broadcast down; guarding the browser
-/// takes chat away; guarding the music app takes the soundtrack with it. The
-/// README asks you to remember. This checks instead.
+/// Only broadcast software qualifies. Browsers, Discord, and music players
+/// were flagged here at first, and that was wrong: guarding those during a
+/// focus block is what LockIn is for. A warning that fires on the app's own
+/// purpose is one you learn to scroll past, and then it is not there when OBS
+/// really is about to be shut mid-stream.
 public struct StreamHazard: Identifiable, Equatable {
     public enum Role: String, Equatable {
         case broadcast
-        case chat
-        case music
 
         public var consequence: String {
             switch self {
-            case .broadcast: return "guarding this takes your broadcast down mid-session"
-            case .chat: return "guarding this means you cannot see chat during breaks"
-            case .music: return "guarding this stops your session soundtrack"
+            case .broadcast: return "guarding this takes your broadcast down mid-stream"
             }
         }
     }
@@ -36,15 +34,7 @@ public struct StreamHazard: Identifiable, Equatable {
         ("streamlabs", .broadcast),
         ("twitch.studio", .broadcast),
         ("restream", .broadcast),
-        ("com.apple.safari", .chat),
-        ("com.google.chrome", .chat),
-        ("org.mozilla.firefox", .chat),
-        ("thebrowser.browser", .chat),
-        ("microsoft.edgemac", .chat),
-        ("brave.browser", .chat),
-        ("hnc.discord", .chat),
-        ("com.apple.music", .music),
-        ("spotify.client", .music)
+        ("ecamm.live", .broadcast)
     ]
 
     /// Only apps actually being guarded right now — an entry toggled off is

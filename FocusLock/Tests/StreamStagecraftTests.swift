@@ -60,20 +60,26 @@ final class StreamStagecraftTests: XCTestCase {
     func testGuardedAppsThatWouldBreakTheStreamAreFlagged() {
         let apps = [
             BlockedApp(name: "OBS", bundleId: "com.obsproject.obs-studio"),
+            BlockedApp(name: "Streamlabs", bundleId: "com.streamlabs.slobs"),
             BlockedApp(name: "Chrome", bundleId: "com.google.Chrome"),
+            BlockedApp(name: "Discord", bundleId: "com.hnc.Discord"),
             BlockedApp(name: "Spotify", bundleId: "com.spotify.client"),
             BlockedApp(name: "Slack", bundleId: "com.tinyspeck.slackmacgap"),
-            BlockedApp(name: "Firefox", bundleId: "org.mozilla.firefox", isEnabled: false)
+            BlockedApp(name: "OBS spare", bundleId: "com.obsproject.obs-studio2", isEnabled: false)
         ]
 
         let hazards = StreamHazard.hazards(in: apps)
-        XCTAssertEqual(hazards.map(\.app.name), ["OBS", "Chrome", "Spotify"])
-        XCTAssertEqual(hazards.map(\.role), [.broadcast, .chat, .music])
+        XCTAssertEqual(hazards.map(\.app.name), ["OBS", "Streamlabs"])
+        XCTAssertEqual(hazards.map(\.role), [.broadcast, .broadcast])
 
-        // Slack is not a streaming dependency, and a disabled entry is already
-        // harmless — warning about either would train the host to ignore this.
-        XCTAssertFalse(hazards.contains { $0.app.name == "Slack" })
-        XCTAssertFalse(hazards.contains { $0.app.name == "Firefox" })
+        // Guarding a browser, Discord, or a music player during a focus block
+        // is what this app is for. Warning about them would teach the host to
+        // scroll past the one warning that matters.
+        for ordinary in ["Chrome", "Discord", "Spotify", "Slack"] {
+            XCTAssertFalse(hazards.contains { $0.app.name == ordinary }, ordinary)
+        }
+        // An entry toggled off is already harmless.
+        XCTAssertFalse(hazards.contains { $0.app.name == "OBS spare" })
         XCTAssertTrue(StreamHazard.hazards(in: []).isEmpty)
     }
 
