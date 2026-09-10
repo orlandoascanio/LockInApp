@@ -39,13 +39,15 @@ struct SessionHistoryView: View {
                 )
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else {
-                HStack {
+                HStack(spacing: 10) {
                     Picker("Category", selection: $selectedCategory) {
                         Text("All categories").tag("")
                         ForEach(categories, id: \.self) {
                             Text($0).tag($0)
                         }
-                    }.frame(maxWidth: 300)
+                    }
+                    .labelsHidden()
+                    .frame(maxWidth: 240)
                     Spacer()
                 }.padding(.horizontal, 26).padding(.bottom, 16)
                 summaryRow

@@ -4,6 +4,32 @@ import SwiftUI
 struct StreamSetupView: View {
     @EnvironmentObject private var controller: MenuBarController
     @State private var newCategory = ""
+    @State private var isNamingCategory = false
+    @FocusState private var categoryFieldFocused: Bool
+
+    /// A type rather than a sentinel string: any reserved string is either
+    /// something a host could type themselves or, as with a NUL, something
+    /// that does not survive the trip through AppKit's menus intact.
+    private enum CategoryChoice: Hashable {
+        case existing(String)
+        case new
+    }
+
+    private var categorySelection: Binding<CategoryChoice> {
+        Binding(
+            get: { isNamingCategory ? .new : .existing(controller.config.stream.category) },
+            set: { choice in
+                switch choice {
+                case .new:
+                    isNamingCategory = true
+                case .existing(let name):
+                    isNamingCategory = false
+                    guard !name.isEmpty else { return }
+                    controller.updateStream { $0.category = name }
+                }
+            }
+        )
+    }
     @State private var guestName = ""
     @State private var guestTask = ""
 
@@ -26,17 +52,11 @@ struct StreamSetupView: View {
                         .fixedSize(horizontal: false, vertical: true)
                 }
 
-                hazardWarning
+                hostingToggle
                 presetRow
-
-                HStack {
-                    Button("Open stream window") { controller.openStreamWindow() }
-                        .buttonStyle(FLActionButtonStyle(variant: .primary))
-                    Spacer()
-                    Toggle("Dark canvas", isOn: setting(\.darkAppearance)).toggleStyle(.switch)
-                }
-
+                taskSetup
                 timerControls
+
                 if let entry = controller.checkInEntry {
                     StreamCheckInView(entry: entry).id(entry.id)
                 }
@@ -44,26 +64,20 @@ struct StreamSetupView: View {
                 if let message = controller.streamMessage {
                     Text(message).font(.caption).foregroundStyle(Color.flInkSoft)
                 }
-                FLRule()
-                taskSetup
-                FLRule()
-                audienceWall
-                FLRule()
-                stagecraft
-                FLRule()
 
-                DisclosureGroup("Audience preview & capture setup") {
-                    VStack(alignment: .leading, spacing: 12) {
-                        StreamAudienceView()
-                            .environmentObject(controller)
-                            .frame(height: 370)
-                            .clipShape(RoundedRectangle(cornerRadius: 12))
-                            .accessibilityLabel("Audience preview")
-                        Text("In OBS, add a macOS Screen Capture source and select the LockIn Stream window. LockIn supplies the timer and prompts; start your broadcast in OBS.")
-                            .font(.caption).foregroundStyle(Color.flInkSoft)
-                            .fixedSize(horizontal: false, vertical: true)
-                    }.padding(.top, 12)
+                // Nothing below here means anything unless you are hosting, and
+                // a page of controls that do not apply is a page you learn to
+                // scroll past.
+                if isHosting {
+                    FLRule()
+                    hazardWarning
+                    streamStage
+                    FLRule()
+                    audienceWall
+                    FLRule()
+                    streamSetupDisclosure
                 }
+
                 FLRule()
                 categorySummary
             }
@@ -74,32 +88,118 @@ struct StreamSetupView: View {
         .foregroundStyle(Color.flInk)
     }
 
+    /// True while hosting, and while a hosted run is still going — turning the
+    /// toggle off mid-run must not pull the controls out from under the host.
+    private var isHosting: Bool {
+        controller.config.stream.enabled || controller.snapshot.task?.shared == true
+    }
+
+    private var hostingToggle: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Toggle("Host a shared session", isOn: setting(\.enabled))
+                .toggleStyle(.switch).tint(Color.flAccentDeep)
+                .disabled(controller.isSessionActive || controller.snapshot.phase == .breakEnded)
+            Text("Off, this is a plain focus timer. On, it opens the stream window, the wall, and everything else you need to host — and waits for you after each break so there is time to check in with chat.")
+                .font(.caption).foregroundStyle(Color.flInkSoft)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+    }
+
+    private var streamStage: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            FLMicroLabel(text: "The window your viewers see")
+            HStack {
+                Button("Open stream window") { controller.openStreamWindow() }
+                    .buttonStyle(FLActionButtonStyle(variant: .primary))
+                Spacer()
+                Toggle("Dark canvas", isOn: setting(\.darkAppearance)).toggleStyle(.switch).tint(Color.flAccentDeep)
+            }
+            HStack(spacing: 10) {
+                Text("How many blocks today").font(.callout).foregroundStyle(Color.flInkSoft)
+                Text("\(controller.config.stream.plannedBlocks)")
+                    .font(.callout).monospacedDigit()
+                Stepper("How many blocks today", value: setting(\.plannedBlocks), in: 1...12)
+                    .labelsHidden()
+                Spacer()
+            }
+            .disabled(controller.isSessionActive)
+            Text("Appears on the stream window as \"Block 2 of 4\" while you run, so someone arriving can tell whether it is worth settling in.")
+                .font(.caption).foregroundStyle(Color.flInkSoft)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+    }
+
+    private var streamSetupDisclosure: some View {
+        DisclosureGroup("Capture setup, preview, and music") {
+            VStack(alignment: .leading, spacing: 12) {
+                StreamAudienceView()
+                    .environmentObject(controller)
+                    .frame(height: 370)
+                    .clipShape(RoundedRectangle(cornerRadius: 12))
+                    .accessibilityLabel("Audience preview")
+                Text("In OBS, add a macOS Screen Capture source and select the LockIn Stream window. LockIn supplies the timer and prompts; start your broadcast in OBS.")
+                    .font(.caption).foregroundStyle(Color.flInkSoft)
+                    .fixedSize(horizontal: false, vertical: true)
+
+                Text("Session music").font(.headline)
+                HStack {
+                    TextField("Playlist link — Spotify, Apple Music, YouTube", text: setting(\.playlistURL))
+                        .flField()
+                    Button("Open playlist") { controller.openPlaylist() }
+                        .disabled(controller.config.stream.playlistDestination == nil)
+                }
+                Text("LockIn opens the link and nothing else — it never plays or rebroadcasts audio, and your music app stays out of the capture. Check your platform's music rules first: most commercial tracks are not cleared for streaming, and DMCA-safe libraries exist for exactly this.")
+                    .font(.caption).foregroundStyle(Color.flInkSoft)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            .padding(.top, 12)
+        }
+    }
+
     private var taskSetup: some View {
         VStack(alignment: .leading, spacing: 14) {
-            Toggle("Host a shared session", isOn: setting(\.enabled))
-                .disabled(controller.isSessionActive || controller.snapshot.phase == .breakEnded)
-            Text("Shared sessions wait for you after the break, leaving time to check in with chat.")
-                .font(.caption).foregroundStyle(Color.flInkSoft)
             Text(controller.isSessionActive ? "Your next goal" : "Your goal").font(.headline)
             TextField("One thing to move forward, e.g. finish my portfolio intro", text: Binding(
                 get: { controller.config.stream.goal },
                 set: { value in controller.updateStream { $0.goal = String(value.prefix(160)) } }
             ))
-            .textFieldStyle(.roundedBorder)
-            Toggle("Show my goal on stream", isOn: setting(\.showGoal))
-            HStack {
-                Picker("Category", selection: setting(\.category)) {
-                    ForEach(controller.config.stream.categories, id: \.self) { Text($0).tag($0) }
+            .flField()
+            if isHosting {
+                Toggle("Show my goal on stream", isOn: setting(\.showGoal)).toggleStyle(.switch).tint(Color.flAccentDeep)
+            }
+
+            HStack(spacing: 10) {
+                Text("Category").font(.callout).foregroundStyle(Color.flInkSoft)
+                Picker("Category", selection: categorySelection) {
+                    ForEach(controller.config.stream.categories, id: \.self) {
+                        Text($0).tag(CategoryChoice.existing($0))
+                    }
+                    Divider()
+                    Text("New category…").tag(CategoryChoice.new)
                 }
-                .frame(maxWidth: 270)
+                .labelsHidden()
+                .frame(maxWidth: 220)
                 Spacer()
             }
-            HStack {
-                TextField("New category", text: $newCategory)
-                    .textFieldStyle(.roundedBorder)
-                    .onSubmit(addCategory)
-                Button("Add category", action: addCategory)
-                    .disabled(newCategory.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+
+            // The field only exists while you are actually naming one, rather
+            // than sitting on the page forever for the once-a-month occasion.
+            if isNamingCategory {
+                HStack {
+                    TextField("Name it", text: $newCategory)
+                        .flField()
+                        .focused($categoryFieldFocused)
+                        .onSubmit(addCategory)
+                        .frame(maxWidth: 270)
+                        .onAppear { categoryFieldFocused = true }
+                    Button("Add", action: addCategory)
+                        .disabled(newCategory.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                    Button("Cancel") {
+                        newCategory = ""
+                        isNamingCategory = false
+                    }
+                    Spacer()
+                }
             }
             if controller.isSessionActive {
                 Text("Goal and category changes apply to the next block. The audience keeps seeing this block's goal.")
@@ -160,8 +260,6 @@ struct StreamSetupView: View {
                 }
                 .padding(.vertical, 2)
             }
-            Text("Presets set durations, category, and the line the audience sees. Your goal is left alone.")
-                .font(.caption).foregroundStyle(Color.flInkSoft)
         }
     }
 
@@ -193,7 +291,7 @@ struct StreamSetupView: View {
             HStack {
                 FLMicroLabel(text: "The wall · \(controller.roster.admitted.count) working alongside")
                 Spacer()
-                Toggle("Show on stream", isOn: setting(\.showRoster)).toggleStyle(.switch)
+                Toggle("Show on stream", isOn: setting(\.showRoster)).toggleStyle(.switch).tint(Color.flAccentDeep)
             }
             Text("Everyone who joins gets their name up. Once there are more people than fit, the wall turns pages on its own so nobody sits unseen.")
                 .font(.caption).foregroundStyle(Color.flInkSoft)
@@ -203,6 +301,7 @@ struct StreamSetupView: View {
                 get: { controller.config.stream.autoApproveTasks },
                 set: controller.setAudienceAutoApprove
             ))
+            .toggleStyle(.switch).tint(Color.flAccentDeep)
             Text("Leave this off unless chat is moving faster than you can read. Whatever appears on the wall is on your broadcast, under your name.")
                 .font(.caption).foregroundStyle(Color.flInkSoft)
                 .fixedSize(horizontal: false, vertical: true)
@@ -210,7 +309,9 @@ struct StreamSetupView: View {
             Text("Tell me when someone is waiting").font(.headline)
             HStack(spacing: 20) {
                 Toggle("Play a sound", isOn: setting(\.alertSound))
+                    .toggleStyle(.switch).tint(Color.flAccentDeep)
                 Toggle("Show a notification", isOn: setting(\.alertBanner))
+                    .toggleStyle(.switch).tint(Color.flAccentDeep)
                 Spacer()
             }
             Text("The Stream tab always shows a count and the menu bar shows a dot, silently. These two can reach the broadcast, which is why they are off to begin with: a sound goes out if OBS is capturing desktop audio, and a banner is drawn on screen if you capture a display rather than a window. The notification never contains anyone's words — only how many are waiting. Arrivals are grouped, so a rush is one interruption rather than twenty.")
@@ -237,9 +338,9 @@ struct StreamSetupView: View {
 
             HStack {
                 TextField("Name", text: $guestName)
-                    .textFieldStyle(.roundedBorder).frame(maxWidth: 150)
+                    .flField().frame(maxWidth: 150)
                 TextField("What they're working on", text: $guestTask)
-                    .textFieldStyle(.roundedBorder)
+                    .flField()
                     .onSubmit(addGuest)
                 Button("Add", action: addGuest)
                     .disabled(guestName.trimmingCharacters(in: .whitespaces).isEmpty
@@ -284,39 +385,23 @@ struct StreamSetupView: View {
         guestTask = ""
     }
 
-    private var stagecraft: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            Stepper("Blocks planned: \(controller.config.stream.plannedBlocks)",
-                    value: setting(\.plannedBlocks), in: 1...12)
-                .frame(maxWidth: 270)
-                .disabled(controller.isSessionActive)
-            Text("The audience sees this as \"Block 2 of 4\", so people can tell how long you will be here.")
-                .font(.caption).foregroundStyle(Color.flInkSoft)
-
-            Text("Session music").font(.headline)
-            HStack {
-                TextField("Playlist link — Spotify, Apple Music, YouTube", text: setting(\.playlistURL))
-                    .textFieldStyle(.roundedBorder)
-                Button("Open playlist") { controller.openPlaylist() }
-                    .disabled(controller.config.stream.playlistDestination == nil)
-            }
-            Text("LockIn opens the link and nothing else — it never plays or rebroadcasts audio, and your music app stays out of the capture. Check your platform's music rules first: most commercial tracks are not cleared for streaming, and DMCA-safe libraries exist for exactly this.")
-                .font(.caption).foregroundStyle(Color.flInkSoft)
-                .fixedSize(horizontal: false, vertical: true)
-        }
-    }
-
     private func addCategory() {
-        controller.updateStream { _ = $0.addCategory(newCategory) }
+        let name = newCategory
+        controller.updateStream { _ = $0.addCategory(name) }
         newCategory = ""
+        isNamingCategory = false
     }
 
     private var timerControls: some View {
         VStack(alignment: .leading, spacing: 16) {
-            HStack {
-                FLMicroLabel(text: controller.snapshot.phase.displayName)
-                Spacer()
-                Text(controller.displayCountdown).font(.system(.title, design: .monospaced))
+            if controller.snapshot.phase != .idle {
+                HStack(alignment: .firstTextBaseline, spacing: 10) {
+                    FLMicroLabel(text: controller.snapshot.phase.displayName)
+                    Text(controller.displayCountdown)
+                        .font(.system(.title, design: .monospaced))
+                        .monospacedDigit()
+                    Spacer()
+                }
             }
             HStack(spacing: 24) {
                 FLDurationField(label: "Focus", minutes: Binding(get: { controller.config.focusMinutes }, set: controller.updateFocusMinutes), range: AppConfig.focusMinutesRange)
@@ -383,7 +468,7 @@ private struct StreamCheckInView: View {
             }.pickerStyle(.segmented)
             TextField("A private note for next time (optional)", text: $note, axis: .vertical)
                 .lineLimit(2...4)
-                .textFieldStyle(.roundedBorder)
+                .flField()
                 .onChange(of: note) { note = String($0.prefix(500)) }
             Button(entry.checkIn == nil ? "Save check-in" : "Update check-in") {
                 controller.saveCheckIn(outcome: outcome, note: note)
