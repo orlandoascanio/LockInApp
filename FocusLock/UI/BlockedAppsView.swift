@@ -100,6 +100,7 @@ struct BlockedAppsView: View {
         }
         .padding(.horizontal, 12)
         .frame(height: 34)
+        .background(Color.flField, in: RoundedRectangle(cornerRadius: FLRadius.md, style: .continuous))
         .overlay(
             RoundedRectangle(cornerRadius: FLRadius.md, style: .continuous)
                 .strokeBorder(Color.flHairline, lineWidth: 1)

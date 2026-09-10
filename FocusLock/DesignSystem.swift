@@ -17,6 +17,18 @@ enum FLColor {
     static let ink = NSColor(hex: "#293129")
     static let inkSoft = NSColor(hex: "#737B6E")
     static let hairline = NSColor(hex: "#CCC7B5")
+
+    /// The audience window's two canvases. Named here rather than inlined in
+    /// the view because the window background has to match them exactly — a
+    /// transparent title bar shows the window's colour, and any difference
+    /// lands as a band across the top of a capture.
+    static let streamDark = NSColor(hex: "#17241F")
+    static let streamLight = NSColor(hex: "#F5F0E0")
+
+    /// Fields sit a shade above the canvas rather than being punched out of it
+    /// in white. AppKit's stock rounded-border field is pure white, which on a
+    /// sand page reads as a hole.
+    static let field = NSColor(hex: "#FBF9F1")
     static let clay = NSColor(hex: "#B87355")
 
     static let success = accentDeep
@@ -33,6 +45,9 @@ extension Color {
     static let flInk = Color(nsColor: FLColor.ink)
     static let flInkSoft = Color(nsColor: FLColor.inkSoft)
     static let flHairline = Color(nsColor: FLColor.hairline)
+    static let flField = Color(nsColor: FLColor.field)
+    static let flStreamDark = Color(nsColor: FLColor.streamDark)
+    static let flStreamLight = Color(nsColor: FLColor.streamLight)
     static let flClay = Color(nsColor: FLColor.clay)
     static let flDestructive = Color(nsColor: FLColor.destructive)
     static let flWarning = Color(nsColor: FLColor.warning)
@@ -429,5 +444,55 @@ struct FLSessionBeads: View {
             return .flAccent
         }
         return .flHairline
+    }
+}
+
+/// The one text field look in the app.
+///
+/// A modifier rather than a `TextFieldStyle` because SwiftUI keeps property
+/// wrappers alive inside a `ViewModifier`, which is what lets the border react
+/// to focus. The ring is the app's accent; left to the system it would be
+/// whatever accent colour the Mac happens to be set to.
+private struct FLFieldChrome: ViewModifier {
+    @FocusState private var isFocusedInternally: Bool
+
+    let width: CGFloat?
+
+    /// Passed in by fields that already own a focus binding of their own —
+    /// attaching a second `.focused` to the same field fights the first.
+    let externalFocus: Bool?
+
+    private var isFocused: Bool { externalFocus ?? isFocusedInternally }
+
+    func body(content: Content) -> some View {
+        applyFocus(to: content.textFieldStyle(.plain))
+            .font(FLTypography.body)
+            .foregroundStyle(Color.flInk)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 7)
+            .frame(width: width)
+            .background(Color.flField, in: RoundedRectangle(cornerRadius: FLRadius.md, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: FLRadius.md, style: .continuous)
+                    .strokeBorder(isFocused ? Color.flAccent : Color.flHairline,
+                                  lineWidth: isFocused ? 1.5 : 1)
+            )
+            .animation(.easeOut(duration: 0.12), value: isFocused)
+    }
+
+    @ViewBuilder
+    private func applyFocus(to content: some View) -> some View {
+        if externalFocus == nil {
+            content.focused($isFocusedInternally)
+        } else {
+            content
+        }
+    }
+}
+
+extension View {
+    /// Use in place of `.textFieldStyle(.roundedBorder)`.
+    func flField(width: CGFloat? = nil, focused: Bool? = nil) -> some View {
+        modifier(FLFieldChrome(width: width, externalFocus: focused))
     }
 }
