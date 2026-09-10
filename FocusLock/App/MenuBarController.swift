@@ -43,8 +43,23 @@ final class MenuBarController: NSObject, ObservableObject {
     @Published var exportMessage: String?
     @Published var streamMessage: String?
 
-    /// Everyone working alongside the host. Fed by chat later; by hand today.
+    /// Everyone working alongside the host, from chat or by hand.
     @Published var roster = AudienceRoster()
+
+    @Published private(set) var chatState: TwitchChatClient.State = .idle
+
+    private lazy var twitchChat: TwitchChatClient = {
+        let client = TwitchChatClient()
+        client.onState = { [weak self] state in
+            self?.chatState = state
+        }
+        client.onMessage = { [weak self] message in
+            // The single door every viewer's words come through, whatever
+            // carried them here.
+            self?.handleAudienceMessage(from: message.name, message: message.text)
+        }
+        return client
+    }()
 
     /// When the current run began. Kept after the run ends so the recap is
     /// still there when you go looking for it, and replaced only when the
@@ -291,10 +306,14 @@ final class MenuBarController: NSObject, ObservableObject {
         hasSetup = true
         syncRosterSettings()
 
-        // Hosting is on, so the audience window is part of a setup that should
-        // still be there after a restart. Restored quietly, without focus.
+        // Hosting is on, so the window and the chat feed are part of a setup
+        // that should still be there after a restart — a host mid-stream
+        // should not have to rebuild it by hand.
         if config.stream.enabled {
             openStreamWindow(activating: false)
+            if !config.stream.twitchChannel.isEmpty {
+                twitchChat.connect(channel: config.stream.twitchChannel)
+            }
         }
         reopenObserver = NotificationCenter.default.addObserver(
             forName: .lockInShowMainWindow,
@@ -329,6 +348,7 @@ final class MenuBarController: NSObject, ObservableObject {
     /// Quitting mid-session ends it: stop guarding and record an interrupted
     /// focus block as abandoned before the process exits.
     func handleAppWillTerminate() {
+        twitchChat.disconnect()
         blocker.stop()
         pinnedHUD.dismiss()
         timerEngine.recordAbandonmentIfNeeded()
@@ -459,6 +479,17 @@ final class MenuBarController: NSObject, ObservableObject {
         NSPasteboard.general.clearContents()
         NSPasteboard.general.setString(recap.text, forType: .string)
         streamMessage = "Recap copied."
+    }
+
+    func connectChat() {
+        let channel = config.stream.twitchChannel
+        guard twitchChat.connect(channel: channel) else { return }
+        streamMessage = "Reading chat. Viewers can type \(AudienceCommand.advertised) to appear on the wall."
+    }
+
+    func disconnectChat() {
+        twitchChat.disconnect()
+        streamMessage = "Chat disconnected. The wall keeps whoever is already on it."
     }
 
     func setAudienceAutoApprove(_ isOn: Bool) {

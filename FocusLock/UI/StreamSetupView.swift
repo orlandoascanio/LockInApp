@@ -306,6 +306,8 @@ struct StreamSetupView: View {
                 .font(.caption).foregroundStyle(Color.flInkSoft)
                 .fixedSize(horizontal: false, vertical: true)
 
+            chatConnection
+
             Text("Tell me when someone is waiting").font(.headline)
             HStack(spacing: 20) {
                 Toggle("Play a sound", isOn: setting(\.alertSound))
@@ -356,7 +358,35 @@ struct StreamSetupView: View {
                 .font(.caption).foregroundStyle(Color.flInkSoft)
                 .fixedSize(horizontal: false, vertical: true)
 
-            Text("Add someone by hand, or connect chat later — viewers type \(AudienceCommand.advertised) to appear here, and !done to check theirs off.")
+            Text("Or add someone by hand — it goes through the same queue and the same rules as a chat message.")
+                .font(.caption).foregroundStyle(Color.flInkSoft)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+    }
+
+    private var chatConnection: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("Twitch chat").font(.headline)
+            HStack {
+                TextField("Your channel — piping16, or paste your channel link",
+                          text: setting(\.twitchChannel))
+                    .flField()
+                    .disabled(controller.chatState.isLive)
+                if controller.chatState.isLive {
+                    Button("Disconnect") { controller.disconnectChat() }
+                } else {
+                    Button("Connect") { controller.connectChat() }
+                        .disabled(controller.config.stream.twitchChannel.trimmingCharacters(in: .whitespaces).isEmpty)
+                }
+            }
+            HStack(spacing: 7) {
+                Circle()
+                    .fill(controller.chatState.isLive ? Color.flAccent : Color.flHairline)
+                    .frame(width: 7, height: 7)
+                Text(controller.chatState.summary)
+                    .font(.caption).foregroundStyle(Color.flInkSoft)
+            }
+            Text("Read-only and anonymous — no login, and LockIn never posts to your chat. Viewers type \(AudienceCommand.advertised) to appear on the wall and !done to check theirs off.")
                 .font(.caption).foregroundStyle(Color.flInkSoft)
                 .fixedSize(horizontal: false, vertical: true)
         }

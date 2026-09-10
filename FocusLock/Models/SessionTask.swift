@@ -51,6 +51,10 @@ public struct StreamSettings: Codable, Equatable {
     /// The one line under the countdown that says what kind of room this is.
     public var invitation = StreamPreset.bringYourOwnTask.invitation
 
+    /// The Twitch channel whose chat feeds the wall. Read-only and anonymous;
+    /// LockIn never posts.
+    public var twitchChannel = ""
+
     /// Whether the wall of viewer tasks appears on the audience window.
     public var showRoster = true
 
@@ -75,7 +79,7 @@ public struct StreamSettings: Codable, Equatable {
     private enum CodingKeys: String, CodingKey {
         case enabled, goal, category, categories, darkAppearance, showGoal
         case plannedBlocks, invitation, playlistURL, autoApproveTasks, showRoster
-        case alertSound, alertBanner
+        case alertSound, alertBanner, twitchChannel
     }
 
     /// Written by hand rather than synthesized: a synthesized decoder ignores
@@ -99,6 +103,7 @@ public struct StreamSettings: Codable, Equatable {
         showRoster = try container.decodeIfPresent(Bool.self, forKey: .showRoster) ?? fallback.showRoster
         alertSound = try container.decodeIfPresent(Bool.self, forKey: .alertSound) ?? fallback.alertSound
         alertBanner = try container.decodeIfPresent(Bool.self, forKey: .alertBanner) ?? fallback.alertBanner
+        twitchChannel = try container.decodeIfPresent(String.self, forKey: .twitchChannel) ?? fallback.twitchChannel
         plannedBlocks = min(12, max(1, plannedBlocks))
 
         // The picker has nothing to select from if a hand-edited file empties
@@ -156,7 +161,7 @@ public struct StreamPresentation: Equatable {
         case .break: return "Take a break"
         case .breakEnded: return "Ready for another round?"
         case .completed: return "Nice work, everyone"
-        case .cancelled: return "Session ended"
+        case .cancelled: return "That's a wrap"
         case .paused: return "Taking a moment"
         case .idle: return "Bring your own task"
         }
