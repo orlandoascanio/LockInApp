@@ -290,6 +290,12 @@ final class MenuBarController: NSObject, ObservableObject {
 
         hasSetup = true
         syncRosterSettings()
+
+        // Hosting is on, so the audience window is part of a setup that should
+        // still be there after a restart. Restored quietly, without focus.
+        if config.stream.enabled {
+            openStreamWindow(activating: false)
+        }
         reopenObserver = NotificationCenter.default.addObserver(
             forName: .lockInShowMainWindow,
             object: nil,
@@ -330,8 +336,18 @@ final class MenuBarController: NSObject, ObservableObject {
 
     func updateStream(_ update: (inout StreamSettings) -> Void) {
         update(&config.stream)
-        streamWindow?.appearance = NSAppearance(named: config.stream.darkAppearance ? .darkAqua : .aqua)
+        applyStreamCanvas()
         saveConfig()
+    }
+
+    /// The title bar is transparent, so it shows the window's own colour. Left
+    /// at the default it lands as a band across the top of whatever OBS
+    /// captures, which the host then has to crop out every time.
+    private func applyStreamCanvas() {
+        guard let streamWindow else { return }
+        let dark = config.stream.darkAppearance
+        streamWindow.appearance = NSAppearance(named: dark ? .darkAqua : .aqua)
+        streamWindow.backgroundColor = dark ? FLColor.streamDark : FLColor.streamLight
     }
 
     var streamTask: SessionTask {
@@ -482,16 +498,53 @@ final class MenuBarController: NSObject, ObservableObject {
         NSWorkspace.shared.open(url)
     }
 
-    func openStreamWindow() {
+    func openStreamWindow(activating: Bool = true) {
+        let isNew = streamWindow == nil
         streamWindow = presentWindow(
             existingWindow: streamWindow,
-            title: "LockIn Stream",
-            size: NSSize(width: 960, height: 600),
-            rootView: StreamAudienceView().environmentObject(self)
+            title: Self.streamWindowTitle,
+            size: Self.streamWindowSize,
+            rootView: StreamAudienceView().environmentObject(self),
+            activating: activating
         )
-        streamWindow?.appearance = NSAppearance(named: config.stream.darkAppearance ? .darkAqua : .aqua)
-        streamWindow?.titleVisibility = .visible
-        streamWindow?.minSize = NSSize(width: 640, height: 420)
+        applyStreamCanvas()
+
+        guard let streamWindow else { return }
+
+        // The title and the three buttons are drawn into the frame, so they
+        // land in the capture and have to be cropped out by hand. The window
+        // keeps its title for OBS's window list — that comes from the title
+        // property, not from whether it is drawn.
+        streamWindow.titleVisibility = .hidden
+        for button in [NSWindow.ButtonType.closeButton, .miniaturizeButton, .zoomButton] {
+            streamWindow.standardWindowButton(button)?.isHidden = true
+        }
+
+        // Broadcasts are 16:9. Anything else is pillarboxed with black, so the
+        // window resizes on that ratio and cannot drift off it.
+        streamWindow.aspectRatio = NSSize(width: 16, height: 9)
+        streamWindow.minSize = NSSize(width: 640, height: 360)
+
+        if isNew {
+            adoptWidescreenFrame(streamWindow)
+        }
+    }
+
+    static let streamWindowTitle = "LockIn Stream"
+    static let streamWindowSize = NSSize(width: 1280, height: 720)
+
+    /// A frame saved before the ratio was locked comes back at its old shape,
+    /// which is exactly the letterboxing this is meant to remove.
+    private func adoptWidescreenFrame(_ window: NSWindow) {
+        let size = window.frame.size
+        guard size.height > 0 else { return }
+        let ratio = size.width / size.height
+        guard abs(ratio - 16.0 / 9.0) > 0.01 else { return }
+
+        var frame = window.frame
+        frame.size = Self.streamWindowSize
+        window.setFrame(frame, display: true)
+        window.center()
     }
 
     func startFocus() {
@@ -1116,14 +1169,11 @@ final class MenuBarController: NSObject, ObservableObject {
         existingWindow: NSWindow?,
         title: String,
         size: NSSize,
-        rootView: Content
+        rootView: Content,
+        activating: Bool = true
     ) -> NSWindow {
         if let existingWindow {
-            NSApp.setActivationPolicy(.regular)
-            NSApp.activate(ignoringOtherApps: true)
-            existingWindow.makeKeyAndOrderFront(nil)
-            existingWindow.makeMain()
-            NSApp.activate(ignoringOtherApps: true)
+            show(existingWindow, activating: activating)
             return existingWindow
         }
 
@@ -1147,12 +1197,23 @@ final class MenuBarController: NSObject, ObservableObject {
         window.contentView = NSHostingView(rootView: rootView)
         window.center()
         window.setFrameAutosaveName(title)
-        NSApp.setActivationPolicy(.regular)
-        NSApp.activate(ignoringOtherApps: true)
-        window.makeKeyAndOrderFront(nil)
-        window.makeMain()
-        NSApp.activate(ignoringOtherApps: true)
+        show(window, activating: activating)
         return window
+    }
+
+    /// A window restored for OBS to capture should appear without pulling the
+    /// host out of whatever they were doing — at login especially, an app that
+    /// grabs focus on its own is an app people turn off.
+    private func show(_ window: NSWindow, activating: Bool) {
+        NSApp.setActivationPolicy(.regular)
+        if activating {
+            NSApp.activate(ignoringOtherApps: true)
+            window.makeKeyAndOrderFront(nil)
+            window.makeMain()
+            NSApp.activate(ignoringOtherApps: true)
+        } else {
+            window.orderFrontRegardless()
+        }
     }
 }
 
