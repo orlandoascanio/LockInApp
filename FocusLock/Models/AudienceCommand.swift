@@ -17,6 +17,19 @@ public enum AudienceCommand: Equatable {
 
     public static let advertised = "!task"
 
+    /// One line each, in the order a newcomer needs them. The aliases above
+    /// forgive a wrong guess; this is what stops anyone having to guess.
+    public struct Legend: Identifiable, Equatable {
+        public let command: String
+        public let meaning: String
+        public var id: String { command }
+    }
+
+    public static let legend = [
+        Legend(command: "!task", meaning: "what you're working on"),
+        Legend(command: "!done", meaning: "when you finish it")
+    ]
+
     public static func parse(_ message: String) -> AudienceCommand? {
         let trimmed = message.trimmingCharacters(in: .whitespacesAndNewlines)
         guard trimmed.hasPrefix("!") else { return nil }

@@ -36,13 +36,32 @@ public struct SessionCheckIn: Codable, Equatable {
     }
 }
 
+public enum StreamMotion: String, Codable, CaseIterable, Identifiable {
+    case off, subtle, ambient
+
+    public var id: String { rawValue }
+    public var title: String { rawValue.capitalized }
+    public var description: String {
+        switch self {
+        case .off: return "A still background and instant updates."
+        case .subtle: return "Gentle transitions when the timer, phase, or audience changes."
+        case .ambient: return "Gentle transitions with a slowly drifting background glow."
+        }
+    }
+}
+
 public struct StreamSettings: Codable, Equatable {
     public var enabled = false
     public var goal = ""
     public var category = "Study"
     public var categories = ["Study", "Coding", "Writing", "Work", "Personal"]
     public var darkAppearance = true
+    public var motion: StreamMotion = .ambient
     public var showGoal = true
+
+    /// On by default: a command nobody can see is a command nobody uses, and
+    /// the wall stays empty for want of two words on screen.
+    public var showCommands = true
 
     /// How many blocks you mean to run, so the audience can see "Block 2 of 4"
     /// and decide whether to settle in.
@@ -77,7 +96,7 @@ public struct StreamSettings: Codable, Equatable {
     public init() {}
 
     private enum CodingKeys: String, CodingKey {
-        case enabled, goal, category, categories, darkAppearance, showGoal
+        case enabled, goal, category, categories, darkAppearance, motion, showGoal, showCommands
         case plannedBlocks, invitation, playlistURL, autoApproveTasks, showRoster
         case alertSound, alertBanner, twitchChannel
     }
@@ -95,7 +114,11 @@ public struct StreamSettings: Codable, Equatable {
         category = try container.decodeIfPresent(String.self, forKey: .category) ?? fallback.category
         categories = try container.decodeIfPresent([String].self, forKey: .categories) ?? fallback.categories
         darkAppearance = try container.decodeIfPresent(Bool.self, forKey: .darkAppearance) ?? fallback.darkAppearance
+        // An unfamiliar mode from a newer build must not reset the host's settings.
+        let motionName = try container.decodeIfPresent(String.self, forKey: .motion)
+        motion = motionName.flatMap(StreamMotion.init(rawValue:)) ?? fallback.motion
         showGoal = try container.decodeIfPresent(Bool.self, forKey: .showGoal) ?? fallback.showGoal
+        showCommands = try container.decodeIfPresent(Bool.self, forKey: .showCommands) ?? fallback.showCommands
         plannedBlocks = try container.decodeIfPresent(Int.self, forKey: .plannedBlocks) ?? fallback.plannedBlocks
         invitation = try container.decodeIfPresent(String.self, forKey: .invitation) ?? fallback.invitation
         playlistURL = try container.decodeIfPresent(String.self, forKey: .playlistURL) ?? fallback.playlistURL

@@ -44,6 +44,39 @@ public struct RosterPage: Equatable {
     }
 }
 
+/// What the room has got through over the whole stream, rather than what
+/// happens to be on the current page.
+///
+/// The wall pages, and old rows fall off the end of a long session, so the
+/// rows on screen are always a slice. The tally is the part that lets an hour
+/// of work look like an hour of work.
+public struct AudienceTally: Equatable {
+    public private(set) var completed = 0
+    public private(set) var total = 0
+
+    public init(completed: Int = 0, total: Int = 0) {
+        self.completed = completed
+        self.total = total
+    }
+
+    public var isEmpty: Bool { total == 0 }
+
+    /// "12/18" — done over posted, the way every co-working overlay writes it.
+    public var label: String { "\(completed)/\(total)" }
+
+    mutating func posted() { total += 1 }
+    mutating func finished() { completed += 1 }
+
+    /// A row the host took down never happened, as far as the count goes —
+    /// otherwise taking one bad task off screen leaves the number climbing
+    /// with nothing to show for it. Rows aged off a long wall are not
+    /// withdrawn: those were shown, and the count is the only record left.
+    mutating func withdrew(_ tasks: [AudienceTask]) {
+        total -= tasks.count
+        completed -= tasks.filter(\.isDone).count
+    }
+}
+
 /// One viewer's task, as it appears on the audience window.
 public struct AudienceTask: Identifiable, Equatable {
     public let id: UUID
@@ -121,6 +154,7 @@ public struct AudienceRoster: Equatable {
     public private(set) var admitted: [AudienceTask] = []
     public private(set) var held: [AudienceTask] = []
     public private(set) var blocked: Set<String> = []
+    public private(set) var tally = AudienceTally()
 
     /// Off by default: unreviewed text from strangers on your own broadcast is
     /// your platform strike, not theirs.
@@ -162,6 +196,12 @@ public struct AudienceRoster: Equatable {
 
     public var isEmpty: Bool { admitted.isEmpty }
 
+    /// Rows are tasks, not people — someone on their third task is still one
+    /// person working alongside you. Anything that says "people" counts these.
+    public var peopleCount: Int {
+        Set(admitted.map { $0.name.lowercased() }).count
+    }
+
     /// Everyone gets their name on screen. Once more people are here than fit,
     /// the list becomes pages that cycle on their own — the alternative is
     /// showing the same eight names for two hours while everyone else watches
@@ -198,31 +238,34 @@ public struct AudienceRoster: Equatable {
         let text = Self.sanitize(rawText, limit: Self.maxTaskLength)
 
         guard !name.isEmpty, !text.isEmpty else { return .rejected(.empty) }
-        guard !blocked.contains(name.lowercased()) else { return .rejected(.blocked) }
+        let key = name.lowercased()
+        guard !blocked.contains(key) else { return .rejected(.blocked) }
         guard !Self.containsLink(text) else { return strike(name, .containsLink) }
         guard AudienceFilter.isAllowed(text, terms: blockedTerms) else { return strike(name, .blockedWord) }
         // The name goes on screen too, so it is held to the same standard.
         guard AudienceFilter.isAllowed(name, terms: blockedTerms) else { return strike(name, .blockedWord) }
 
-        if let last = lastSubmission[name.lowercased()], now.timeIntervalSince(last) < Self.minimumInterval {
+        if let last = lastSubmission[key], now.timeIntervalSince(last) < Self.minimumInterval {
             return .rejected(.tooSoon)
         }
-        lastSubmission[name.lowercased()] = now
+        lastSubmission[key] = now
 
-        // One task per person, latest wins. Replacing in place keeps their slot
-        // and their id, so the row updates instead of jumping to the end.
-        if let index = admitted.firstIndex(where: { $0.name.lowercased() == name.lowercased() }) {
-            admitted[index].text = text
-            admitted[index].isDone = false
-            return .admitted(admitted[index])
-        }
-        if let index = held.firstIndex(where: { $0.name.lowercased() == name.lowercased() }) {
+        // One task in flight per person. Typing another while the first is
+        // still open is a correction, so it replaces in place and keeps their
+        // slot and their id rather than jumping to the end of the wall.
+        if let index = held.lastIndex(where: { $0.name.lowercased() == key }) {
             held[index].text = text
-            held[index].isDone = false
             return .held(held[index])
         }
+        if let index = admitted.lastIndex(where: { $0.name.lowercased() == key }), !admitted[index].isDone {
+            admitted[index].text = text
+            return .admitted(admitted[index])
+        }
 
-        let task = AudienceTask(name: name, text: text, joinedAt: now)
+        // Typing one after finishing is a second task, and the finished row
+        // stays struck through where it is. Watching a list of crossed-off
+        // work grow is most of why anyone joins one of these.
+        let task = AudienceTask(name: name, text: text, joinedAt: arrival(of: key) ?? now)
         if autoApprove {
             admit(task)
             return .admitted(task)
@@ -247,6 +290,7 @@ public struct AudienceRoster: Equatable {
     @discardableResult
     public mutating func remove(_ id: UUID) -> Bool {
         let before = admitted.count + held.count
+        tally.withdrew(admitted.filter { $0.id == id })
         admitted.removeAll { $0.id == id }
         held.removeAll { $0.id == id }
         return admitted.count + held.count < before
@@ -258,6 +302,7 @@ public struct AudienceRoster: Equatable {
         let key = Self.sanitize(name, limit: Self.maxNameLength).lowercased()
         guard !key.isEmpty else { return }
         blocked.insert(key)
+        tally.withdrew(admitted.filter { $0.name.lowercased() == key })
         admitted.removeAll { $0.name.lowercased() == key }
         held.removeAll { $0.name.lowercased() == key }
     }
@@ -269,8 +314,13 @@ public struct AudienceRoster: Equatable {
     @discardableResult
     public mutating func markDone(name: String) -> Bool {
         let key = Self.sanitize(name, limit: Self.maxNameLength).lowercased()
-        guard let index = admitted.firstIndex(where: { $0.name.lowercased() == key }) else { return false }
+        // Their newest open row: an older one they already crossed off should
+        // not be finished twice, and neither should the count move twice.
+        guard let index = admitted.lastIndex(where: { $0.name.lowercased() == key && !$0.isDone }) else {
+            return false
+        }
         admitted[index].isDone = true
+        tally.finished()
         return true
     }
 
@@ -278,6 +328,7 @@ public struct AudienceRoster: Equatable {
     public mutating func clear(now: Date = Date()) {
         admitted.removeAll()
         held.removeAll()
+        tally = AudienceTally()
         lastSubmission.removeAll()
         strikes.removeAll()
         anchor = now
@@ -309,9 +360,22 @@ public struct AudienceRoster: Equatable {
 
     private mutating func admit(_ task: AudienceTask) {
         admitted.append(task)
+        tally.posted()
+        // Ageing the oldest rows off a very long wall is the wall running out
+        // of room, not those tasks being withdrawn, so the count keeps them.
         if admitted.count > Self.maxTracked {
             admitted.removeFirst(admitted.count - Self.maxTracked)
         }
+    }
+
+    /// When someone posts their second task, they have been here since their
+    /// first — so the new row inherits that arrival rather than reading "now"
+    /// for a person who has been working alongside you for an hour.
+    private func arrival(of key: String) -> Date? {
+        (admitted + held)
+            .filter { $0.name.lowercased() == key }
+            .map(\.joinedAt)
+            .min()
     }
 
     // MARK: - Sanitizing

@@ -3,6 +3,7 @@ import SwiftUI
 
 struct StreamSetupView: View {
     @EnvironmentObject private var controller: MenuBarController
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var newCategory = ""
     @State private var isNamingCategory = false
     @FocusState private var categoryFieldFocused: Bool
@@ -114,6 +115,17 @@ struct StreamSetupView: View {
                 Spacer()
                 Toggle("Dark canvas", isOn: setting(\.darkAppearance)).toggleStyle(.switch).tint(Color.flAccentDeep)
             }
+            Picker("Motion", selection: setting(\.motion)) {
+                ForEach(StreamMotion.allCases) { mode in
+                    Text(mode.title).tag(mode)
+                }
+            }
+            .pickerStyle(.segmented)
+            .accessibilityLabel("Stream motion")
+            Text(reduceMotion ? "Reduce Motion is on in macOS. The stream uses instant updates and a still background."
+                 : controller.config.stream.motion.description)
+                .font(.caption).foregroundStyle(Color.flInkSoft)
+                .fixedSize(horizontal: false, vertical: true)
             HStack(spacing: 10) {
                 Text("How many blocks today").font(.callout).foregroundStyle(Color.flInkSoft)
                 Text("\(controller.config.stream.plannedBlocks)")
@@ -289,11 +301,17 @@ struct StreamSetupView: View {
     private var audienceWall: some View {
         VStack(alignment: .leading, spacing: 14) {
             HStack {
-                FLMicroLabel(text: "The wall · \(controller.roster.admitted.count) working alongside")
+                FLMicroLabel(text: "The wall · \(controller.roster.peopleCount) working alongside")
                 Spacer()
                 Toggle("Show on stream", isOn: setting(\.showRoster)).toggleStyle(.switch).tint(Color.flAccentDeep)
             }
-            Text("Everyone who joins gets their name up. Once there are more people than fit, the wall turns pages on its own so nobody sits unseen.")
+            Text("Everyone who joins gets their name up. Once there are more people than fit, the wall turns pages on its own so nobody sits unseen. Finishing one leaves it crossed off and starts a new line, and the wall keeps a running count of what the room has got through.")
+                .font(.caption).foregroundStyle(Color.flInkSoft)
+                .fixedSize(horizontal: false, vertical: true)
+
+            Toggle("Show the chat commands on stream", isOn: setting(\.showCommands))
+                .toggleStyle(.switch).tint(Color.flAccentDeep)
+            Text("Puts \(AudienceCommand.legend.map(\.command).joined(separator: " and ")) beside your timer. Leave it on unless your overlay says it elsewhere — nobody uses a command they have not seen, and this is the difference between an empty wall and a full one.")
                 .font(.caption).foregroundStyle(Color.flInkSoft)
                 .fixedSize(horizontal: false, vertical: true)
 

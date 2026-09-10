@@ -55,6 +55,159 @@ final class AudienceRosterTests: XCTestCase {
         XCTAssertFalse(roster.admitted[0].isDone)
     }
 
+    func testFinishingOneStartsANewLineRatherThanErasingIt() {
+        var roster = filled(2)
+        roster.apply(.done, from: "viewer0", now: now.addingTimeInterval(60))
+        roster.submit(name: "viewer0", text: "and now the washing up", now: now.addingTimeInterval(600))
+
+        XCTAssertEqual(roster.admitted.count, 3, "the finished task has earned its place on the wall")
+        XCTAssertTrue(roster.admitted[0].isDone)
+        XCTAssertEqual(roster.admitted[0].text, "task 0", "a finished row must not be overwritten")
+        XCTAssertEqual(roster.admitted[2].name, "viewer0")
+        XCTAssertFalse(roster.admitted[2].isDone)
+        XCTAssertEqual(roster.admitted[2].joinedAt, now,
+                       "someone on their second task has been here since their first")
+    }
+
+    func testDoneAlwaysTakesTheirNewestOpenTask() {
+        var roster = filled(1)
+        roster.apply(.done, from: "viewer0", now: now.addingTimeInterval(60))
+        roster.submit(name: "viewer0", text: "second thing", now: now.addingTimeInterval(600))
+        roster.apply(.done, from: "viewer0", now: now.addingTimeInterval(900))
+
+        XCTAssertEqual(roster.admitted.map(\.isDone), [true, true])
+        XCTAssertEqual(roster.tally.completed, 2)
+    }
+
+    func testPeopleAreCountedAsPeopleNotAsTasks() {
+        var roster = filled(3)
+        XCTAssertEqual(roster.peopleCount, 3)
+
+        roster.apply(.done, from: "viewer0", now: now.addingTimeInterval(60))
+        roster.submit(name: "viewer0", text: "second thing", now: now.addingTimeInterval(600))
+        XCTAssertEqual(roster.admitted.count, 4)
+        XCTAssertEqual(roster.peopleCount, 3,
+                       "someone on their second task is still one person in the room")
+
+        roster.block(name: "viewer0")
+        XCTAssertEqual(roster.peopleCount, 2)
+    }
+
+    // MARK: - The running count
+
+    func testTheTallyCountsTheStreamRatherThanThePage() {
+        var roster = filled(3)
+        XCTAssertEqual(roster.tally.label, "0/3")
+
+        roster.apply(.done, from: "viewer1", now: now.addingTimeInterval(60))
+        XCTAssertEqual(roster.tally.label, "1/3")
+
+        roster.submit(name: "viewer1", text: "something else", now: now.addingTimeInterval(600))
+        XCTAssertEqual(roster.tally.label, "1/4", "a second task is a second task, not a rewrite")
+    }
+
+    func testCorrectingATaskDoesNotInflateTheCount() {
+        var roster = filled(1)
+        roster.submit(name: "viewer0", text: "what I actually meant", now: now.addingTimeInterval(60))
+        XCTAssertEqual(roster.tally.label, "0/1")
+    }
+
+    func testFinishingTwiceOnlyCountsOnce() {
+        var roster = filled(1)
+        roster.apply(.done, from: "viewer0", now: now.addingTimeInterval(60))
+        roster.apply(.done, from: "viewer0", now: now.addingTimeInterval(120))
+        XCTAssertEqual(roster.tally.label, "1/1")
+    }
+
+    func testHeldTasksAreCountedOnlyOnceTheyReachTheWall() {
+        var roster = AudienceRoster(now: now)
+        roster.submit(name: "maya", text: "read chapter 3", now: now)
+        XCTAssertTrue(roster.tally.isEmpty, "nothing on screen yet is nothing to count")
+
+        roster.approveAll()
+        XCTAssertEqual(roster.tally.label, "0/1")
+    }
+
+    func testTakingARowDownTakesItOutOfTheCount() {
+        var roster = filled(3)
+        roster.apply(.done, from: "viewer0", now: now.addingTimeInterval(60))
+        XCTAssertEqual(roster.tally.label, "1/3")
+
+        roster.remove(roster.admitted[0].id)
+        XCTAssertEqual(roster.tally.label, "0/2", "a task the host took down never happened")
+
+        roster.block(name: "viewer1")
+        XCTAssertEqual(roster.tally.label, "0/1")
+    }
+
+    func testRowsAgedOffALongWallStayInTheCount() {
+        let roster = filled(AudienceRoster.maxTracked + 5)
+        XCTAssertEqual(roster.admitted.count, AudienceRoster.maxTracked)
+        XCTAssertEqual(roster.tally.total, AudienceRoster.maxTracked + 5,
+                       "running out of room on the wall is not the same as withdrawing a task")
+    }
+
+    func testTheCountBelongsToOneStream() {
+        var roster = filled(2)
+        roster.apply(.done, from: "viewer0", now: now.addingTimeInterval(60))
+        roster.clear(now: now.addingTimeInterval(3_600))
+        XCTAssertTrue(roster.tally.isEmpty)
+        XCTAssertEqual(roster.tally.label, "0/0")
+    }
+
+    /// A busy hour of chat, played through the roster the way it would really
+    /// arrive: people joining, correcting themselves, finishing, starting
+    /// something else, and the host taking rows down and blocking people. The
+    /// point is not any one of those — it is that the count on screen still
+    /// agrees with the wall after two thousand of them in an order nobody
+    /// chose. Seeded, so a failure is reproducible.
+    func testTheCountSurvivesAnHourOfRealisticChat() {
+        var random = SeededGenerator(seed: 0x5EED)
+        var roster = AudienceRoster(autoApprove: true, now: now)
+        let names = (0..<60).map { "viewer\($0)" }
+        var clock = now
+        var everFinished = 0
+
+        for step in 0..<2_000 {
+            clock = clock.addingTimeInterval(.random(in: 5...45, using: &random))
+            let who = names.randomElement(using: &random)!
+
+            switch Int.random(in: 0..<100, using: &random) {
+            case 0..<55:
+                roster.submit(name: who, text: "task \(step)", now: clock)
+            case 55..<85:
+                if roster.markDone(name: who) { everFinished += 1 }
+            case 85..<93:
+                if let victim = roster.admitted.randomElement(using: &random) {
+                    roster.remove(victim.id)
+                }
+            case 93..<97:
+                roster.submit(name: who, text: "http://example.com buy followers", now: clock)
+            default:
+                roster.block(name: who)
+            }
+
+            XCTAssertGreaterThanOrEqual(roster.tally.total, roster.admitted.count,
+                                        "every row on the wall was counted when it got there")
+            XCTAssertGreaterThanOrEqual(roster.tally.completed,
+                                        roster.admitted.filter(\.isDone).count,
+                                        "every tick on screen was counted when it happened")
+            XCTAssertLessThanOrEqual(roster.tally.completed, roster.tally.total,
+                                     "more finished than posted is not a number anyone should see")
+            XCTAssertGreaterThanOrEqual(roster.tally.completed, 0)
+            XCTAssertLessThanOrEqual(roster.peopleCount, roster.admitted.count,
+                                     "there can never be more people than rows they wrote")
+        }
+
+        XCTAssertGreaterThan(roster.tally.total, 0, "the run has to have exercised something")
+        XCTAssertGreaterThan(everFinished, 0)
+        XCTAssertLessThanOrEqual(roster.tally.completed, everFinished,
+                                 "withdrawing a finished row must take it back out of the count")
+        XCTAssertTrue(roster.admitted.allSatisfy { !roster.blocked.contains($0.name.lowercased()) },
+                      "a blocked name must not be left on the wall")
+        XCTAssertLessThanOrEqual(roster.admitted.count, AudienceRoster.maxTracked)
+    }
+
     // MARK: - What must never reach the broadcast
 
     func testLinksAreRefusedButOrdinaryDotsSurvive() {
@@ -290,5 +443,20 @@ final class AudienceRosterTests: XCTestCase {
         XCTAssertNil(AudienceCommand.parse("!lurk"))
         XCTAssertNil(AudienceCommand.parse("!task"), "a bare command is someone testing it, not a submission")
         XCTAssertNil(AudienceCommand.parse("i will !task later"))
+    }
+}
+
+/// Reproducible pseudo-randomness. A generated-traffic test that cannot be
+/// replayed is a test that reports a failure nobody can look at.
+private struct SeededGenerator: RandomNumberGenerator {
+    private var state: UInt64
+
+    init(seed: UInt64) { state = seed == 0 ? 0x9E3779B97F4A7C15 : seed }
+
+    mutating func next() -> UInt64 {
+        state ^= state << 13
+        state ^= state >> 7
+        state ^= state << 17
+        return state
     }
 }

@@ -51,6 +51,18 @@ brings their own task; LockIn gives the group a shared focus/break rhythm.
 The audience window shows which block you are on out of how many planned, and
 during a break it shows the clock time you will be back, not just a countdown.
 
+### Stream appearance and motion
+
+The Stream page offers **Off**, **Subtle**, and **Ambient** motion. Ambient is
+the default: a slow background glow accompanies gentle timer, phase, and audience
+transitions. Subtle keeps the background still; Off makes all updates immediate.
+macOS **Reduce Motion** overrides either animated mode without changing the saved
+choice. Breaks use a warmer canvas, and a thin line tracks the current phase.
+
+The goal and chat invitation stay readable at smaller sizes. Below 820 pixels
+wide, the audience moves into a compact rotating strip instead of disappearing.
+The full wall crossfades between pages and briefly highlights completed tasks.
+
 ## The wall
 
 Viewers appear on the stream by name. Type `!task read chapter 3` in chat and
@@ -58,8 +70,20 @@ that person shows up beside your countdown; `!done` checks theirs off. `!goal`,
 `!doing`, `!working` and `!focus` all work too, so nobody is met with silence
 for guessing. You can also add someone by hand from the Stream page.
 
-Each person carries a small count of how long they have been working alongside
-you, so a room that has been going a while looks like one.
+The two commands stand on the audience window beside your countdown, so nobody
+has to already know them — turn that off under **Show the chat commands on
+stream** if your overlay says it elsewhere. Each person carries a small count of
+how long they have been working alongside you, so a room that has been going a
+while looks like one.
+
+Finishing one does not clear it. The crossed-off line stays where it is and the
+next `!task` starts a new one underneath, keeping the arrival time it came in
+with, so an hour in the wall reads as an hour of work rather than a list of
+whatever eight people happen to be doing this minute. The header carries the
+running score for the whole stream — done over posted — which survives the wall
+paging and old lines ageing off the end of a long session. Correcting a task you
+have not finished yet rewrites it in place and does not move the count; a line
+you take down, or one belonging to someone you block, comes back out of it.
 
 Connect your channel on the Stream page and chat feeds the wall directly. The
 connection is anonymous and read-only — no login, no API key, no Twitch
@@ -69,8 +93,8 @@ own if the connection drops mid-stream.
 New tasks wait for your approval before they appear — text you have not read
 should not go out on your own broadcast. Turn on **Show tasks without asking
 me first** only when chat outruns you. Anything that reads as a link is refused
-outright, names and tasks are trimmed to fit, one task per person with the
-latest winning, and blocking someone takes their text off screen at once.
+outright, names and tasks are trimmed to fit, one unfinished task per person at
+a time, and blocking someone takes their text off screen at once.
 
 Words are checked against a list before anything is shown, and the check folds
 spacing, punctuation, accents, repeated letters, and digits standing in for

@@ -2,6 +2,73 @@ import FocusLockCore
 import XCTest
 
 final class StreamStagecraftTests: XCTestCase {
+    func testMotionMigrationPreservesExistingStreamSettings() throws {
+        let data = Data(#"{"stream":{"goal":"Read chapter 3","darkAppearance":false,"plannedBlocks":6}}"#.utf8)
+        let config = try JSONDecoder().decode(AppConfig.self, from: data)
+        XCTAssertEqual(config.stream.motion, .ambient)
+        XCTAssertEqual(config.stream.goal, "Read chapter 3")
+        XCTAssertFalse(config.stream.darkAppearance)
+        XCTAssertEqual(config.stream.plannedBlocks, 6)
+
+        let future = Data(#"{"stream":{"motion":"future-mode","goal":"Keep this goal"}}"#.utf8)
+        let migrated = try JSONDecoder().decode(AppConfig.self, from: future)
+        XCTAssertEqual(migrated.stream.motion, .ambient)
+        XCTAssertEqual(migrated.stream.goal, "Keep this goal")
+    }
+
+    func testCommandLegendIsOnForStreamsSavedBeforeItExisted() throws {
+        let data = Data(#"{"stream":{"goal":"Read chapter 3","showGoal":false}}"#.utf8)
+        let config = try JSONDecoder().decode(AppConfig.self, from: data)
+        XCTAssertTrue(config.stream.showCommands,
+                      "a wall nobody knows how to join is the failure this exists to prevent")
+        XCTAssertFalse(config.stream.showGoal)
+    }
+
+    func testCommandLegendAdvertisesTheCommandsThatActuallyWork() {
+        for entry in AudienceCommand.legend {
+            XCTAssertNotNil(AudienceCommand.parse("\(entry.command) tidy the kitchen"),
+                            "\(entry.command) is on screen, so it has to be a command")
+            XCTAssertFalse(entry.meaning.isEmpty)
+        }
+        XCTAssertTrue(AudienceCommand.legend.map(\.command).contains(AudienceCommand.advertised))
+    }
+
+    func testTheTickerStopsRepeatingCommandsThatAreAlreadyOnScreen() {
+        let slots = (0..<8).map { slot in
+            AudiencePrompts.line(remaining: 1_800,
+                                 elapsed: AudiencePrompts.interval * Double(slot),
+                                 hasCompany: true,
+                                 commandsShown: true)
+        }
+        XCTAssertFalse(slots.contains(AudiencePrompts.primary),
+                       "the legend already says this, and a screen should not say it twice")
+        XCTAssertFalse(slots.contains(AudiencePrompts.withCompany))
+        XCTAssertTrue(slots.allSatisfy { $0.map(AudiencePrompts.secondary.contains) ?? false })
+    }
+
+    func testTheTickerStillCarriesTheInstructionWithoutTheLegend() {
+        let slots = (0..<4).map { slot in
+            AudiencePrompts.line(remaining: 1_800,
+                                 elapsed: AudiencePrompts.interval * Double(slot),
+                                 hasCompany: true)
+        }
+        XCTAssertTrue(slots.contains(AudiencePrompts.primary),
+                      "with the commands off, this line is the only thing telling anyone what to type")
+    }
+
+    func testMotionChoicesSurviveSavingAndReloading() throws {
+        let store = StateStore(baseDirectory: try temporaryDirectory())
+        for mode in StreamMotion.allCases {
+            var config = AppConfig()
+            config.stream.motion = mode
+            config.stream.goal = "A goal worth keeping"
+            try store.saveConfig(config)
+            let loaded = store.loadConfig()
+            XCTAssertEqual(loaded.stream.motion, mode)
+            XCTAssertEqual(loaded.stream.goal, config.stream.goal)
+        }
+    }
+
     func testBlockNumberCountsUpAcrossBlocksAndSurvivesTheBreak() throws {
         let directory = try temporaryDirectory()
         let stateStore = StateStore(baseDirectory: directory)
