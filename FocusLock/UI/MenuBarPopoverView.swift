@@ -56,7 +56,12 @@ struct MenuBarPopoverView: View {
 
             Spacer(minLength: 12)
 
-            if controller.isSessionActive {
+            if controller.isStrictLocked {
+                Label("Strict", systemImage: "lock.fill")
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundStyle(Color.flAccentDeep)
+                    .fixedSize()
+            } else if controller.isSessionActive {
                 Button("End") {
                     controller.stopSession()
                 }
@@ -77,7 +82,7 @@ struct MenuBarPopoverView: View {
     private var phaseLabel: String {
         switch controller.snapshot.phase {
         case .focus:
-            return "Focus · \(controller.config.focusMinutes)/\(controller.config.breakMinutes)"
+            return "Focus · \(controller.snapshot.focusMinutes)/\(controller.snapshot.breakMinutes)"
         case .break:
             return "Break"
         case .breakEnded:
@@ -88,14 +93,7 @@ struct MenuBarPopoverView: View {
     }
 
     private var guardedLine: String {
-        let apps = controller.activeBlockedApps
-        guard !apps.isEmpty else {
-            return "No apps guarded"
-        }
-
-        let names = apps.prefix(3).map(\.name).joined(separator: ", ")
-        let extra = apps.count - min(3, apps.count)
-        return extra > 0 ? "\(names) +\(extra)" : names
+        controller.guardedSummaryLine
     }
 
     private func action(_ title: String, perform: @escaping () -> Void) -> some View {

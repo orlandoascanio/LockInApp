@@ -22,11 +22,13 @@ final class FocusOverlayController {
         appName: String,
         countdown: String,
         allowSnooze: Bool,
+        allowEnd: Bool,
         snoozeMinutes: Int
     ) {
         model.appName = appName
         model.countdown = countdown
         model.allowSnooze = allowSnooze
+        model.allowEnd = allowEnd
         model.snoozeMinutes = snoozeMinutes
 
         guard windows.isEmpty else {

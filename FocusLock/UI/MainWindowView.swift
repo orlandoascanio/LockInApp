@@ -3,10 +3,11 @@ import SwiftUI
 
 enum MainPage: String, CaseIterable, Identifiable {
     case focus
-    case stream
     case blockedApps
+    case schedules
     case history
     case analytics
+    case integrations
     case settings
 
     var id: String { rawValue }
@@ -15,14 +16,16 @@ enum MainPage: String, CaseIterable, Identifiable {
         switch self {
         case .focus:
             return "Focus"
-        case .stream:
-            return "Stream"
         case .blockedApps:
-            return "Blocked apps"
+            return "Blocked"
+        case .schedules:
+            return "Schedules"
         case .history:
             return "History"
         case .analytics:
             return "Analytics"
+        case .integrations:
+            return "Integrations"
         case .settings:
             return "Settings"
         }
@@ -32,14 +35,16 @@ enum MainPage: String, CaseIterable, Identifiable {
         switch self {
         case .focus:
             return "timer"
-        case .stream:
-            return "rectangle.on.rectangle"
         case .blockedApps:
             return "shield"
+        case .schedules:
+            return "calendar.badge.clock"
         case .history:
             return "clock.arrow.circlepath"
         case .analytics:
             return "chart.bar.xaxis"
+        case .integrations:
+            return "link"
         case .settings:
             return "gearshape"
         }
@@ -61,14 +66,16 @@ struct MainWindowView: View {
                 switch controller.page {
                 case .focus:
                     FocusPageView()
-                case .stream:
-                    StreamSetupView()
                 case .blockedApps:
                     BlockedAppsView()
+                case .schedules:
+                    SchedulesView()
                 case .history:
                     SessionHistoryView()
                 case .analytics:
                     AnalyticsView()
+                case .integrations:
+                    IntegrationsView()
                 case .settings:
                     SettingsView()
                 }
@@ -76,7 +83,7 @@ struct MainWindowView: View {
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
             .background(Color.flCanvas)
         }
-        .frame(minWidth: 820, minHeight: 580)
+        .frame(minWidth: 860, minHeight: 600)
         .background(Color.flCanvas)
     }
 
@@ -110,7 +117,7 @@ struct MainWindowView: View {
     private var sidebarSubtitle: String {
         switch controller.snapshot.phase {
         case .focus:
-            return "Guarding"
+            return controller.snapshot.isStrict ? "Strict" : "Guarding"
         case .break:
             return "On a break"
         case .breakEnded:
@@ -122,11 +129,10 @@ struct MainWindowView: View {
 
     private func navItem(_ page: MainPage) -> some View {
         let isSelected = controller.page == page
-        // The blocked-apps badge is a count; the stream badge is a queue that
-        // wants answering, so it is drawn to be noticed.
-        let badge = page == .blockedApps ? controller.config.blockedApps.count
-            : page == .stream ? controller.roster.held.count : 0
-        let needsAnswer = page == .stream && badge > 0
+        let badge = page == .blockedApps
+            ? controller.config.blockedApps.count + controller.config.blockedSites.count
+            : page == .schedules ? controller.config.schedules.filter(\.isEnabled).count : 0
+        let needsAnswer = page == .blockedApps && controller.browserPermissionProblem != nil
 
         return Button {
             controller.page = page
@@ -216,27 +222,55 @@ struct FocusPageView: View {
     @EnvironmentObject private var controller: MenuBarController
 
     var body: some View {
-        VStack(spacing: 0) {
-            hero
+        ScrollView {
+            VStack(spacing: 0) {
+                hero
 
-            FLRule()
+                if showsBreakPanel {
+                    FLRule()
+                    BreakPanel()
+                }
 
-            presetTabs
+                if let recap = controller.lastRecap, !controller.isSessionActive,
+                   controller.snapshot.phase != .breakEnded {
+                    FLRule()
+                    RecapCard(recap: recap)
+                }
 
-            if controller.preset == .custom {
                 FLRule()
-                customDurations
+
+                presetTabs
+
+                if controller.preset == .custom {
+                    FLRule()
+                    customDurations
+                }
+
+                FLRule()
+
+                guardedSummary
+
+                FLRule()
+
+                weeklyRhythm
             }
+        }
+        .sheet(isPresented: $showingEscape) {
+            StrictEscapeSheet()
+                .environmentObject(controller)
+        }
+    }
 
-            FLRule()
+    @State private var showingEscape = false
 
-            guardedSummary
-
-            FLRule()
-
-            weeklyRhythm
-
-            Spacer(minLength: 0)
+    private var showsBreakPanel: Bool {
+        switch controller.snapshot.phase {
+        case .break, .breakEnded:
+            return true
+        case .completed:
+            return controller.checkInEntry != nil
+        default:
+            return false
         }
     }
 
@@ -266,21 +300,22 @@ struct FocusPageView: View {
             controls
                 .padding(.top, 24)
 
-            Button {
-                controller.page = .stream
-            } label: {
-                Label(controller.config.stream.goal.isEmpty ? "Set a goal · Bring your own task" : controller.config.stream.goal,
-                      systemImage: "rectangle.on.rectangle")
-                    .font(.caption).lineLimit(1)
-            }
-            .buttonStyle(.plain)
-            .foregroundStyle(Color.flAccentDeep)
-            .padding(.top, 12)
+            FocusGoalBar()
+                .padding(.top, 16)
 
             Text(scheduleLine)
                 .font(FLTypography.caption)
                 .foregroundStyle(Color.flInkSoft)
-                .padding(.top, 14)
+                .padding(.top, 12)
+
+            if let message = controller.focusMessage {
+                Text(message)
+                    .font(FLTypography.caption)
+                    .foregroundStyle(Color.flClay)
+                    .multilineTextAlignment(.center)
+                    .frame(maxWidth: 460)
+                    .padding(.top, 8)
+            }
         }
         .padding(.top, 34)
         .padding(.bottom, 30)
@@ -295,13 +330,15 @@ struct FocusPageView: View {
     private var phaseLabel: String {
         switch controller.snapshot.phase {
         case .focus:
-            return "Focus · \(controller.config.focusMinutes) / \(controller.config.breakMinutes)"
+            let strict = controller.snapshot.isStrict ? " · Strict" : ""
+            return "Focus · \(controller.snapshot.focusMinutes) / \(controller.snapshot.breakMinutes)\(strict)"
         case .break:
-            return "Break"
+            return "Break · block \(controller.snapshot.currentCycle) done"
         case .breakEnded:
             return "Break ended"
         default:
-            return "Ready · \(controller.config.focusMinutes) / \(controller.config.breakMinutes)"
+            let strict = controller.config.strict.enabled ? " · Strict" : ""
+            return "Ready · \(controller.config.focusMinutes) / \(controller.config.breakMinutes)\(strict)"
         }
     }
 
@@ -309,11 +346,40 @@ struct FocusPageView: View {
     private var controls: some View {
         HStack(spacing: 10) {
             switch controller.snapshot.phase {
-            case .focus, .break:
+            case .focus where controller.isStrictLocked:
+                Label("Strict until \(endLabel)", systemImage: "lock.fill")
+                    .font(.system(size: 13.5, weight: .semibold))
+                    .foregroundStyle(Color.flAccentDeep)
+                    .padding(.horizontal, 18)
+                    .frame(minHeight: 44)
+                    .overlay(Capsule().strokeBorder(Color.flAccentDeep.opacity(0.35), lineWidth: 1.2))
+
+                Button("Emergency exit…") {
+                    showingEscape = true
+                }
+                .buttonStyle(FLActionButtonStyle(variant: .quiet, minHeight: 44))
+
+            case .focus:
                 Button("End session") {
                     controller.stopSession()
                 }
                 .buttonStyle(FLActionButtonStyle(variant: .primary, minHeight: 44))
+
+                Button("Skip to break") {
+                    controller.skipPhase()
+                }
+                .buttonStyle(FLActionButtonStyle(variant: .secondary, minHeight: 44))
+
+            case .break:
+                Button("Start next block") {
+                    controller.skipPhase()
+                }
+                .buttonStyle(FLActionButtonStyle(variant: .primary, minHeight: 44))
+
+                Button("End session") {
+                    controller.stopSession()
+                }
+                .buttonStyle(FLActionButtonStyle(variant: .secondary, minHeight: 44))
 
             case .breakEnded:
                 Button("Start focus") {
@@ -337,6 +403,10 @@ struct FocusPageView: View {
         }
     }
 
+    private var endLabel: String {
+        controller.snapshot.phaseEndsAt.map(Self.time) ?? "the end"
+    }
+
     private var scheduleLine: String {
         switch controller.snapshot.phase {
         case .focus:
@@ -358,12 +428,24 @@ struct FocusPageView: View {
             return controller.autoResumeStatusLine ?? "Ready for the next block"
 
         default:
+            if let occurrence = controller.activeScheduleOccurrence {
+                return "\(occurrence.schedule.name) runs until \(Self.time(occurrence.end)) — stopped for today"
+            }
             let ends = Date().addingTimeInterval(TimeInterval(controller.config.focusMinutes * 60))
             if controller.config.breakMinutes > 0 {
                 return "Ends at \(Self.time(ends)) · break follows automatically"
             }
             return "Ends at \(Self.time(ends))"
         }
+    }
+
+    private var guardedCountText: String {
+        let apps = controller.activeBlockedApps.count
+        let sites = controller.activeBlockedSites.count
+        var parts: [String] = []
+        if apps > 0 { parts.append("\(apps) app\(apps == 1 ? "" : "s")") }
+        if sites > 0 { parts.append("\(sites) site\(sites == 1 ? "" : "s")") }
+        return parts.isEmpty ? "Nothing active" : parts.joined(separator: " · ") + " guarded"
     }
 
     private var guardedCountLabel: String {
@@ -447,8 +529,8 @@ struct FocusPageView: View {
 
     private var guardedSummary: some View {
         HStack(spacing: 12) {
-            if controller.config.blockedApps.isEmpty {
-                Text("No apps guarded yet")
+            if controller.config.blockedApps.isEmpty && controller.config.blockedSites.isEmpty {
+                Text("Nothing guarded yet")
                     .font(.system(size: 13))
                     .foregroundStyle(Color.flInkSoft)
             } else {
@@ -456,7 +538,7 @@ struct FocusPageView: View {
                     FLAppPile.BlockedAppSummary(id: $0.bundleId, bundleId: $0.bundleId)
                 })
 
-                Text("\(controller.activeBlockedApps.count) app\(controller.activeBlockedApps.count == 1 ? "" : "s") guarded")
+                Text(guardedCountText)
                     .font(.system(size: 13, weight: .medium))
                     .foregroundStyle(Color.flInk)
 
@@ -469,7 +551,7 @@ struct FocusPageView: View {
                 controller.page = .blockedApps
             } label: {
                 HStack(spacing: 5) {
-                    Text(controller.config.blockedApps.isEmpty ? "Add apps" : "Manage")
+                    Text(controller.config.blockedApps.isEmpty && controller.config.blockedSites.isEmpty ? "Add apps or sites" : "Manage")
                         .font(.system(size: 12, weight: .medium))
                     Image(systemName: "chevron.right")
                         .font(.system(size: 9, weight: .bold))

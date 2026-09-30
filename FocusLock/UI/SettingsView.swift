@@ -17,7 +17,15 @@ struct SettingsView: View {
                     FLRule()
                     sessionSection
                     FLRule()
+                    strictSection
+                    FLRule()
+                    breakSuggestionsSection
+                    FLRule()
+                    hotkeySection
+                    FLRule()
                     hudSection
+                    FLRule()
+                    generalSection
                 }
             }
 
@@ -38,7 +46,7 @@ struct SettingsView: View {
                 .font(FLTypography.display)
                 .foregroundStyle(Color.flInk)
 
-            Text("Durations, guarding behaviour, and how LockIn shows itself.")
+            Text("Durations, guarding, strict mode, shortcuts, and how LockIn shows itself.")
                 .font(FLTypography.caption)
                 .foregroundStyle(Color.flInkSoft)
         }
@@ -99,7 +107,7 @@ struct SettingsView: View {
                     .foregroundStyle(Color.flInkSoft)
                     .fixedSize(horizontal: false, vertical: true)
 
-                Text("Individual apps can override this from the Blocked apps list.")
+                Text("Individual apps can override this from the Blocked list.")
                     .font(.system(size: 11))
                     .foregroundStyle(Color.flInkSoft.opacity(0.8))
             }
@@ -247,6 +255,132 @@ struct SettingsView: View {
         }
     }
 
+    private var strictSection: some View {
+        section("Strict mode") {
+            VStack(alignment: .leading, spacing: 14) {
+                toggleRow(
+                    title: "Run every block strict",
+                    detail: "During focus you can't end or skip the block, allow a guarded app, remove anything from the Blocked list, or quit LockIn. If LockIn is force-quit, it reopens and carries on. Breaks stay yours.",
+                    isOn: Binding(
+                        get: { controller.config.strict.enabled },
+                        set: { controller.updateStrictMode(enabled: $0) }
+                    )
+                )
+                .disabled(controller.isStrictLocked)
+
+                choiceRow(
+                    label: "Exit wait",
+                    options: [60, 120, 300, 600],
+                    selection: controller.config.strict.escapeWaitSeconds,
+                    title: { "\($0 / 60) min" },
+                    onSelect: { controller.updateEscapeWait(seconds: $0) }
+                )
+                .disabled(controller.isStrictLocked)
+
+                Text("The emergency exit asks you to type a sentence, then waits this long before ending the block. Schedules can make their own blocks strict too.")
+                    .font(.system(size: 11))
+                    .foregroundStyle(Color.flInkSoft.opacity(0.8))
+                    .fixedSize(horizontal: false, vertical: true)
+                    .frame(maxWidth: 560, alignment: .leading)
+            }
+        }
+    }
+
+    private var breakSuggestionsSection: some View {
+        section("Break suggestions") {
+            VStack(alignment: .leading, spacing: 14) {
+                toggleRow(
+                    title: "Suggest something to do on each break",
+                    detail: "Shown in the break notification, on the Focus page, and in the floating HUD.",
+                    isOn: Binding(
+                        get: { controller.config.breakSuggestions.enabled },
+                        set: { value in controller.updateBreakSuggestions { $0.enabled = value } }
+                    )
+                )
+
+                HStack(spacing: 8) {
+                    ForEach(BreakSuggestionKind.allCases) { kind in
+                        suggestionChip(kind)
+                    }
+                }
+                .disabled(!controller.config.breakSuggestions.enabled)
+                .opacity(controller.config.breakSuggestions.enabled ? 1 : 0.5)
+
+                toggleRow(
+                    title: "20-20-20 reminder during long blocks",
+                    detail: "Every 20 minutes of focus, a silent nudge to look about 20 feet away for 20 seconds.",
+                    isOn: Binding(
+                        get: { controller.config.breakSuggestions.eyeReminderDuringFocus },
+                        set: { value in controller.updateBreakSuggestions { $0.eyeReminderDuringFocus = value } }
+                    )
+                )
+            }
+        }
+    }
+
+    private func suggestionChip(_ kind: BreakSuggestionKind) -> some View {
+        let isOn = controller.config.breakSuggestions.kinds.contains(kind)
+        return Button {
+            controller.updateBreakSuggestions { settings in
+                if isOn {
+                    settings.kinds.remove(kind)
+                } else {
+                    settings.kinds.insert(kind)
+                }
+            }
+        } label: {
+            Text(kind.title)
+                .font(.system(size: 12, weight: isOn ? .semibold : .regular))
+                .foregroundStyle(isOn ? Color.flAccentDeep : Color.flInkSoft)
+                .padding(.horizontal, 12)
+                .frame(height: 26)
+                .background(Capsule().fill(isOn ? Color.flAccentSoft.opacity(0.6) : .clear))
+                .overlay(Capsule().strokeBorder(isOn ? Color.flAccentDeep.opacity(0.35) : Color.flHairline, lineWidth: 1))
+                .contentShape(Capsule())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(kind.title)
+        .accessibilityAddTraits(isOn ? [.isSelected] : [])
+    }
+
+    private var hotkeySection: some View {
+        section("Keyboard shortcuts") {
+            VStack(alignment: .leading, spacing: 12) {
+                toggleRow(
+                    title: "Global shortcuts",
+                    detail: "Work from any app, even when LockIn is in the background. Strict blocks ignore stop and skip.",
+                    isOn: Binding(
+                        get: { controller.config.hotkeys.enabled },
+                        set: { value in controller.updateHotkeys { $0.enabled = value } }
+                    )
+                )
+
+                if controller.config.hotkeys.enabled {
+                    ForEach(HotkeyAction.allCases) { action in
+                        ShortcutRecorder(action: action)
+                    }
+                }
+            }
+        }
+    }
+
+    private var generalSection: some View {
+        section("General") {
+            VStack(alignment: .leading, spacing: 14) {
+                toggleRow(
+                    title: "Open LockIn at login",
+                    detail: "Needed for schedules to start on their own.",
+                    isOn: Binding(
+                        get: { controller.launchAtLogin },
+                        set: { controller.setLaunchAtLogin($0) }
+                    )
+                )
+
+                UpdatesRow()
+            }
+        }
+    }
+
     private func behaviourOption(_ mode: BlockerMode) -> some View {
         let isSelected = controller.config.blockerMode == mode
 
@@ -302,5 +436,40 @@ struct SettingsView: View {
                 .accessibilityLabel(title)
         }
         .frame(maxWidth: 560, alignment: .leading)
+    }
+}
+
+private struct UpdatesRow: View {
+    @ObservedObject private var updates = UpdateController.shared
+
+    var body: some View {
+        if updates.isAvailable {
+            HStack(alignment: .top, spacing: FLSpacing.md) {
+                VStack(alignment: .leading, spacing: 3) {
+                    Text("Check for updates automatically")
+                        .font(FLTypography.body)
+                        .foregroundStyle(Color.flInk)
+                    Text("New versions are signed; LockIn checks them before installing.")
+                        .font(FLTypography.caption)
+                        .foregroundStyle(Color.flInkSoft)
+                }
+                Spacer(minLength: FLSpacing.md)
+                Button("Check now") { updates.checkForUpdates() }
+                    .buttonStyle(FLLinkButtonStyle())
+                Toggle("", isOn: Binding(
+                    get: { updates.automaticallyChecks },
+                    set: { updates.automaticallyChecks = $0 }
+                ))
+                .toggleStyle(.switch)
+                .tint(Color.flAccentDeep)
+                .labelsHidden()
+                .accessibilityLabel("Check for updates automatically")
+            }
+            .frame(maxWidth: 560, alignment: .leading)
+        } else {
+            Text("Updates are off in this build. They switch on once Scripts/release/setup_sparkle.sh has added a signing key.")
+                .font(FLTypography.caption)
+                .foregroundStyle(Color.flInkSoft)
+        }
     }
 }

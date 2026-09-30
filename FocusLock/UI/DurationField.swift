@@ -42,12 +42,12 @@ struct FLDurationField: View {
                 .labelsHidden()
                 .accessibilityLabel("Adjust \(label.lowercased()) duration")
         }
-        .onChange(of: isFocused) { focused in
+        .onChange(of: isFocused) { _, focused in
             if !focused {
                 commit()
             }
         }
-        .onChange(of: text) { newValue in
+        .onChange(of: text) { _, newValue in
             let digits = MinuteInput.digitsOnly(newValue)
             if digits != newValue {
                 text = digits
@@ -58,7 +58,7 @@ struct FLDurationField: View {
                 minutes = parsed
             }
         }
-        .onChange(of: minutes) { newValue in
+        .onChange(of: minutes) { _, newValue in
             if !isFocused {
                 text = String(newValue)
             }

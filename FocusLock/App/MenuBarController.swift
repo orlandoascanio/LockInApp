@@ -1,7 +1,9 @@
 import AppKit
 import FocusLockCore
+import ServiceManagement
 import SwiftUI
 import UniformTypeIdentifiers
+import WidgetKit
 
 enum FocusPreset: String, CaseIterable, Identifiable {
     case twentyFiveFive
@@ -41,38 +43,7 @@ final class MenuBarController: NSObject, ObservableObject {
     @Published var preset: FocusPreset = .fiftyTen
     @Published var settingsMessage: String?
     @Published var exportMessage: String?
-    @Published var streamMessage: String?
-
-    /// Everyone working alongside the host, from chat or by hand.
-    ///
-    /// Written down on every change: the UI mutates this directly — approving,
-    /// taking rows down, blocking — so catching it here is the only way to
-    /// catch all of it.
-    @Published var roster = AudienceRoster() {
-        didSet { persistStreamRun(ifChangedFrom: oldValue) }
-    }
-
-    @Published private(set) var chatState: TwitchChatClient.State = .idle
-
-    private lazy var twitchChat: TwitchChatClient = {
-        let client = TwitchChatClient()
-        client.onState = { [weak self] state in
-            self?.chatState = state
-        }
-        client.onMessage = { [weak self] message in
-            // The single door every viewer's words come through, whatever
-            // carried them here.
-            self?.handleAudienceMessage(from: message.name, message: message.text)
-        }
-        return client
-    }()
-
-    /// When the current run began. Kept after the run ends so the recap is
-    /// still there when you go looking for it, and replaced only when the
-    /// next run starts.
-    @Published private(set) var runStartedAt: Date? {
-        didSet { if runStartedAt != oldValue { persistStreamRun() } }
-    }
+    @Published var focusMessage: String?
 
     /// Which pane the sidebar is showing. Settings, History, and Analytics are
     /// panes rather than separate windows, so navigation lives here.
@@ -86,6 +57,23 @@ final class MenuBarController: NSObject, ObservableObject {
     @Published private(set) var blockedTodayCounts: [String: Int] = [:]
     @Published private(set) var sessionStats: SessionStats = .empty
 
+    /// The emergency exit in progress, if any.
+    @Published private(set) var strictEscape: StrictEscape?
+
+    /// The browser that refused LockIn permission to read its tabs.
+    @Published private(set) var browserPermissionProblem: SupportedBrowser?
+
+    /// The schedule window open right now, whether or not it started a block.
+    @Published private(set) var activeScheduleOccurrence: ScheduleOccurrence?
+
+    /// What the last finished run added up to.
+    @Published private(set) var lastRecap: RunRecap?
+
+    @Published private(set) var hotkeyFailures: Set<HotkeyAction> = []
+    @Published var launchAtLogin: Bool = SMAppService.mainApp.status == .enabled
+
+    let integrations: IntegrationCoordinator
+
     private let stateStore: StateStore
     private let historyStore: SessionHistoryStore
     private let exportService: ExportService
@@ -93,6 +81,9 @@ final class MenuBarController: NSObject, ObservableObject {
     private let blocker: AppBlocker
     private let timerEngine: TimerEngine
     private let activityStore = BlockActivityStore()
+    private let websiteGuard = WebsiteGuard()
+    private let hotkeys = HotkeyManager()
+    private let watchdog = StrictWatchdog()
     private let overlay = FocusOverlayController()
     private let breakEndedOverlay = BreakEndedWindowController()
     private let autoResumeOverlay = AutoResumeOverlayController()
@@ -107,14 +98,28 @@ final class MenuBarController: NSObject, ObservableObject {
     /// quitting ends the cycle anyway.
     private var autoResumeAnchor: Date?
 
+    /// When the current run of back-to-back blocks began, for its recap.
+    private var runStartedAt: Date? {
+        get { UserDefaults.standard.object(forKey: Self.runStartedKey) as? Date }
+        set { UserDefaults.standard.set(newValue, forKey: Self.runStartedKey) }
+    }
+
+    private var lastEyeReminderAt: Date?
+    private var lastWebsiteCheck = Date.distantPast
+    private var lastScheduleCheck = Date.distantPast
+    private var lastWidgetSnapshot: WidgetSnapshot?
+    private var widgetCommandObserver: DarwinNotificationObserver?
+
     private var tickTimer: Timer?
     private var statusItem: NSStatusItem?
     private let popover = NSPopover()
     private var mainWindow: NSWindow?
-    private var streamWindow: NSWindow?
     private var reopenObserver: NSObjectProtocol?
     private var blockerRunning = false
     private var hasSetup = false
+
+    private static let runStartedKey = "LockInRunStartedAt"
+    private static let dismissedSchedulesKey = "LockInDismissedScheduleOccurrences"
 
     var menuBarSymbolName: String {
         switch snapshot.phase {
@@ -131,14 +136,28 @@ final class MenuBarController: NSObject, ObservableObject {
         snapshot.phase == .focus || snapshot.phase == .break
     }
 
+    /// True while a strict block is running: ending, skipping, allowing a
+    /// guarded app, weakening the guard, and quitting are all refused.
+    var isStrictLocked: Bool {
+        StrictPolicy.isLocked(phase: snapshot.phase, sessionIsStrict: snapshot.isStrict)
+    }
+
     /// Apps that are actually guarded right now — entries toggled off stay in
     /// the list but are excluded everywhere the count is shown.
     var activeBlockedApps: [BlockedApp] {
         config.blockedApps.filter(\.isEnabled)
     }
 
+    var activeBlockedSites: [BlockedSite] {
+        config.blockedSites.filter(\.isEnabled)
+    }
+
     func blockedTodayCount(for app: BlockedApp) -> Int {
         blockedTodayCounts[app.bundleId] ?? 0
+    }
+
+    func blockedTodayCount(for site: BlockedSite) -> Int {
+        blockedTodayCounts[Self.activityKey(for: site)] ?? 0
     }
 
     /// What the clock should read. Idle and finished states show the duration
@@ -148,8 +167,6 @@ final class MenuBarController: NSObject, ObservableObject {
         switch snapshot.phase {
         case .focus, .break, .paused:
             return snapshot.formattedRemaining
-        case .breakEnded:
-            return String(format: "%02d:00", config.focusMinutes)
         default:
             return String(format: "%02d:00", config.focusMinutes)
         }
@@ -161,7 +178,6 @@ final class MenuBarController: NSObject, ObservableObject {
     var autoResumeStatusLine: String? {
         guard
             config.breakEndBehavior == .autopilot,
-            snapshot.task?.shared != true,
             snapshot.phase == .breakEnded,
             let breakEndedAt = snapshot.breakEndedAt
         else {
@@ -191,6 +207,35 @@ final class MenuBarController: NSObject, ObservableObject {
         return min(1, max(0, (total - snapshot.remainingSeconds) / total))
     }
 
+    /// What to do with this break, while one is running or just over.
+    var breakSuggestion: BreakSuggestion? {
+        guard snapshot.phase == .break || snapshot.phase == .breakEnded else { return nil }
+        return BreakSuggestions.suggestion(
+            forCycle: snapshot.currentCycle,
+            breakMinutes: snapshot.breakMinutes,
+            settings: config.breakSuggestions
+        )
+    }
+
+    var nextScheduleOccurrence: ScheduleOccurrence? {
+        ScheduleEvaluator.nextOccurrence(in: config.schedules, after: Date())
+    }
+
+    /// The current task: the one the running block started with, or the one
+    /// the next block will use.
+    var currentTask: SessionTask {
+        switch snapshot.phase {
+        case .idle: return config.task.task
+        default: return snapshot.task ?? config.task.task
+        }
+    }
+
+    var checkInEntry: SessionHistoryEntry? {
+        guard snapshot.phase == .break || snapshot.phase == .breakEnded || snapshot.phase == .completed,
+              let taskID = snapshot.task?.id else { return nil }
+        return history.first { $0.task?.id == taskID && $0.status == .completed }
+    }
+
     override init() {
         let stateStore = StateStore()
         let historyStore = SessionHistoryStore()
@@ -201,14 +246,10 @@ final class MenuBarController: NSObject, ObservableObject {
         self.historyStore = historyStore
         self.notificationService = notificationService
         self.exportService = exportService
-        self.config = stateStore.loadConfig()
+        let config = stateStore.loadConfig()
+        self.config = config
         self.history = historyStore.loadHistory()
-        // Before any observer can fire: restoring the wall must not read as a
-        // hundred separate changes worth writing back out again.
-        if let run = stateStore.loadStreamRun() {
-            self.runStartedAt = run.startedAt
-            self.roster = run.roster
-        }
+        self.integrations = IntegrationCoordinator()
         self.timerEngine = TimerEngine(
             stateStore: stateStore,
             historyStore: historyStore,
@@ -219,6 +260,11 @@ final class MenuBarController: NSObject, ObservableObject {
 
         super.init()
 
+        notificationService.breakSuggestion = { [weak self] cycle, minutes in
+            guard let settings = self?.config.breakSuggestions else { return nil }
+            return BreakSuggestions.suggestion(forCycle: cycle, breakMinutes: minutes, settings: settings)
+        }
+
         self.timerEngine.onChange = { [weak self] snapshot in
             Task { @MainActor in
                 self?.apply(snapshot)
@@ -228,12 +274,25 @@ final class MenuBarController: NSObject, ObservableObject {
         self.blocker.delegate = self
         self.blocker.onInterception = { [weak self] app in
             Task { @MainActor in
-                self?.recordInterception(of: app)
+                self?.recordInterception(key: app.bundleId)
             }
         }
 
-        // Only now, so the restore above stays a read.
-        isRestored = true
+        websiteGuard.onBlocked = { [weak self] visit in
+            self?.recordInterception(key: Self.activityKey(for: visit.site))
+            self?.notificationService.notice(
+                title: "\(visit.site.host) is guarded",
+                body: "LockIn swapped the page out in \(visit.browser.displayName)."
+            )
+        }
+        websiteGuard.onPermissionDenied = { [weak self] browser in
+            self?.browserPermissionProblem = browser
+        }
+
+        hotkeys.onAction = { [weak self] action in
+            self?.perform(action)
+        }
+
         configureOverlayHandlers()
         configureBreakEndedHandlers()
         configureAutoResumeHandlers()
@@ -250,8 +309,12 @@ final class MenuBarController: NSObject, ObservableObject {
         }
     }
 
-    private func recordInterception(of app: InterceptedApp) {
-        blockedTodayCounts = activityStore.recordInterception(bundleId: app.bundleId)
+    private func recordInterception(key: String) {
+        blockedTodayCounts = activityStore.recordInterception(bundleId: key)
+    }
+
+    private static func activityKey(for site: BlockedSite) -> String {
+        "site:\(site.pattern)"
     }
 
     /// Re-reads the history file and everything derived from it. Every code
@@ -270,6 +333,7 @@ final class MenuBarController: NSObject, ObservableObject {
         weeklyRhythm = historyStore.weeklyRhythm()
         streak = historyStore.focusStreak()
         blockedTodayCounts = activityStore.countsToday()
+        publishWidgetSnapshot()
     }
 
     private func configureOverlayHandlers() {
@@ -320,17 +384,6 @@ final class MenuBarController: NSObject, ObservableObject {
         }
 
         hasSetup = true
-        syncRosterSettings()
-
-        // Hosting is on, so the window and the chat feed are part of a setup
-        // that should still be there after a restart — a host mid-stream
-        // should not have to rebuild it by hand.
-        if config.stream.enabled {
-            openStreamWindow(activating: false)
-            if !config.stream.twitchChannel.isEmpty {
-                twitchChat.connect(channel: config.stream.twitchChannel)
-            }
-        }
         reopenObserver = NotificationCenter.default.addObserver(
             forName: .lockInShowMainWindow,
             object: nil,
@@ -341,12 +394,26 @@ final class MenuBarController: NSObject, ObservableObject {
             }
         }
 
+        widgetCommandObserver = DarwinNotificationObserver(
+            names: HotkeyAction.allCases.map { SharedContainer.commandNotificationPrefix + $0.rawValue }
+        ) { [weak self] name in
+            let raw = String(name.dropFirst(SharedContainer.commandNotificationPrefix.count))
+            guard let action = HotkeyAction(rawValue: raw) else { return }
+            Task { @MainActor in
+                self?.perform(action)
+            }
+        }
+
+        LockInCommandCenter.shared.controller = self
         setupMainMenu()
         setupStatusItem()
         notificationService.requestAuthorization()
         syncPresetFromConfig()
+        registerHotkeys()
         startTicking()
         syncBlocker()
+        syncWatchdog()
+        integrations.sessionChanged(snapshot, config: config)
         showMainWindowAfterLaunch()
     }
 
@@ -361,42 +428,46 @@ final class MenuBarController: NSObject, ObservableObject {
         blocker.stop()
     }
 
+    // MARK: - Quitting
+
+    /// Whether macOS is logging out, restarting, or shutting down — the only
+    /// quits a strict block lets through.
+    private var isSystemQuit: Bool {
+        guard let event = NSAppleEventManager.shared().currentAppleEvent,
+              event.eventClass == kCoreEventClass, event.eventID == kAEQuitApplication,
+              let reason = event.attributeDescriptor(forKeyword: kAEQuitReason)?.enumCodeValue else {
+            return false
+        }
+        return [kAELogOut, kAEReallyLogOut, kAEShowRestartDialog, kAERestart,
+                kAEShowShutdownDialog, kAEShutDown].contains(reason)
+    }
+
+    func shouldAllowTermination() -> Bool {
+        guard isStrictLocked, !isSystemQuit else { return true }
+        refuseStrict("LockIn can't quit during a strict block. It ends at \(phaseEndLabel), or use the emergency exit.")
+        return false
+    }
+
     /// Quitting mid-session ends it: stop guarding and record an interrupted
-    /// focus block as abandoned before the process exits.
+    /// focus block as abandoned before the process exits. A strict block is
+    /// left on disk instead, so the relaunch picks it back up.
     func handleAppWillTerminate() {
-        twitchChat.disconnect()
         blocker.stop()
+        websiteGuard.stop()
         pinnedHUD.dismiss()
-        timerEngine.recordAbandonmentIfNeeded()
-    }
-
-    func updateStream(_ update: (inout StreamSettings) -> Void) {
-        update(&config.stream)
-        applyStreamCanvas()
-        saveConfig()
-    }
-
-    /// The title bar is transparent, so it shows the window's own colour. Left
-    /// at the default it lands as a band across the top of whatever OBS
-    /// captures, which the host then has to crop out every time.
-    private func applyStreamCanvas() {
-        guard let streamWindow else { return }
-        let dark = config.stream.darkAppearance
-        streamWindow.appearance = NSAppearance(named: dark ? .darkAqua : .aqua)
-        streamWindow.backgroundColor = dark ? FLColor.streamDark : FLColor.streamLight
-    }
-
-    var streamTask: SessionTask {
-        switch snapshot.phase {
-        case .idle: return config.stream.task
-        default: return snapshot.task ?? config.stream.task
+        hotkeys.unregisterAll()
+        integrations.appWillTerminate()
+        if !snapshot.isStrict {
+            timerEngine.recordAbandonmentIfNeeded()
         }
     }
 
-    var checkInEntry: SessionHistoryEntry? {
-        guard snapshot.phase == .break || snapshot.phase == .breakEnded || snapshot.phase == .completed,
-              let taskID = snapshot.task?.id else { return nil }
-        return history.first { $0.task?.id == taskID && $0.status == .completed }
+    // MARK: - Task and check-in
+
+    func updateTask(_ update: (inout FocusTaskSettings) -> Void) {
+        update(&config.task)
+        saveConfig()
+        publishWidgetSnapshot()
     }
 
     func saveCheckIn(outcome: CheckInOutcome, note: String) {
@@ -405,242 +476,289 @@ final class MenuBarController: NSObject, ObservableObject {
             try historyStore.saveCheckIn(taskID: taskID, checkIn: SessionCheckIn(outcome: outcome, note: note))
             reloadHistory()
             var clearedGoal = false
-            updateStream { clearedGoal = $0.clearCompletedGoal(matching: entry.task, outcome: outcome) }
-            streamMessage = clearedGoal
-                ? "Check-in saved. Your note stays private. Goal cleared — set the next one when you're ready."
-                : "Check-in saved. Your note stays private."
+            updateTask { clearedGoal = $0.clearCompletedGoal(matching: entry.task, outcome: outcome) }
+            focusMessage = clearedGoal
+                ? "Check-in saved. Goal cleared — set the next one when you're ready."
+                : "Check-in saved."
         } catch {
-            streamMessage = "Could not save your check-in: \(error.localizedDescription)"
+            focusMessage = "Could not save your check-in: \(error.localizedDescription)"
         }
-    }
-
-    private var audienceAlerts = AudienceAlertThrottle()
-
-    /// Silent by default. A sound can reach the broadcast through desktop
-    /// audio and a banner can reach it through a display capture, so both are
-    /// opt-in and the banner never carries a viewer's words.
-    private func alertIfSomeoneIsWaiting() {
-        updateStatusItem()
-        guard !config.stream.autoApproveTasks else { return }
-        guard audienceAlerts.shouldAlert(waiting: roster.held.count, at: Date()) else { return }
-
-        if config.stream.alertSound {
-            NSSound(named: "Tink")?.play()
-        }
-        if config.stream.alertBanner {
-            notificationService.audienceTasksWaiting(count: roster.held.count)
-        }
-    }
-
-    func submitAudienceTask(name: String, text: String) {
-        defer { alertIfSomeoneIsWaiting() }
-        switch roster.submit(name: name, text: text) {
-        case .admitted:
-            streamMessage = "\(name) is on the wall."
-        case .held:
-            streamMessage = "\(name) is waiting for you to approve them."
-        case .rejected(.empty):
-            streamMessage = "That needs both a name and a task."
-        case .rejected(.blocked):
-            streamMessage = "\(name) is blocked for this stream."
-        case .rejected(.tooSoon):
-            streamMessage = "\(name) just posted — give it a moment."
-        case .rejected(.containsLink):
-            streamMessage = "Refused: that reads as a link, and links do not go on the wall."
-        case .rejected(.blockedWord):
-            streamMessage = "Refused: that contains a word on your blocked list."
-        }
-    }
-
-    func handleAudienceMessage(from name: String, message: String) {
-        guard let command = AudienceCommand.parse(message) else { return }
-        roster.apply(command, from: name)
-        alertIfSomeoneIsWaiting()
-    }
-
-    func syncRosterSettings() {
-        roster.autoApprove = config.stream.autoApproveTasks
-        roster.blockedTerms = AudienceFilter.defaultTerms
-            .union(AudienceFilter.terms(fromFileAt: blockedWordsURL))
-    }
-
-    /// One term per line. Kept beside the other LockIn data so it survives an
-    /// app update and can be edited without the app running.
-    var blockedWordsURL: URL {
-        stateStore.configURL.deletingLastPathComponent().appendingPathComponent("blocked-words.txt")
-    }
-
-    func revealBlockedWordsFile() {
-        if !FileManager.default.fileExists(atPath: blockedWordsURL.path) {
-            let template = """
-            # One blocked word or phrase per line. Lines starting with # are ignored.
-            # LockIn already folds spacing, punctuation, accents, repeated letters,
-            # and digits-for-letters, so one entry catches its variants.
-            # Add the slurs and platform-specific terms you want refused here.
-
-            """
-            try? template.write(to: blockedWordsURL, atomically: true, encoding: .utf8)
-        }
-        NSWorkspace.shared.activateFileViewerSelecting([blockedWordsURL])
-    }
-
-    /// False only during `init`, while the saved run is being read back in.
-    private var isRestored = false
-
-    private func persistStreamRun(ifChangedFrom previous: AudienceRoster? = nil) {
-        guard isRestored, let runStartedAt else { return }
-        if let previous, previous.matchesSavedState(of: roster) { return }
-        try? stateStore.saveStreamRun(StreamRunState(startedAt: runStartedAt, roster: roster))
-    }
-
-    var streamRecap: StreamRecap {
-        guard let runStartedAt else { return StreamRecap.make(from: [], since: .distantFuture) }
-        return StreamRecap.make(from: history, since: runStartedAt,
-                                companions: roster.peopleCount, tally: roster.tally)
     }
 
     func copyRecap() {
-        let recap = streamRecap
-        guard !recap.isEmpty else { return }
+        guard let recap = lastRecap, !recap.isEmpty else { return }
         NSPasteboard.general.clearContents()
         NSPasteboard.general.setString(recap.text, forType: .string)
-        streamMessage = "Recap copied."
+        focusMessage = "Recap copied."
     }
 
-    func connectChat() {
-        let channel = config.stream.twitchChannel
-        guard twitchChat.connect(channel: channel) else { return }
-        streamMessage = "Reading chat. Viewers can type \(AudienceCommand.advertised) to appear on the wall."
-    }
+    // MARK: - Session control
 
-    func disconnectChat() {
-        twitchChat.disconnect()
-        streamMessage = "Chat disconnected. The wall keeps whoever is already on it."
-    }
-
-    func setAudienceAutoApprove(_ isOn: Bool) {
-        updateStream { $0.autoApproveTasks = isOn }
-        roster.autoApprove = isOn
-    }
-
-    /// Apps you are guarding that this stream depends on.
-    var streamHazards: [StreamHazard] {
-        StreamHazard.hazards(in: config.blockedApps)
-    }
-
-    /// Leaves the app in the list so it is guarded again next session — the
-    /// point is to get through the stream, not to rebuild the list afterwards.
-    func unguard(_ hazard: StreamHazard) {
-        guard let index = config.blockedApps.firstIndex(where: { $0.bundleId == hazard.app.bundleId }) else { return }
-        config.blockedApps[index].isEnabled = false
-        saveConfig()
-        syncBlocker()
-        streamMessage = "\(hazard.app.name) is no longer guarded. Turn it back on in Blocked apps when you're done."
-    }
-
-    func apply(_ preset: StreamPreset) {
-        preset.apply(to: &config)
-        syncPresetFromConfig()
-        saveConfig()
-        streamMessage = "\(preset.name) · \(config.focusMinutes)/\(config.breakMinutes) minutes, \(config.stream.plannedBlocks) blocks."
-    }
-
-    /// LockIn never plays or rebroadcasts audio; it only hands the link to
-    /// whichever app owns it.
-    func openPlaylist() {
-        guard let url = config.stream.playlistDestination else {
-            streamMessage = "That playlist link is not one LockIn can open. Paste a web or Spotify link."
-            return
-        }
-        NSWorkspace.shared.open(url)
-    }
-
-    func openStreamWindow(activating: Bool = true) {
-        let isNew = streamWindow == nil
-        streamWindow = presentWindow(
-            existingWindow: streamWindow,
-            title: Self.streamWindowTitle,
-            size: Self.streamWindowSize,
-            rootView: StreamAudienceView().environmentObject(self),
-            activating: activating
-        )
-        applyStreamCanvas()
-
-        guard let streamWindow else { return }
-
-        // The title and the three buttons are drawn into the frame, so they
-        // land in the capture and have to be cropped out by hand. The window
-        // keeps its title for OBS's window list — that comes from the title
-        // property, not from whether it is drawn.
-        streamWindow.titleVisibility = .hidden
-        for button in [NSWindow.ButtonType.closeButton, .miniaturizeButton, .zoomButton] {
-            streamWindow.standardWindowButton(button)?.isHidden = true
-        }
-
-        // Broadcasts are 16:9. Anything else is pillarboxed with black, so the
-        // window resizes on that ratio and cannot drift off it.
-        streamWindow.aspectRatio = NSSize(width: 16, height: 9)
-        streamWindow.minSize = NSSize(width: 640, height: 360)
-
-        if isNew {
-            adoptWidescreenFrame(streamWindow)
-        }
-    }
-
-    static let streamWindowTitle = "LockIn Stream"
-    static let streamWindowSize = NSSize(width: 1280, height: 720)
-
-    /// A frame saved before the ratio was locked comes back at its old shape,
-    /// which is exactly the letterboxing this is meant to remove.
-    private func adoptWidescreenFrame(_ window: NSWindow) {
-        let size = window.frame.size
-        guard size.height > 0 else { return }
-        let ratio = size.width / size.height
-        guard abs(ratio - 16.0 / 9.0) > 0.01 else { return }
-
-        var frame = window.frame
-        frame.size = Self.streamWindowSize
-        window.setFrame(frame, display: true)
-        window.center()
-    }
-
-    func startFocus() {
-        guard !isSessionActive else { return }
-        streamMessage = nil
-        let cycle = snapshot.phase == .breakEnded ? snapshot.currentCycle + 1 : 1
+    /// - Parameters:
+    ///   - strict: forces strict on or off for this block; `nil` follows the
+    ///     settings, and a run that was already strict stays strict.
+    ///   - occurrence: the schedule window starting this block, if any.
+    ///   - continuingFromBreak: cuts a running break short and starts the
+    ///     run's next block, which is what skipping a break means.
+    func startFocus(
+        strict: Bool? = nil,
+        occurrence: ScheduleOccurrence? = nil,
+        minutes: Int? = nil,
+        continuingFromBreak: Bool = false
+    ) {
+        let skippingBreak = continuingFromBreak && snapshot.phase == .break
+        guard !isSessionActive || skippingBreak else { return }
+        focusMessage = nil
+        let continuing = snapshot.phase == .breakEnded || skippingBreak
+        let cycle = continuing ? snapshot.currentCycle + 1 : 1
         if cycle == 1 {
-            // The wall belongs to one run, so a new one starts on an empty
-            // wall. Blocks are not tasks and survive it, here and on disk.
-            roster.clear()
             runStartedAt = Date()
+            lastRecap = nil
         }
+        let runIsStrict = continuing && snapshot.isStrict
+        let isStrict = strict
+            ?? (runIsStrict || config.strict.enabled || (occurrence ?? activeScheduleOccurrence)?.schedule.strict == true)
+
         breakEndedOverlay.dismiss()
         autoResumeOverlay.dismiss()
         autoResumeAnchor = nil
+        strictEscape = nil
+        lastEyeReminderAt = nil
         saveConfig()
         timerEngine.startFocus(
-            focusMinutes: config.focusMinutes,
+            focusMinutes: minutes.map(AppConfig.normalizedFocusMinutes) ?? config.focusMinutes,
             breakMinutes: config.breakMinutes,
-            blockedAppsCount: config.blockedApps.count,
-            strictMode: config.strictMode,
-            task: config.stream.task,
+            blockedAppsCount: activeBlockedApps.count + activeBlockedSites.count,
+            strictMode: isStrict,
+            task: config.task.task,
             // Continuing a run keeps counting; anything else starts one.
             cycle: cycle
         )
         reloadHistory()
         syncBlocker()
         syncPinnedHUD()
+        syncWatchdog()
     }
 
     func stopSession() {
+        guard !isStrictLocked else {
+            refuseStrict("This is a strict block. It ends at \(phaseEndLabel), or use the emergency exit.")
+            return
+        }
+        endSession()
+    }
+
+    /// Ends whatever is running without asking the strict lock. Only reached
+    /// through `stopSession` or a completed emergency exit.
+    private func endSession() {
+        dismissCurrentScheduleOccurrence()
         breakEndedOverlay.dismiss()
         autoResumeOverlay.dismiss()
         autoResumeAnchor = nil
+        strictEscape = nil
         timerEngine.stopSession()
         reloadHistory()
         syncBlocker()
         syncPinnedHUD()
+        syncWatchdog()
+        finishRun()
     }
+
+    /// Skip: focus goes to the break (refused in a strict block), a break goes
+    /// straight to the next block.
+    func skipPhase() {
+        switch snapshot.phase {
+        case .focus:
+            guard !isStrictLocked else {
+                refuseStrict("Skipping isn't available in a strict block.")
+                return
+            }
+            timerEngine.skipFocus()
+            reloadHistory()
+        case .break:
+            startFocus(continuingFromBreak: true)
+        case .breakEnded:
+            startFocus()
+        default:
+            break
+        }
+    }
+
+    func perform(_ action: HotkeyAction) {
+        switch action {
+        case .start:
+            if !isSessionActive {
+                startFocus()
+            }
+        case .stop:
+            if isSessionActive || snapshot.phase == .breakEnded {
+                stopSession()
+            }
+        case .skip:
+            skipPhase()
+        }
+    }
+
+    private var phaseEndLabel: String {
+        snapshot.phaseEndsAt.map(Self.shortTime) ?? "the end of the block"
+    }
+
+    private func refuseStrict(_ message: String) {
+        NSSound.beep()
+        focusMessage = message
+        page = .focus
+        openMainWindow()
+    }
+
+    // MARK: - Strict mode
+
+    func beginEscape(typed: String) -> Bool {
+        var escape = strictEscape ?? StrictEscape(waitSeconds: TimeInterval(config.strict.escapeWaitSeconds))
+        guard escape.request(typed: typed, at: Date()) else { return false }
+        strictEscape = escape
+        return true
+    }
+
+    func cancelEscape() {
+        strictEscape = nil
+    }
+
+    private func syncEscape(now: Date) {
+        guard let escape = strictEscape else { return }
+        guard isStrictLocked else {
+            strictEscape = nil
+            return
+        }
+        if escape.isReady(at: now) {
+            FocusLockLog.debug("strict block ended through the emergency exit")
+            endSession()
+            focusMessage = "Strict block ended early. It's in your history as cancelled."
+        } else {
+            // Republish so the countdown in the sheet ticks.
+            objectWillChange.send()
+        }
+    }
+
+    func updateStrictMode(enabled: Bool) {
+        guard !isStrictLocked else {
+            refuseStrict("Strict mode can't be changed during a strict block.")
+            return
+        }
+        config.strict.enabled = enabled
+        saveConfig()
+        syncWatchdog()
+    }
+
+    func updateEscapeWait(seconds: Int) {
+        guard !isStrictLocked else { return }
+        config.strict.escapeWaitSeconds = seconds
+        saveConfig()
+    }
+
+    /// Armed only while a strict block runs; the agent itself stays installed
+    /// while anything could start a strict block, and is removed otherwise.
+    private func syncWatchdog() {
+        let anyStrictSource = config.strict.enabled || config.schedules.contains { $0.isEnabled && $0.strict }
+        if snapshot.isStrict && (snapshot.phase == .focus || snapshot.phase == .break) {
+            watchdog.arm()
+        } else {
+            watchdog.disarm()
+            if !anyStrictSource {
+                watchdog.uninstall()
+            }
+        }
+    }
+
+    // MARK: - Schedules
+
+    func addSchedule() {
+        config.schedules.append(FocusSchedule(name: config.schedules.isEmpty ? "Work" : "Schedule \(config.schedules.count + 1)"))
+        saveConfig()
+        publishWidgetSnapshot()
+    }
+
+    func updateSchedule(_ schedule: FocusSchedule) {
+        guard let index = config.schedules.firstIndex(where: { $0.id == schedule.id }) else { return }
+        // A strict schedule running now cannot be loosened until it is over.
+        if isStrictLocked, config.schedules[index].strict, !schedule.strict || !schedule.isEnabled,
+           activeScheduleOccurrence?.schedule.id == schedule.id {
+            refuseStrict("This schedule's strict block is running. Change it when the block ends.")
+            return
+        }
+        config.schedules[index] = schedule
+        saveConfig()
+        syncWatchdog()
+        publishWidgetSnapshot()
+    }
+
+    func removeSchedule(_ schedule: FocusSchedule) {
+        if isStrictLocked, activeScheduleOccurrence?.schedule.id == schedule.id {
+            refuseStrict("This schedule's strict block is running. Remove it when the block ends.")
+            return
+        }
+        config.schedules.removeAll { $0.id == schedule.id }
+        saveConfig()
+        syncWatchdog()
+        publishWidgetSnapshot()
+    }
+
+    func setLaunchAtLogin(_ enabled: Bool) {
+        do {
+            if enabled {
+                try SMAppService.mainApp.register()
+            } else {
+                try SMAppService.mainApp.unregister()
+            }
+        } catch {
+            settingsMessage = "Could not change Open at Login: \(error.localizedDescription)"
+        }
+        launchAtLogin = SMAppService.mainApp.status == .enabled
+        if SMAppService.mainApp.status == .requiresApproval {
+            settingsMessage = "Approve LockIn in System Settings › General › Login Items."
+        }
+    }
+
+    private var dismissedScheduleKeys: Set<String> {
+        get { Set(UserDefaults.standard.stringArray(forKey: Self.dismissedSchedulesKey) ?? []) }
+        set { UserDefaults.standard.set(Array(newValue.suffix(50)), forKey: Self.dismissedSchedulesKey) }
+    }
+
+    /// Stopping during a schedule window means "not today" for that window,
+    /// not "start again in half a second".
+    private func dismissCurrentScheduleOccurrence() {
+        guard let occurrence = activeScheduleOccurrence else { return }
+        dismissedScheduleKeys.insert(occurrence.key)
+    }
+
+    private var scheduleWantsNextBlock: Bool {
+        guard let occurrence = activeScheduleOccurrence else { return false }
+        return !dismissedScheduleKeys.contains(occurrence.key) && occurrence.contains(Date())
+    }
+
+    private func syncSchedules(now: Date) {
+        let occurrence = ScheduleEvaluator.activeOccurrence(in: config.schedules, at: now)
+        if occurrence != activeScheduleOccurrence {
+            activeScheduleOccurrence = occurrence
+        }
+        guard let occurrence, !dismissedScheduleKeys.contains(occurrence.key) else { return }
+
+        switch snapshot.phase {
+        case .idle, .completed, .cancelled:
+            FocusLockLog.debug("schedule \(occurrence.schedule.name) starting a block")
+            let firstOfWindow = snapshot.sessionStartedAt.map { $0 < occurrence.start } ?? true
+            let strict = occurrence.schedule.strict || config.strict.enabled
+            startFocus(occurrence: occurrence)
+            if firstOfWindow {
+                notificationService.scheduleStarted(name: occurrence.schedule.name, strict: strict)
+            }
+        case .breakEnded:
+            startFocus(occurrence: occurrence)
+        case .focus, .break, .paused:
+            break
+        }
+    }
+
+    // MARK: - Durations and guarding
 
     func selectPreset(_ newPreset: FocusPreset) {
         preset = newPreset
@@ -652,21 +770,28 @@ final class MenuBarController: NSObject, ObservableObject {
         config.focusMinutes = durations.focus
         config.breakMinutes = durations.rest
         saveConfig()
+        publishWidgetSnapshot()
     }
 
     func updateFocusMinutes(_ minutes: Int) {
         config.focusMinutes = AppConfig.normalizedFocusMinutes(minutes)
         preset = matchingPreset() ?? .custom
         saveConfig()
+        publishWidgetSnapshot()
     }
 
     func updateBreakMinutes(_ minutes: Int) {
         config.breakMinutes = min(60, max(0, minutes))
         preset = matchingPreset() ?? .custom
         saveConfig()
+        publishWidgetSnapshot()
     }
 
     func updateBlockerMode(_ blockerMode: BlockerMode) {
+        guard !isStrictLocked else {
+            refuseStrict("Guarding behaviour can't change during a strict block.")
+            return
+        }
         config.blockerMode = blockerMode
         saveConfig()
         syncBlocker()
@@ -702,10 +827,25 @@ final class MenuBarController: NSObject, ObservableObject {
         syncPinnedHUD()
     }
 
+    func updateBreakSuggestions(_ update: (inout BreakSuggestionSettings) -> Void) {
+        update(&config.breakSuggestions)
+        saveConfig()
+    }
+
+    func updateIntegrations(_ update: (inout IntegrationSettings) -> Void) {
+        update(&config.integrations)
+        saveConfig()
+        integrations.sessionChanged(snapshot, config: config)
+    }
+
     /// Per-app behaviour override. `nil` puts the app back on the global
     /// default from Settings.
     func setBlockedApp(_ app: BlockedApp, behavior: BlockerMode?) {
         guard let index = config.blockedApps.firstIndex(where: { $0.bundleId == app.bundleId }) else {
+            return
+        }
+        guard !isStrictLocked else {
+            refuseStrict("Guarding behaviour can't change during a strict block.")
             return
         }
 
@@ -716,6 +856,10 @@ final class MenuBarController: NSObject, ObservableObject {
 
     func setBlockedApp(_ app: BlockedApp, enabled: Bool) {
         guard let index = config.blockedApps.firstIndex(where: { $0.bundleId == app.bundleId }) else {
+            return
+        }
+        guard enabled || !isStrictLocked else {
+            refuseStrict("Guarded apps can't be switched off during a strict block.")
             return
         }
 
@@ -774,18 +918,100 @@ final class MenuBarController: NSObject, ObservableObject {
     }
 
     func removeBlockedApp(_ app: BlockedApp) {
+        guard !isStrictLocked else {
+            refuseStrict("Guarded apps can't be removed during a strict block.")
+            return
+        }
         config.blockedApps.removeAll { $0.bundleId == app.bundleId }
         settingsMessage = "Removed \(app.name)."
         saveConfig()
         syncBlocker()
     }
 
+    /// Returns false if the text does not name a website.
+    @discardableResult
+    func addBlockedSite(_ input: String) -> Bool {
+        guard let site = BlockedSite(input: input) else {
+            settingsMessage = "“\(input)” doesn't look like a website. Try something like youtube.com."
+            return false
+        }
+        guard !config.blockedSites.contains(where: { $0.pattern == site.pattern }) else {
+            settingsMessage = "\(site.pattern) is already on the list."
+            return false
+        }
+        config.blockedSites.append(site)
+        config.blockedSites.sort { $0.pattern < $1.pattern }
+        settingsMessage = "Added \(site.pattern)."
+        saveConfig()
+        syncBlocker()
+        return true
+    }
+
+    func setBlockedSite(_ site: BlockedSite, enabled: Bool) {
+        guard let index = config.blockedSites.firstIndex(where: { $0.id == site.id }) else { return }
+        guard enabled || !isStrictLocked else {
+            refuseStrict("Guarded websites can't be switched off during a strict block.")
+            return
+        }
+        config.blockedSites[index].isEnabled = enabled
+        saveConfig()
+        syncBlocker()
+    }
+
+    func removeBlockedSite(_ site: BlockedSite) {
+        guard !isStrictLocked else {
+            refuseStrict("Guarded websites can't be removed during a strict block.")
+            return
+        }
+        config.blockedSites.removeAll { $0.id == site.id }
+        settingsMessage = "Removed \(site.pattern)."
+        saveConfig()
+        syncBlocker()
+    }
+
+    /// After the user has changed the Automation setting, try the browser again.
+    func retryBrowserPermission() {
+        browserPermissionProblem = nil
+        websiteGuard.resetPermissionMemory()
+    }
+
+    func openAutomationSettings() {
+        if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Automation") {
+            NSWorkspace.shared.open(url)
+        }
+    }
+
+    // MARK: - Hotkeys
+
+    func updateHotkeys(_ update: (inout HotkeySettings) -> Void) {
+        update(&config.hotkeys)
+        saveConfig()
+        registerHotkeys()
+    }
+
+    /// Lets the shortcut recorder capture a combo that is currently
+    /// registered, which would otherwise fire instead of being recorded.
+    func suspendHotkeys(_ suspended: Bool) {
+        if suspended {
+            hotkeys.unregisterAll()
+        } else {
+            registerHotkeys()
+        }
+    }
+
+    private func registerHotkeys() {
+        hotkeyFailures = hotkeys.register(config.hotkeys)
+        setupMainMenu()
+    }
+
+    // MARK: - Windows
+
     func openMainWindow() {
         popover.performClose(nil)
         mainWindow = presentWindow(
             existingWindow: mainWindow,
             title: AppIdentity.name,
-            size: NSSize(width: 900, height: 620),
+            size: NSSize(width: 920, height: 660),
             rootView: MainWindowView().environmentObject(self)
         )
         // SwiftUI installs its Settings-scene menu after launch. Restore our
@@ -828,7 +1054,9 @@ final class MenuBarController: NSObject, ObservableObject {
     }
 
     func quit() {
-        blocker.stop()
+        // Termination is checked again in the app delegate; asking here first
+        // keeps the refusal message in the right place.
+        guard shouldAllowTermination() else { return }
         NSApp.terminate(nil)
     }
 
@@ -847,10 +1075,12 @@ final class MenuBarController: NSObject, ObservableObject {
         // History only changes when the phase does; re-reading the file every
         // tick would be wasteful.
         if previousPhase != newSnapshot.phase {
-            if newSnapshot.task?.shared == true && (newSnapshot.phase == .break || newSnapshot.phase == .completed) {
-                page = .stream
-            }
             reloadHistory()
+            integrations.sessionChanged(newSnapshot, config: config)
+            syncWatchdog()
+            if newSnapshot.phase == .completed {
+                finishRun()
+            }
         }
 
         updateStatusItem()
@@ -861,6 +1091,45 @@ final class MenuBarController: NSObject, ObservableObject {
 
         if overlay.isShowing {
             overlay.updateCountdown(snapshot.formattedRemaining)
+        }
+    }
+
+    /// A run is over: work out what it added up to and hand it to anything
+    /// that wants to post it.
+    private func finishRun() {
+        guard let runStartedAt else { return }
+        self.runStartedAt = nil
+        let recap = RunRecap.make(from: history, since: runStartedAt)
+        guard !recap.isEmpty else { return }
+        lastRecap = recap
+        integrations.runFinished(recap, config: config)
+    }
+
+    // MARK: - Widget
+
+    private func publishWidgetSnapshot() {
+        let next = ScheduleEvaluator.nextOccurrence(in: config.schedules, after: Date())
+        let widget = WidgetSnapshot(
+            phase: snapshot.phase,
+            phaseEndsAt: isSessionActive ? snapshot.phaseEndsAt : nil,
+            focusMinutes: isSessionActive ? snapshot.focusMinutes : config.focusMinutes,
+            breakMinutes: isSessionActive ? snapshot.breakMinutes : config.breakMinutes,
+            goal: currentTask.goal,
+            isStrict: snapshot.isStrict && isSessionActive,
+            focusMinutesToday: sessionStats.focusMinutesToday,
+            sessionsToday: sessionStats.sessionsCompletedToday,
+            streak: streak,
+            weekMinutes: weeklyRhythm.map(\.minutes),
+            nextScheduleName: next?.schedule.name,
+            nextScheduleStart: next?.start,
+            updatedAt: lastWidgetSnapshot?.updatedAt ?? Date()
+        )
+        guard widget != lastWidgetSnapshot else { return }
+        var stamped = widget
+        stamped.updatedAt = Date()
+        lastWidgetSnapshot = stamped
+        if SharedContainer.save(stamped) {
+            WidgetCenter.shared.reloadAllTimelines()
         }
     }
 
@@ -877,7 +1146,8 @@ final class MenuBarController: NSObject, ObservableObject {
             countdown: snapshot.formattedRemaining,
             phaseLabel: hudPhaseLabel,
             guardedLine: hudGuardedLine,
-            progress: phaseProgress
+            progress: phaseProgress,
+            canEnd: !isStrictLocked
         )
     }
 
@@ -886,19 +1156,26 @@ final class MenuBarController: NSObject, ObservableObject {
         case .break:
             return "Break"
         default:
-            return "Focus · \(config.focusMinutes)/\(config.breakMinutes)"
+            return "Focus · \(snapshot.focusMinutes)/\(snapshot.breakMinutes)\(snapshot.isStrict ? " · Strict" : "")"
         }
     }
 
-    private var hudGuardedLine: String {
-        let apps = activeBlockedApps
-        guard !apps.isEmpty else {
-            return "No apps guarded"
+    var guardedSummaryLine: String {
+        if snapshot.phase == .break, let suggestion = breakSuggestion {
+            return suggestion.title
+        }
+        let names = activeBlockedApps.map(\.name) + activeBlockedSites.map(\.host)
+        guard !names.isEmpty else {
+            return "Nothing guarded"
         }
 
-        let names = apps.prefix(3).map(\.name).joined(separator: ", ")
-        let extra = apps.count - min(3, apps.count)
-        return extra > 0 ? "\(names) +\(extra)" : names
+        let shown = names.prefix(3).joined(separator: ", ")
+        let extra = names.count - min(3, names.count)
+        return extra > 0 ? "\(shown) +\(extra)" : shown
+    }
+
+    private var hudGuardedLine: String {
+        guardedSummaryLine
     }
 
     private func setupStatusItem() {
@@ -944,14 +1221,8 @@ final class MenuBarController: NSObject, ObservableObject {
             return
         }
 
-        let waiting = roster.held.count
-        // A dot rather than a number: the menu bar is not the place to read a
-        // queue, only to notice there is one.
-        let countdown = statusCountdownTitle.map { waiting > 0 ? "\($0) •" : $0 }
-        updateTitleForActiveSession(countdown: countdown)
-        button.toolTip = waiting > 0
-            ? "\(waiting) waiting for you to approve · \(statusTooltip)"
-            : statusTooltip
+        updateTitleForActiveSession(countdown: statusCountdownTitle)
+        button.toolTip = statusTooltip
     }
 
     private var statusCountdownTitle: String? {
@@ -996,7 +1267,7 @@ final class MenuBarController: NSObject, ObservableObject {
     private var statusTooltip: String {
         switch snapshot.phase {
         case .focus:
-            return "\(AppIdentity.name): \(snapshot.formattedRemaining) focus remaining"
+            return "\(AppIdentity.name): \(snapshot.formattedRemaining) focus remaining\(snapshot.isStrict ? " (strict)" : "")"
         case .break:
             return "\(AppIdentity.name): \(snapshot.formattedRemaining) break remaining"
         default:
@@ -1027,9 +1298,43 @@ final class MenuBarController: NSObject, ObservableObject {
         tickTimer?.invalidate()
         tickTimer = Timer.scheduledTimer(withTimeInterval: 0.5, repeats: true) { [weak self] _ in
             Task { @MainActor in
-                self?.timerEngine.refresh()
+                self?.tick()
             }
         }
+    }
+
+    private func tick(now: Date = Date()) {
+        timerEngine.refresh()
+        syncEscape(now: now)
+
+        if now.timeIntervalSince(lastScheduleCheck) >= 5 {
+            lastScheduleCheck = now
+            syncSchedules(now: now)
+        }
+
+        if snapshot.phase == .focus, now.timeIntervalSince(lastWebsiteCheck) >= 1 {
+            lastWebsiteCheck = now
+            websiteGuard.check(frontmostBundleIdentifier: NSWorkspace.shared.frontmostApplication?.bundleIdentifier)
+        }
+
+        syncEyeReminder(now: now)
+    }
+
+    /// 20-20-20 inside long blocks: every 20 minutes of focus, a quiet nudge.
+    /// The last few minutes before a break are skipped — the break is coming.
+    private func syncEyeReminder(now: Date) {
+        guard
+            config.breakSuggestions.eyeReminderDuringFocus,
+            snapshot.phase == .focus,
+            let startedAt = snapshot.sessionStartedAt,
+            snapshot.remainingSeconds > 180
+        else {
+            return
+        }
+        let anchor = lastEyeReminderAt ?? startedAt
+        guard now.timeIntervalSince(anchor) >= BreakSuggestions.eyeReminderInterval else { return }
+        lastEyeReminderAt = now
+        notificationService.eyeReminder()
     }
 
     private func syncBlocker() {
@@ -1038,6 +1343,7 @@ final class MenuBarController: NSObject, ObservableObject {
                 blocker.stop()
                 blockerRunning = false
             }
+            websiteGuard.stop()
             overlay.dismiss()
             return
         }
@@ -1048,6 +1354,7 @@ final class MenuBarController: NSObject, ObservableObject {
             blocker.start(blockedApps: config.blockedApps, blockerMode: config.blockerMode)
             blockerRunning = true
         }
+        websiteGuard.update(sites: config.blockedSites, endsAt: snapshot.phaseEndsAt)
     }
 
     private func handleBreakEndedTransition(from previousPhase: SessionPhase, to newPhase: SessionPhase) {
@@ -1055,9 +1362,9 @@ final class MenuBarController: NSObject, ObservableObject {
             return
         }
 
-        if snapshot.task?.shared == true {
-            // The host chooses when the next block begins after checking in.
-            page = .stream
+        // Inside a schedule window the next block is the schedule's call.
+        if scheduleWantsNextBlock {
+            startFocus()
             return
         }
 
@@ -1077,7 +1384,6 @@ final class MenuBarController: NSObject, ObservableObject {
     private func syncAutoResume(now: Date = Date()) {
         guard
             config.breakEndBehavior == .autopilot,
-            snapshot.task?.shared != true,
             snapshot.phase == .breakEnded,
             let breakEndedAt = snapshot.breakEndedAt
         else {
@@ -1154,6 +1460,17 @@ final class MenuBarController: NSObject, ObservableObject {
         let whole = max(0, Int(seconds.rounded(.up)))
         return String(format: "%02d:%02d", whole / 60, whole % 60)
     }
+
+    static func shortTime(_ date: Date) -> String {
+        timeFormatter.string(from: date)
+    }
+
+    private static let timeFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.dateStyle = .none
+        formatter.timeStyle = .short
+        return formatter
+    }()
 
     private func saveConfig() {
         do {
@@ -1243,7 +1560,7 @@ final class MenuBarController: NSObject, ObservableObject {
             defer: false
         )
         window.title = title
-        window.minSize = NSSize(width: min(size.width, 820), height: min(size.height, 580))
+        window.minSize = NSSize(width: min(size.width, 860), height: min(size.height, 600))
         window.isReleasedWhenClosed = false
 
         // The sand canvas runs edge to edge; a stock titlebar would cut a white
@@ -1260,9 +1577,6 @@ final class MenuBarController: NSObject, ObservableObject {
         return window
     }
 
-    /// A window restored for OBS to capture should appear without pulling the
-    /// host out of whatever they were doing — at login especially, an app that
-    /// grabs focus on its own is an app people turn off.
     private func show(_ window: NSWindow, activating: Bool) {
         NSApp.setActivationPolicy(.regular)
         if activating {
@@ -1308,6 +1622,11 @@ extension MenuBarController: NSMenuItemValidation {
             action: #selector(NSApplication.orderFrontStandardAboutPanel(_:)),
             keyEquivalent: ""
         )
+        if UpdateController.shared.isAvailable {
+            let updates = NSMenuItem(title: "Check for Updates…", action: #selector(menuCheckForUpdates(_:)), keyEquivalent: "")
+            updates.target = self
+            menu.addItem(updates)
+        }
         menu.addItem(.separator())
 
         let settings = NSMenuItem(title: "Settings…", action: #selector(menuOpenSettings(_:)), keyEquivalent: ",")
@@ -1370,6 +1689,10 @@ extension MenuBarController: NSMenuItemValidation {
         start.target = self
         menu.addItem(start)
 
+        let skip = NSMenuItem(title: "Skip to Next Phase", action: #selector(menuSkip(_:)), keyEquivalent: "")
+        skip.target = self
+        menu.addItem(skip)
+
         let stop = NSMenuItem(title: "Stop Session", action: #selector(menuStopSession(_:)), keyEquivalent: ".")
         stop.target = self
         menu.addItem(stop)
@@ -1414,9 +1737,6 @@ extension MenuBarController: NSMenuItemValidation {
         )
         mainWindow.target = self
         menu.addItem(mainWindow)
-        let stream = NSMenuItem(title: "Stream Window", action: #selector(menuOpenStream(_:)), keyEquivalent: "2")
-        stream.target = self
-        menu.addItem(stream)
         menu.addItem(.separator())
 
         menu.addItem(withTitle: "Minimize", action: #selector(NSWindow.performMiniaturize(_:)), keyEquivalent: "m")
@@ -1431,7 +1751,9 @@ extension MenuBarController: NSMenuItemValidation {
         case #selector(menuStartFocus(_:)):
             return !isSessionActive
         case #selector(menuStopSession(_:)):
-            return isSessionActive
+            return isSessionActive && !isStrictLocked
+        case #selector(menuSkip(_:)):
+            return (isSessionActive || snapshot.phase == .breakEnded) && !isStrictLocked
         case #selector(menuExportCSV(_:)), #selector(menuExportJSON(_:)):
             return !history.isEmpty
         default:
@@ -1439,15 +1761,16 @@ extension MenuBarController: NSMenuItemValidation {
         }
     }
 
-    @objc private func menuOpenStream(_ sender: Any?) { openStreamWindow() }
     @objc private func menuStartFocus(_ sender: Any?) { startFocus() }
     @objc private func menuStopSession(_ sender: Any?) { stopSession() }
+    @objc private func menuSkip(_ sender: Any?) { skipPhase() }
     @objc private func menuOpenSettings(_ sender: Any?) { openSettings() }
     @objc private func menuOpenMainWindow(_ sender: Any?) { openMainWindow() }
     @objc private func menuOpenHistory(_ sender: Any?) { openHistory() }
     @objc private func menuOpenAnalytics(_ sender: Any?) { openAnalytics() }
     @objc private func menuExportCSV(_ sender: Any?) { exportCSVFromPanel() }
     @objc private func menuExportJSON(_ sender: Any?) { exportJSONFromPanel() }
+    @objc private func menuCheckForUpdates(_ sender: Any?) { UpdateController.shared.checkForUpdates() }
     @objc private func menuQuit(_ sender: Any?) { quit() }
 }
 
@@ -1469,9 +1792,9 @@ private extension MenuBarController {
         breakEndedOverlay.dismiss()
         timerEngine.startBreakExtension(
             minutes: breakSnoozeMinutes,
-            focusMinutes: config.focusMinutes,
-            blockedAppsCount: config.blockedApps.count,
-            strictMode: config.strictMode
+            focusMinutes: snapshot.focusMinutes,
+            blockedAppsCount: activeBlockedApps.count + activeBlockedSites.count,
+            strictMode: snapshot.isStrict
         )
         reloadHistory()
         syncBlocker()
@@ -1479,9 +1802,12 @@ private extension MenuBarController {
 
     func endCycleFromBreakEndedOverlay() {
         breakEndedOverlay.dismiss()
+        dismissCurrentScheduleOccurrence()
         timerEngine.endCycle()
         reloadHistory()
         syncBlocker()
+        syncWatchdog()
+        finishRun()
     }
 
     func presentOverlay(for app: InterceptedApp) {
@@ -1490,7 +1816,8 @@ private extension MenuBarController {
         overlay.show(
             appName: app.name,
             countdown: snapshot.formattedRemaining,
-            allowSnooze: true,
+            allowSnooze: !isStrictLocked,
+            allowEnd: !isStrictLocked,
             snoozeMinutes: snoozeMinutes
         )
     }
@@ -1502,12 +1829,13 @@ private extension MenuBarController {
 
         NSRunningApplication.runningApplications(withBundleIdentifier: bundleId)
             .first?
-            .activate(options: [.activateIgnoringOtherApps])
+            .activate()
     }
 
     func allowInterceptedAppTemporarily() {
         overlay.dismiss()
 
+        guard !isStrictLocked else { return }
         guard let bundleId = lastInterceptedBundleId else {
             return
         }
@@ -1520,7 +1848,7 @@ private extension MenuBarController {
         // Re-activate the app the user explicitly chose to allow.
         if let running = NSRunningApplication.runningApplications(withBundleIdentifier: bundleId).first {
             running.unhide()
-            running.activate(options: [.activateIgnoringOtherApps])
+            running.activate()
         }
     }
 }

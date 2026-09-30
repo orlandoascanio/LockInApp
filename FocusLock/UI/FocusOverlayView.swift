@@ -7,6 +7,7 @@ final class FocusOverlayModel: ObservableObject {
     @Published var appName: String = ""
     @Published var countdown: String = "--:--"
     @Published var allowSnooze: Bool = true
+    @Published var allowEnd: Bool = true
     @Published var snoozeMinutes: Int = 5
 }
 
@@ -111,8 +112,14 @@ struct FocusOverlayView: View {
                     .buttonStyle(FLLinkButtonStyle(tint: .flInkSoft))
             }
 
-            Button("End session", action: onEndSession)
-                .buttonStyle(FLLinkButtonStyle(tint: .flClay))
+            if model.allowEnd {
+                Button("End session", action: onEndSession)
+                    .buttonStyle(FLLinkButtonStyle(tint: .flClay))
+            } else {
+                Label("Strict block", systemImage: "lock.fill")
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundStyle(Color.flInkSoft)
+            }
         }
     }
 

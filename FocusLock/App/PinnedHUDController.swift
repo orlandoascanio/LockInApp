@@ -60,7 +60,8 @@ final class PinnedHUDController {
         FocusLockLog.debug("pinned HUD shown")
     }
 
-    func update(countdown: String, phaseLabel: String, guardedLine: String, progress: Double) {
+    func update(countdown: String, phaseLabel: String, guardedLine: String, progress: Double, canEnd: Bool) {
+        model.canEnd = canEnd
         model.countdown = countdown
         model.phaseLabel = phaseLabel
         model.guardedLine = guardedLine

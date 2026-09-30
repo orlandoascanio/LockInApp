@@ -18,11 +18,22 @@ struct BlockedAppsView: View {
         }
     }
 
+    enum Tab: String, CaseIterable, Identifiable {
+        case apps = "Apps"
+        case websites = "Websites"
+        var id: String { rawValue }
+    }
+
+    @State private var tab: Tab = .apps
+
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             header
+            tabPicker
 
-            if controller.config.blockedApps.isEmpty {
+            if tab == .websites {
+                BlockedSitesSection()
+            } else if controller.config.blockedApps.isEmpty {
                 FLEmptyState(
                     systemImage: "shield",
                     title: "Nothing guarded yet",
@@ -48,10 +59,42 @@ struct BlockedAppsView: View {
         }
     }
 
+    private var tabPicker: some View {
+        HStack(spacing: 0) {
+            ForEach(Tab.allCases) { option in
+                let isSelected = tab == option
+                Button {
+                    tab = option
+                } label: {
+                    HStack(spacing: 6) {
+                        Text(option.rawValue)
+                        if option == .websites, controller.browserPermissionProblem != nil {
+                            Circle().fill(Color.flClay).frame(width: 6, height: 6)
+                        }
+                    }
+                    .font(.system(size: 12.5, weight: isSelected ? .semibold : .regular))
+                    .foregroundStyle(isSelected ? Color.flCanvas : Color.flInkSoft)
+                    .padding(.horizontal, 18)
+                    .frame(height: 28)
+                    .background(Capsule().fill(isSelected ? Color.flAccentDeep : .clear))
+                    .contentShape(Capsule())
+                }
+                .buttonStyle(.plain)
+                .accessibilityAddTraits(isSelected ? [.isSelected] : [])
+            }
+        }
+        .padding(3)
+        .background(Capsule().fill(Color.flCanvasWarm))
+        .overlay(Capsule().strokeBorder(Color.flHairline, lineWidth: 1))
+        .fixedSize()
+        .padding(.horizontal, 26)
+        .padding(.bottom, 18)
+    }
+
     private var header: some View {
         HStack(alignment: .center) {
             VStack(alignment: .leading, spacing: 3) {
-                Text("Blocked apps")
+                Text("Blocked")
                     .font(FLTypography.display)
                     .foregroundStyle(Color.flInk)
 
@@ -62,10 +105,19 @@ struct BlockedAppsView: View {
 
             Spacer()
 
-            Button("＋  Add app") {
-                controller.addBlockedAppFromPanel()
+            if tab == .apps {
+                Button("＋  Add app") {
+                    controller.addBlockedAppFromPanel()
+                }
+                .buttonStyle(FLActionButtonStyle(variant: .primary, minHeight: 36))
             }
-            .buttonStyle(FLActionButtonStyle(variant: .primary, minHeight: 36))
+
+            if controller.isStrictLocked {
+                Label("Strict block: you can add, not remove", systemImage: "lock.fill")
+                    .font(FLTypography.caption)
+                    .foregroundStyle(Color.flInkSoft)
+                    .padding(.leading, 12)
+            }
         }
         .padding(.horizontal, 26)
         .padding(.top, 28)
@@ -73,6 +125,14 @@ struct BlockedAppsView: View {
     }
 
     private var subtitle: String {
+        if tab == .websites {
+            let active = controller.activeBlockedSites.count
+            let total = controller.config.blockedSites.count
+            guard total > 0 else { return "Guarded during focus only" }
+            return active == total
+                ? "\(total) guarded · during focus only"
+                : "\(active) of \(total) guarded · during focus only"
+        }
         let active = controller.activeBlockedApps.count
         let total = controller.config.blockedApps.count
 

@@ -8,6 +8,7 @@ final class PinnedHUDModel: ObservableObject {
     @Published var phaseLabel: String = ""
     @Published var guardedLine: String = ""
     @Published var progress: Double = 0
+    @Published var canEnd: Bool = true
 }
 
 /// The always-on-top strip. Collapsed it shows only the time and what is being
@@ -45,9 +46,16 @@ struct PinnedHUDView: View {
 
             if isHovering {
                 HStack(spacing: 14) {
-                    Button("End session", action: onEnd)
-                        .buttonStyle(FLLinkButtonStyle(tint: .flClay))
-                        .fixedSize()
+                    if model.canEnd {
+                        Button("End session", action: onEnd)
+                            .buttonStyle(FLLinkButtonStyle(tint: .flClay))
+                            .fixedSize()
+                    } else {
+                        Image(systemName: "lock.fill")
+                            .font(.system(size: 11))
+                            .foregroundStyle(Color.flInkSoft)
+                            .help("Strict block — it can't be ended early")
+                    }
 
                     unpinButton
                 }
