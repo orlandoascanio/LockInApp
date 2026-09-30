@@ -405,6 +405,7 @@ final class MenuBarController: NSObject, ObservableObject {
         }
 
         LockInCommandCenter.shared.controller = self
+        applyAppearance()
         setupMainMenu()
         setupStatusItem()
         notificationService.requestAuthorization()
@@ -819,6 +820,25 @@ final class MenuBarController: NSObject, ObservableObject {
         )
         saveConfig()
         syncAutoResume()
+    }
+
+    func updateAppearance(_ appearance: AppearancePreference) {
+        config.appearance = appearance
+        saveConfig()
+        applyAppearance()
+    }
+
+    /// Set on the application, so every window — the main one, the guard
+    /// screen, the HUD, the popover — follows without being told separately.
+    private func applyAppearance() {
+        switch config.appearance {
+        case .system:
+            NSApp.appearance = nil
+        case .light:
+            NSApp.appearance = NSAppearance(named: .aqua)
+        case .dark:
+            NSApp.appearance = NSAppearance(named: .darkAqua)
+        }
     }
 
     func updatePinnedHUD(enabled: Bool) {

@@ -230,6 +230,17 @@ final class ConfigMigrationTests: XCTestCase {
         XCTAssertTrue(config.schedules.isEmpty)
     }
 
+    func testAppearanceDefaultsToSystemAndIgnoresUnknownValues() throws {
+        let old = try JSONDecoder().decode(AppConfig.self, from: Data(#"{"focusMinutes":25}"#.utf8))
+        XCTAssertEqual(old.appearance, .system)
+        let future = try JSONDecoder().decode(AppConfig.self, from: Data(#"{"appearance":"sepia"}"#.utf8))
+        XCTAssertEqual(future.appearance, .system)
+        var config = AppConfig()
+        config.appearance = .dark
+        let roundTrip = try JSONDecoder().decode(AppConfig.self, from: JSONEncoder().encode(config))
+        XCTAssertEqual(roundTrip.appearance, .dark)
+    }
+
     func testOldHistoryWithSharedFlagStillDecodes() throws {
         let line = #"{"blockedAppsCount":0,"breakMinutes":5,"endedAt":"2026-01-01T10:25:00Z","focusMinutes":25,"id":"0B8E6D1E-6F7B-4C7E-9A33-7E6A3C5B8D21","startedAt":"2026-01-01T10:00:00Z","status":"completed","strictMode":false,"task":{"category":"Study","goal":"Read","id":"7C1E0C3A-2B1D-4E7A-8F0B-1B2C3D4E5F60","shared":true}}"#
         let entry = try FocusLockJSONCoding.decoder.decode(SessionHistoryEntry.self, from: Data(line.utf8))

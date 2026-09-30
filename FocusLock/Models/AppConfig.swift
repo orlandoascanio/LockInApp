@@ -30,6 +30,23 @@ public enum BlockerMode: String, Codable, Equatable, CaseIterable, Identifiable 
     }
 }
 
+/// Light, dark, or whatever macOS is set to.
+public enum AppearancePreference: String, Codable, Equatable, CaseIterable, Identifiable {
+    case system
+    case light
+    case dark
+
+    public var id: String { rawValue }
+
+    public var displayName: String {
+        switch self {
+        case .system: return "Match System"
+        case .light: return "Light"
+        case .dark: return "Dark"
+        }
+    }
+}
+
 public struct AppConfig: Codable, Equatable {
     /// Focus blocks can span a full day while still keeping timer arithmetic
     /// and accidental input within a practical bound.
@@ -55,6 +72,7 @@ public struct AppConfig: Codable, Equatable {
     public var breakSuggestions: BreakSuggestionSettings
     public var hotkeys: HotkeySettings
     public var integrations: IntegrationSettings
+    public var appearance: AppearancePreference
 
     public init(
         focusMinutes: Int = 50,
@@ -70,7 +88,8 @@ public struct AppConfig: Codable, Equatable {
         schedules: [FocusSchedule] = [],
         breakSuggestions: BreakSuggestionSettings = BreakSuggestionSettings(),
         hotkeys: HotkeySettings = HotkeySettings(),
-        integrations: IntegrationSettings = IntegrationSettings()
+        integrations: IntegrationSettings = IntegrationSettings(),
+        appearance: AppearancePreference = .system
     ) {
         self.focusMinutes = Self.normalizedFocusMinutes(focusMinutes)
         self.breakMinutes = max(0, breakMinutes)
@@ -86,6 +105,7 @@ public struct AppConfig: Codable, Equatable {
         self.breakSuggestions = breakSuggestions
         self.hotkeys = hotkeys
         self.integrations = integrations
+        self.appearance = appearance
     }
 
     public static let `default` = AppConfig()
@@ -108,6 +128,7 @@ public struct AppConfig: Codable, Equatable {
         case breakSuggestions
         case hotkeys
         case integrations
+        case appearance
     }
 
     public init(from decoder: Decoder) throws {
@@ -148,6 +169,7 @@ public struct AppConfig: Codable, Equatable {
         hotkeys = (try? container.decodeIfPresent(HotkeySettings.self, forKey: .hotkeys)) ?? HotkeySettings()
         integrations = (try? container.decodeIfPresent(IntegrationSettings.self, forKey: .integrations))
             ?? IntegrationSettings()
+        appearance = (try? container.decodeIfPresent(AppearancePreference.self, forKey: .appearance)) ?? .system
     }
 
     public func encode(to encoder: Encoder) throws {
@@ -166,6 +188,7 @@ public struct AppConfig: Codable, Equatable {
         try container.encode(breakSuggestions, forKey: .breakSuggestions)
         try container.encode(hotkeys, forKey: .hotkeys)
         try container.encode(integrations, forKey: .integrations)
+        try container.encode(appearance, forKey: .appearance)
     }
 
     public static func normalizedFocusMinutes(_ minutes: Int) -> Int {

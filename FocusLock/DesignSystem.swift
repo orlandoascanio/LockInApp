@@ -3,30 +3,38 @@ import SwiftUI
 
 // MARK: - Colors
 //
-// Sand canvas, moss accent, clay for anything you would regret. The palette is
-// fixed rather than derived from the system appearance: LockIn's guard screen
-// has to feel like the same paper every time it appears, whatever the OS theme
-// is doing behind it.
+// Sand canvas, moss accent, clay for anything you would regret — and after
+// dark, the same moss on charcoal rather than a white window at midnight.
+// Every colour resolves against the appearance it is drawn in, so the Settings
+// choice, the system setting, and each overlay window all follow along.
 
 enum FLColor {
-    static let accent = NSColor(hex: "#618C69")
-    static let accentDeep = NSColor(hex: "#3B6148")
-    static let accentSoft = NSColor(hex: "#D9E0D1")
-    static let canvas = NSColor(hex: "#F5F2E8")
-    static let canvasWarm = NSColor(hex: "#EDE9D9")
-    static let ink = NSColor(hex: "#293129")
-    static let inkSoft = NSColor(hex: "#737B6E")
-    static let hairline = NSColor(hex: "#CCC7B5")
+    static let accent = dynamic(light: "#618C69", dark: "#7FAE88")
+    static let accentDeep = dynamic(light: "#3B6148", dark: "#8DBB97")
+    static let accentSoft = dynamic(light: "#D9E0D1", dark: "#27352C")
+    static let canvas = dynamic(light: "#F5F2E8", dark: "#1A201C")
+    static let canvasWarm = dynamic(light: "#EDE9D9", dark: "#151A17")
+    static let ink = dynamic(light: "#293129", dark: "#E9E5D9")
+    static let inkSoft = dynamic(light: "#737B6E", dark: "#9AA295")
+    static let hairline = dynamic(light: "#CCC7B5", dark: "#343C36")
 
     /// Fields sit a shade above the canvas rather than being punched out of it
     /// in white. AppKit's stock rounded-border field is pure white, which on a
     /// sand page reads as a hole.
-    static let field = NSColor(hex: "#FBF9F1")
-    static let clay = NSColor(hex: "#B87355")
+    static let field = dynamic(light: "#FBF9F1", dark: "#222924")
+    static let clay = dynamic(light: "#B87355", dark: "#D4906F")
 
     static let success = accentDeep
-    static let warning = NSColor(hex: "#B8874A")
+    static let warning = dynamic(light: "#B8874A", dark: "#D2A862")
     static let destructive = clay
+
+    private static func dynamic(light: String, dark: String) -> NSColor {
+        let lightColor = NSColor(hex: light)
+        let darkColor = NSColor(hex: dark)
+        return NSColor(name: nil) { appearance in
+            appearance.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua ? darkColor : lightColor
+        }
+    }
 }
 
 extension Color {
