@@ -1574,6 +1574,12 @@ final class MenuBarController: NSObject, ObservableObject {
         window.center()
         window.setFrameAutosaveName(title)
         show(window, activating: activating)
+        // AppKit hands first responder to the first text field it finds — the
+        // goal field — which opens the window with the goal selected, one
+        // keystroke from being typed over.
+        DispatchQueue.main.async {
+            window.makeFirstResponder(nil)
+        }
         return window
     }
 
