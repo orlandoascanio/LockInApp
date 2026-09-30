@@ -1,223 +1,128 @@
 # LockIn
 
-LockIn is a native macOS Pomodoro/focus app. It runs as a normal app with a menu bar status item, starts focus and break sessions, guards selected distracting apps, keeps local session history, and exports that history as CSV or JSON.
+LockIn is a native macOS Pomodoro/focus app. It lives in the menu bar, runs focus and break blocks, guards the apps and websites that pull you away, and keeps a local history you can export as CSV or JSON.
 
-The default blocking behavior is **Guard Screen**. When you open a guarded app during focus, LockIn hides the app and shows a full-screen guard overlay. The app keeps running in the background, so Discord calls, camera, microphone, and screen sharing can continue.
+The default blocking behavior is **Guard Screen**. When you open a guarded app during focus, LockIn hides it and shows a full-screen guard overlay. The app keeps running in the background, so Discord calls, camera, microphone, and screen sharing carry on.
 
-## MVP Scope
+No account, no internet, no cloud. Slack and Discord are opt-in and talk only to Slack and Discord.
 
-- Native macOS app, built with Swift, AppKit, SwiftUI, and Swift Package Manager.
-- Normal Dock app plus a menu bar status item.
-- Focus and break timers with `25 / 5`, `50 / 10`, and custom durations.
-- Autopilot: if a finished break goes unanswered, LockIn takes the screen back, counts down, and starts the next block for you.
-- Guarded app list selected from `/Applications`.
-- Guard Screen, Hide Only, and explicit Quit App blocking behaviors.
-- Local config, active-session recovery, and session history.
-- CSV and JSON export.
-- No account required.
-- No internet required.
+## Features
 
-## Bring your own task streams
+- **Focus and break timer** with `25 / 5`, `50 / 10`, and custom durations, a goal and category per block, and a check-in on each break.
+- **Guarded apps**: Guard Screen, Hide Only, or Quit App, set globally or per app.
+- **Guarded websites**, without a browser extension (see below).
+- **Strict mode**: a block you can't back out of.
+- **Schedules**: focus that starts itself, such as weekdays from 9:00 to 12:00.
+- **Global keyboard shortcuts** to start, stop, and skip from any app.
+- **Break suggestions**: stretch, water, 20-20-20 for your eyes, a walk, and more.
+- **Autopilot**: if a finished break goes unanswered, LockIn takes the screen back, counts down, and starts the next block.
+- **Widget** for the desktop and Notification Center.
+- **Shortcuts actions and a Focus filter**.
+- **Slack status and Discord** presence and recaps.
+- **History and analytics**, a floating HUD, and **Sparkle auto-updates** in release builds.
 
-Open **Stream** in the sidebar to host a study/work-with-me session. Everyone
-brings their own task; LockIn gives the group a shared focus/break rhythm.
+## Websites
 
-1. Turn on **Host a shared session**. Set your goal, choose or add a category,
-   and set focus and break durations.
-2. Pick a **session type** — Read with me, Build with me, Language practice,
-   Deep work — or keep Bring your own task. Presets set durations, category,
-   planned blocks, and the line the audience sees; your goal is left alone.
-   LockIn warns you here if you are guarding OBS, your browser, or your music
-   app, and can unguard one in a click.
-3. Open the **stream window** (also **Window → Stream Window**, `Cmd+2`).
-   Choose the dark or light canvas and whether to show your goal.
-4. In OBS, add **macOS Screen Capture**, select **Window** capture, and choose
-   **LockIn Stream**. Crop the title bar if desired. Start the broadcast in OBS.
-   Capture this audience window rather than the entire desktop; the host window
-   contains private notes and app controls. Keep OBS and any apps needed for
-   hosting out of your guarded apps list.
-5. Start focus. The audience sees the countdown, your category and optional
-   goal, and an invitation to work on their own task. Goal/category edits during
-   a block apply to the next block, preserving the current block's history.
-6. During the break, invite a chat check-in and save your own outcome: **Goal
-   done**, **Made progress**, or **Got stuck**, with an optional private note.
-   Notes never appear in the audience window. **Goal done** clears the goal so
-   the next block starts fresh; a goal you already rewrote during the block is
-   kept. History always keeps the goal each block actually ran with.
-7. Shared sessions wait after the break, even if Settings uses Autopilot or
-   immediate restart. Choose **Start next block** when you and chat are ready,
-   or **Finish for now**. Closing the audience window does not stop the timer.
+Add sites on **Blocked › Websites**, either a whole site (`youtube.com`, which covers `m.youtube.com` too) or a section (`reddit.com/r/all`). Pasting a full link blocks its whole site.
 
-The audience window shows which block you are on out of how many planned, and
-during a break it shows the clock time you will be back, not just a countdown.
+During focus, while a supported browser is frontmost, LockIn asks it for the current tab's address about once a second through Apple Events. If the address is guarded, LockIn replaces the page with its own "Not now" page. LockIn never reads page contents or history. There's no extension, no `/etc/hosts` edit, and no network filter.
 
-### Stream appearance and motion
+Works in Safari, Chrome, Arc, Brave, Edge, Vivaldi, Opera, and Chromium. macOS asks once per browser whether LockIn may control it. If you said no, the Websites tab shows a link to **Privacy & Security › Automation**. Firefox has no scripting access to its tabs, so it can't be covered this way.
 
-The Stream page offers **Off**, **Subtle**, and **Ambient** motion. Ambient is
-the default: a slow background glow accompanies gentle timer, phase, and audience
-transitions. Subtle keeps the background still; Off makes all updates immediate.
-macOS **Reduce Motion** overrides either animated mode without changing the saved
-choice. Breaks use a warmer canvas, and a thin line tracks the current phase.
+## Strict mode
 
-The goal and chat invitation stay readable at smaller sizes. Below 820 pixels
-wide, the audience moves into a compact rotating strip instead of disappearing.
-The full wall crossfades between pages and briefly highlights completed tasks.
+Turn it on for every block in **Settings › Strict mode**, or per schedule. During a strict focus block:
 
-## The wall
+- **End**, **Skip**, and **Allow 5 minutes** are gone from the guard screen, the HUD, the menu bar, the shortcuts, Shortcuts actions, and the widget.
+- You can add to the Blocked list but not remove from it, switch anything off, or loosen the guarding behavior.
+- **Quitting is refused**, whether from ⌘Q, the Dock, or a script. Logging out, restarting, or shutting down still works, and the block picks up afterwards if there's time left.
+- **If LockIn is force-quit, it reopens and carries on.** A small launch agent in `~/Library/LaunchAgents` runs only while a strict block is active and relaunches LockIn if it disappears. LockIn removes the agent when nothing can start a strict block any more.
 
-Viewers appear on the stream by name. Type `!task read chapter 3` in chat and
-that person shows up beside your countdown; `!done` checks theirs off. `!goal`,
-`!doing`, `!working` and `!focus` all work too, so nobody is met with silence
-for guessing. You can also add someone by hand from the Stream page.
+The **emergency exit** asks you to type a sentence exactly, then waits (2 minutes by default). The block is logged as cancelled. Breaks are never strict.
 
-The two commands stand on the audience window beside your countdown, so nobody
-has to already know them — turn that off under **Show the chat commands on
-stream** if your overlay says it elsewhere. Each person carries a small count of
-how long they have been working alongside you, so a room that has been going a
-while looks like one.
+## Schedules
 
-Finishing one does not clear it. The crossed-off line stays where it is and the
-next `!task` starts a new one underneath, keeping the arrival time it came in
-with, so an hour in the wall reads as an hour of work rather than a list of
-whatever eight people happen to be doing this minute. The header carries the
-running score for the whole stream — done over posted — which survives the wall
-paging and old lines ageing off the end of a long session. Correcting a task you
-have not finished yet rewrites it in place and does not move the count; a line
-you take down, or one belonging to someone you block, comes back out of it.
+Create them on the **Schedules** page: pick days, a start and end time (overnight windows work), and optionally make them strict. Inside a window, each break rolls straight into the next block. Stopping a session skips the rest of that window, and the next window starts as normal. A block still running when the window closes gets to finish.
 
-Connect your channel on the Stream page and chat feeds the wall directly. The
-connection is anonymous and read-only — no login, no API key, no Twitch
-developer account, and LockIn never posts to your chat. It reconnects on its
-own if the connection drops mid-stream.
+Schedules only run while LockIn is open, so turn on **Open LockIn at login** (in Settings, or from the prompt on the Schedules page).
 
-New tasks wait for your approval before they appear — text you have not read
-should not go out on your own broadcast. Turn on **Show tasks without asking
-me first** only when chat outruns you. Anything that reads as a link is refused
-outright, names and tasks are trimmed to fit, one unfinished task per person at
-a time, and blocking someone takes their text off screen at once.
+## Keyboard shortcuts
 
-Words are checked against a list before anything is shown, and the check folds
-spacing, punctuation, accents, repeated letters, and digits standing in for
-letters, so one entry catches its variants rather than needing one line per
-spelling. Names are held to the same standard, since they appear on screen too.
-Two deliberate attempts — a blocked word or a link — and that person is blocked
-for the rest of the stream.
+These work from any app and need no Accessibility permission. Change them in **Settings › Keyboard shortcuts**.
 
-When someone is waiting, the Stream tab shows a count and the menu bar shows a
-dot — both silent. A sound and a notification are available and both start off,
-because both can reach the broadcast: a sound goes out if OBS is capturing
-desktop audio, and a banner is drawn on screen if you capture a display rather
-than a window. The notification carries no viewer-written text at all, not even
-a name — only how many are waiting. Arrivals are grouped, so a rush is one
-interruption rather than twenty, and clearing the queue lets the next person
-through immediately.
+| Action | Default |
+|---|---|
+| Start focus | ⌃⌥⌘S |
+| Stop session | ⌃⌥⌘E |
+| Skip to next phase | ⌃⌥⌘N |
 
-The shipped list is a starting point. Add your own terms to `blocked-words.txt`
-in the LockIn support folder (**Edit list** on the Stream page opens it), one
-per line. No word list is complete, and anyone determined will get past one —
-approve-first is what actually protects the stream; the list is what makes
-approve-first survivable when chat is busy.
+Skip ends focus early and starts the break. The block is logged with the minutes you actually worked, and under a minute counts as cancelled. During a break, skip starts the next block.
 
-## Recap
+## Break suggestions
 
-When a run finishes, the Stream page shows what it added up to — blocks, focus
-time, categories, goals finished, how many people worked alongside you, and how
-many of the room's tasks got crossed off — with **Copy recap** to put it on the
-clipboard as plain text. The numbers are rebuilt from history rather than
-tallied as you go.
+Each break suggests one thing to do: rest your eyes (20-20-20), drink water, stretch, walk (on breaks of 5 minutes or more), breathe, or reset your posture. The suggestion appears in the break notification, on the Focus page, and in the HUD. Choose which kinds appear in Settings. There's also an optional silent 20-20-20 reminder every 20 minutes inside long focus blocks.
 
-Quitting mid-stream costs you neither the summary nor the wall. Both are written
-down as they happen: when the run began, everyone on the wall, who is waiting,
-the count, and who has been blocked or is one attempt away from it. Relaunching
-picks the stream back up where it was. What is not saved is anything the app
-already knows — whether approval is automatic, and your blocked-word list —
-because a stale copy would quietly outrank a list you had edited in the
-meantime. The saved run outlives the run itself, so the recap is still there
-when you go looking for it; starting the next one replaces it.
+## Widget
 
-Everyone gets their name up. Once more people are here than fit the window, the
-wall turns pages on its own, fast enough that a full pass finishes inside a
-focus block — at a hundred people that is roughly every twenty seconds, not a
-fixed minute that would leave the last page unseen for a quarter of an hour.
+Add it from the desktop's **Edit Widgets** menu or from Notification Center. It comes in small and medium sizes and shows the time left (live), your goal, today's focus, your streak, the week, and the next schedule. Its button starts, stops, or skips. During a strict block it shows **Locked** instead.
 
-A long stream eventually fills the wall, and something has to give. Crossed-off
-lines go first, oldest first — they have had their moment and their number is
-safe in the count — and only once those are gone does anything anyone is still
-working on move. Nobody still working is pushed off a wall they can see while a
-finished task holds a place.
+## Shortcuts and Focus modes
 
-A **playlist link** on the Stream page opens your music app in one click. LockIn
-never plays or rebroadcasts audio, and your music app is not part of the
-capture. Most commercial music is not cleared for streaming, and a muted VOD is
-the usual way of finding that out.
+LockIn adds **Start Focus** (with optional minutes and strict), **Stop Focus**, **Skip to Next Phase**, and **Get Focus Status** to the Shortcuts app and Spotlight.
 
-So the page also lists places that publish music meant to go out over a
-broadcast, with what each asks of you: **StreamBeats** (free, no credit asked),
-**Chillhop** (free through their creators programme, credit on a panel),
-**Pretzel** (free with a credit line in chat, paid tier drops it),
-**NoCopyrightSounds** (free with attribution) and **Epidemic Sound** (paid, and
-covers the VOD as well as the live stream). **Use** fills in the link; opening
-it is still your click. These are starting points and not clearances — terms
-change without notice, LockIn is not checking them for you, and the ones in
-force on the day are the ones that count.
+To tie LockIn to a macOS Focus, go to **System Settings › Focus**, pick a Focus, then **Focus Filters › Add Filter › LockIn**. Turn on **Start a focus block**, and optionally **Use strict mode** and **End the block when this Focus turns off**.
 
-History includes goals, categories, and check-ins, with category filtering.
-The Stream page summarizes completed focus minutes by category for this week.
-CSV and JSON exports include the new fields; existing history remains readable.
-Shared-session settings, categories, and the next goal are saved locally.
+## Slack and Discord
 
-LockIn supplies a capture window, not broadcasting or chat services. Viewers
-participate through your streaming platform's chat; they do not need LockIn.
+Set these up on the **Integrations** page. Secrets are stored in your Keychain, never in `config.json`.
 
-## Not Included Yet
-
-- No website blocking.
-- No `/etc/hosts` edits.
-- No Network Extension.
-- No sudo or privileged helper.
-- No account, login, sync, or cloud backend.
-- No Electron.
+- **Slack**: sets your status to "Focusing · back at 10:45" and pauses notifications for exactly the length of the block. Both are cleared when the block ends, but only if LockIn set them. Needs a user token from a Slack app you create with the `users.profile:write` and `dnd:write` scopes. The page walks you through it.
+- **Discord status**: Rich Presence shows "Focusing · 18 min left" on your profile while the Discord desktop app is running. Needs the Application ID of a Discord app you create, named whatever you want your profile to show. LockIn can't change your *custom* status text, because Discord only allows that with your account token, which is against its rules.
+- **Discord recap**: when a run of blocks ends, LockIn posts blocks, focus time, categories, and goals to a channel webhook. Mentions are disabled, so a goal containing `@everyone` stays plain text.
 
 ## Requirements
 
-- macOS 13 or newer
-- Xcode command line tools or Xcode
-- Swift Package Manager
+- macOS 14 or newer
+- Xcode (the app, its widget, and its App Intents build through an Xcode project)
+- [XcodeGen](https://github.com/yonaskolb/XcodeGen): `brew install xcodegen`
 
-## Build And Run
+## Build and run
 
-Run tests:
+Run the core tests (timer, persistence, blocking rules, schedules, strict mode, website matching, integrations):
 
 ```bash
 swift test
 ```
 
-Build a real `.app` bundle:
+Build `build/LockIn.app`, signed with your development certificate:
 
 ```bash
 Scripts/build_app.sh
 ```
 
-Launch:
+Build it and put it in `/Applications`:
 
 ```bash
-open build/LockIn.app
+Scripts/install_app.sh
 ```
 
-If an older copy is already running, stop it before opening the rebuilt app:
+To open the project in Xcode, generate it first. `LockIn.xcodeproj` is generated from `project.yml` and not committed.
 
 ```bash
-killall LockIn 2>/dev/null || true
-open build/LockIn.app
+xcodegen generate && open LockIn.xcodeproj
 ```
 
-You can also run the executable directly during development:
+To try a build against throwaway data instead of your real settings and history, run it with `LOCKIN_DATA_DIR`:
 
 ```bash
-swift run LockIn
+LOCKIN_DATA_DIR=/tmp/lockin-test build/LockIn.app/Contents/MacOS/LockIn
 ```
 
-## Blocking Behavior
+## Releases
+
+`Scripts/release.sh` archives with Developer ID, builds a DMG, notarizes and staples it, signs it for Sparkle, and writes `appcast.xml`. One-time setup (a Developer ID certificate, notarization credentials, and a Sparkle key) is in [Scripts/release/README.md](Scripts/release/README.md). Builds without a Sparkle key simply have no updater.
+
+## Blocking behavior
 
 LockIn observes macOS app activation events. During focus, if a guarded app becomes active, LockIn reacts immediately.
 
@@ -227,49 +132,42 @@ LockIn observes macOS app activation events. During focus, if a guarded app beco
 
 Guarding only runs during focus. It stops during break, break-ended, idle, completed, and cancelled states.
 
-Protected apps are never hidden or quit and cannot be added:
-
-- Finder
-- Dock
-- System Settings / System Preferences
-- Terminal
-- loginwindow
-- WindowServer
-- LockIn itself
+Protected apps are never hidden or quit and cannot be added: Finder, Dock, System Settings / System Preferences, Terminal, loginwindow, WindowServer, and LockIn itself.
 
 ## Storage
 
-LockIn stores all data locally in:
+LockIn stores everything locally in `~/Library/Application Support/LockIn/`:
+
+- `config.json`: settings, blocked apps and sites, schedules
+- `session-state.json`: the running block, if any
+- `session-history.jsonl`: one line per block
+- `block-activity.json`: today's guard counts
+
+The widget reads a small snapshot in the app-group container (`~/Library/Group Containers/5BVWR47BQX.com.lockin.shared/`). Config and session state use atomic writes. If either becomes invalid, LockIn keeps a timestamped `.invalid-*` copy and recovers with safe defaults. Configs from older builds load as-is, including goals and categories from the old Stream settings.
+
+## Project layout
 
 ```text
-~/Library/Application Support/LockIn/
-```
-
-Files:
-
-- `config.json`
-- `session-state.json`
-- `session-history.jsonl`
-
-Config and active session state use atomic writes. If config or active-session JSON becomes invalid, LockIn preserves a timestamped `.invalid-*` copy and recovers with safe defaults.
-
-## Project Layout
-
-```text
+project.yml          XcodeGen spec for the app and widget targets
+Package.swift        FocusLockCore and its tests
 FocusLock/
-├── App/
-├── Core/
-├── Models/
-├── Resources/
-├── UI/
+├── App/             AppKit shell, controller, hotkeys, intents, watchdog, updater
+├── UI/              SwiftUI pages
+├── Widget/          WidgetKit extension
+├── Core/            Timer, storage, blocking, website guard, Slack, Discord
+├── Models/          Config, sessions, schedules, strict mode, suggestions
+├── Supporting/      Info.plist and entitlements (generated from project.yml)
 └── Tests/
 ```
 
-Core logic is in `FocusLockCore` so timer recovery, persistence, blocking validation, history, and export behavior can be tested without launching the app UI.
+The core logic lives in `FocusLockCore` so timer recovery, persistence, blocking rules, schedules, strict mode, and website matching can be tested without launching the UI.
 
-## Known Limitations
+## Stream mode
 
-- Website blocking is intentionally out of scope for this MVP.
+The study/work-with-me streaming features (audience window, chat wall, Twitch connection) were removed to keep LockIn focused on solo work. The last version with them is on the `archive/stream` branch and the `stream-final` tag.
+
+## Known limitations
+
+- Website guarding covers the frontmost browser tab in the browsers listed above, not Firefox and not other apps' web views.
 - Quit App mode uses normal app termination, not force quit.
-- Session history still keeps a legacy `strictMode` export field for backward compatibility.
-# LockInApp
+- Strict mode is strong friction, not a cage: someone determined can still unload the launch agent from Terminal or restart the Mac.
