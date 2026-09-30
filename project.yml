@@ -1,0 +1,124 @@
+# Generates LockIn.xcodeproj. Run `xcodegen generate` (Scripts/build_app.sh
+# does it for you) after adding, moving, or deleting source files.
+name: LockIn
+
+options:
+  bundleIdPrefix: com.lockin
+  deploymentTarget:
+    macOS: "14.0"
+  createIntermediateGroups: true
+  groupSortPosition: top
+
+packages:
+  LockInCore:
+    path: .
+  Sparkle:
+    url: https://github.com/sparkle-project/Sparkle
+    from: 2.6.0
+
+settings:
+  base:
+    DEVELOPMENT_TEAM: 5BVWR47BQX
+    SWIFT_VERSION: "5.0"
+    MACOSX_DEPLOYMENT_TARGET: "14.0"
+    ENABLE_HARDENED_RUNTIME: YES
+    CODE_SIGN_STYLE: Manual
+    # Local builds sign with your development certificate. Scripts/release.sh
+    # overrides this with "Developer ID Application" for anything shipped.
+    CODE_SIGN_IDENTITY: Apple Development
+    MARKETING_VERSION: "0.2.0"
+    CURRENT_PROJECT_VERSION: "1"
+    # Filled in by Scripts/release/setup_sparkle.sh. Empty means no updater.
+    SPARKLE_PUBLIC_KEY: ""
+    DEAD_CODE_STRIPPING: YES
+
+targets:
+  LockIn:
+    type: application
+    platform: macOS
+    sources:
+      - path: FocusLock/App
+      - path: FocusLock/UI
+      - path: FocusLock/DesignSystem.swift
+      - path: FocusLock/Assets.xcassets
+    dependencies:
+      - package: LockInCore
+        product: FocusLockCore
+      - package: Sparkle
+      - target: LockInWidget
+    entitlements:
+      path: FocusLock/Supporting/LockIn.entitlements
+      properties:
+        # Reading and redirecting the current browser tab for website guarding.
+        com.apple.security.automation.apple-events: true
+        # Shared with the widget, which can only see this container.
+        com.apple.security.application-groups: [5BVWR47BQX.com.lockin.shared]
+    info:
+      path: FocusLock/Supporting/Info.plist
+      properties:
+        CFBundleDisplayName: LockIn
+        CFBundleName: LockIn
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        LSApplicationCategoryType: public.app-category.productivity
+        LSMinimumSystemVersion: $(MACOSX_DEPLOYMENT_TARGET)
+        NSPrincipalClass: NSApplication
+        NSHumanReadableCopyright: Made for fun, and for focus.
+        NSAppleEventsUsageDescription: LockIn reads the address of your current browser tab during focus so it can swap guarded websites out. It never reads page contents or history.
+        CFBundleURLTypes:
+          - CFBundleURLName: com.lockin.app
+            CFBundleURLSchemes: [lockin]
+        LockInSourceCommit: $(LOCKIN_SOURCE_COMMIT)
+        SUFeedURL: https://github.com/orlandoascanio/LockInApp/releases/latest/download/appcast.xml
+        SUPublicEDKey: $(SPARKLE_PUBLIC_KEY)
+        SUEnableAutomaticChecks: true
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.lockin.app
+        PRODUCT_NAME: LockIn
+        CODE_SIGN_IDENTITY: Apple Development
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        LOCKIN_SOURCE_COMMIT: unknown
+        # App Intents metadata (Shortcuts, Focus filter) is extracted at build time.
+        ENABLE_APP_INTENTS_METADATA_GENERATION: YES
+
+  LockInWidget:
+    type: app-extension
+    platform: macOS
+    sources:
+      - path: FocusLock/Widget
+    dependencies:
+      - package: LockInCore
+        product: FocusLockCore
+      - sdk: WidgetKit.framework
+      - sdk: SwiftUI.framework
+    entitlements:
+      path: FocusLock/Supporting/LockInWidget.entitlements
+      properties:
+        com.apple.security.app-sandbox: true
+        com.apple.security.application-groups: [5BVWR47BQX.com.lockin.shared]
+    info:
+      path: FocusLock/Widget/Info.plist
+      properties:
+        CFBundleDisplayName: LockIn
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.widgetkit-extension
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.lockin.app.widget
+        PRODUCT_NAME: LockInWidget
+        CODE_SIGN_IDENTITY: Apple Development
+        SKIP_INSTALL: YES
+
+schemes:
+  LockIn:
+    build:
+      targets:
+        LockIn: all
+        LockInWidget: all
+    run:
+      config: Debug
+    archive:
+      config: Release

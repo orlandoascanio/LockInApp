@@ -2,14 +2,17 @@
 
 import PackageDescription
 
+// The core logic and its tests build here (`swift test`). The app itself, its
+// widget, and its App Intents build through LockIn.xcodeproj, which XcodeGen
+// generates from project.yml — SwiftPM cannot produce widget extensions or
+// App Intents metadata.
 let package = Package(
     name: "LockIn",
     defaultLocalization: "en",
     platforms: [
-        .macOS(.v13)
+        .macOS(.v14)
     ],
     products: [
-        .executable(name: "LockIn", targets: ["FocusLockApp"]),
         .executable(name: "UIConcepts", targets: ["UIConcepts"]),
         .library(name: "FocusLockCore", targets: ["FocusLockCore"])
     ],
@@ -22,31 +25,14 @@ let package = Package(
                 "Assets.xcassets",
                 "DesignSystem.swift",
                 "Resources",
+                "Supporting",
                 "UI",
+                "Widget",
                 "Tests"
             ],
             sources: [
                 "Core",
                 "Models"
-            ]
-        ),
-        .executableTarget(
-            name: "FocusLockApp",
-            dependencies: ["FocusLockCore"],
-            path: "FocusLock",
-            exclude: [
-                "Core",
-                "Models",
-                "Resources",
-                "Tests"
-            ],
-            sources: [
-                "DesignSystem.swift",
-                "App",
-                "UI"
-            ],
-            resources: [
-                .process("Assets.xcassets")
             ]
         ),
         // Design-exploration only. Static mockups, no wiring to the real app.

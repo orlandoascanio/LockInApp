@@ -1,18 +1,20 @@
 #!/usr/bin/env bash
+# Build LockIn.app (with its widget) into build/LockIn.app, signed with your
+# development certificate. For a notarized DMG, use Scripts/release.sh.
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 APP_NAME="LockIn"
-BUNDLE_IDENTIFIER="com.lockin.app"
+DERIVED="$ROOT_DIR/build/DerivedData"
 APP_DIR="$ROOT_DIR/build/$APP_NAME.app"
-ICON_PATH="$ROOT_DIR/FocusLock/Resources/AppIcon.icns"
+CONFIGURATION="${CONFIGURATION:-Release}"
 
 cd "$ROOT_DIR"
 
-# Derived from git so two builds are never confusable, and so an updater has
+# Derived from git so two builds are never confusable, and so the updater has
 # a monotonically increasing build number to compare. CFBundleVersion must
 # increase on every release; CFBundleShortVersionString is what people read.
-SHORT_VERSION="$(git -C "$ROOT_DIR" describe --tags --abbrev=0 2>/dev/null || echo "0.1.0")"
+SHORT_VERSION="$(git -C "$ROOT_DIR" describe --tags --abbrev=0 --match 'v[0-9]*' 2>/dev/null || echo "0.2.0")"
 SHORT_VERSION="${SHORT_VERSION#v}"
 BUILD_NUMBER="$(git -C "$ROOT_DIR" rev-list --count HEAD 2>/dev/null || echo "1")"
 COMMIT="$(git -C "$ROOT_DIR" rev-parse --short HEAD 2>/dev/null || echo "unknown")"
@@ -20,59 +22,32 @@ if [[ -n "$(git -C "$ROOT_DIR" status --porcelain 2>/dev/null)" ]]; then
     COMMIT="$COMMIT-dirty"
 fi
 
-BUILD_OUTPUT_DIR="$(swift build -c release --show-bin-path)"
-BINARY_PATH="$BUILD_OUTPUT_DIR/$APP_NAME"
+if ! command -v xcodegen >/dev/null 2>&1; then
+    echo "xcodegen is needed to generate the Xcode project: brew install xcodegen" >&2
+    exit 1
+fi
+xcodegen generate --quiet
 
-swift build -c release --product "$APP_NAME"
+xcodebuild \
+    -project "$APP_NAME.xcodeproj" \
+    -scheme "$APP_NAME" \
+    -configuration "$CONFIGURATION" \
+    -derivedDataPath "$DERIVED" \
+    -destination 'platform=macOS' \
+    MARKETING_VERSION="$SHORT_VERSION" \
+    CURRENT_PROJECT_VERSION="$BUILD_NUMBER" \
+    LOCKIN_SOURCE_COMMIT="$COMMIT" \
+    build \
+    | grep -E "error:|warning: .*\.swift|BUILD (SUCCEEDED|FAILED)" || true
 
-rm -rf "$APP_DIR"
-rm -rf "$ROOT_DIR/build/FocusLock.app"
-mkdir -p "$APP_DIR/Contents/MacOS" "$APP_DIR/Contents/Resources"
-cp "$BINARY_PATH" "$APP_DIR/Contents/MacOS/$APP_NAME"
-chmod +x "$APP_DIR/Contents/MacOS/$APP_NAME"
-
-if [[ -f "$ICON_PATH" ]]; then
-    cp "$ICON_PATH" "$APP_DIR/Contents/Resources/AppIcon.icns"
+BUILT="$DERIVED/Build/Products/$CONFIGURATION/$APP_NAME.app"
+if [[ ! -d "$BUILT" ]]; then
+    echo "Build failed — run xcodebuild without the filter above to see why." >&2
+    exit 1
 fi
 
-find "$BUILD_OUTPUT_DIR" -maxdepth 1 -name "${APP_NAME}_*.bundle" -type d -exec cp -R {} "$APP_DIR/Contents/Resources/" \;
-
-cat > "$APP_DIR/Contents/Info.plist" <<PLIST
-<?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-<plist version="1.0">
-<dict>
-    <key>CFBundleDevelopmentRegion</key>
-    <string>en</string>
-    <key>CFBundleExecutable</key>
-    <string>$APP_NAME</string>
-    <key>CFBundleIdentifier</key>
-    <string>$BUNDLE_IDENTIFIER</string>
-    <key>CFBundleName</key>
-    <string>$APP_NAME</string>
-    <key>CFBundleDisplayName</key>
-    <string>$APP_NAME</string>
-    <key>CFBundleIconFile</key>
-    <string>AppIcon</string>
-    <key>CFBundlePackageType</key>
-    <string>APPL</string>
-    <key>CFBundleShortVersionString</key>
-    <string>$SHORT_VERSION</string>
-    <key>CFBundleVersion</key>
-    <string>$BUILD_NUMBER</string>
-    <key>LockInSourceCommit</key>
-    <string>$COMMIT</string>
-    <key>LSMinimumSystemVersion</key>
-    <string>13.0</string>
-    <key>NSPrincipalClass</key>
-    <string>NSApplication</string>
-</dict>
-</plist>
-PLIST
-
-if command -v codesign >/dev/null 2>&1; then
-    codesign --force --deep --sign - "$APP_DIR" >/dev/null 2>&1 || true
-fi
+rm -rf "$APP_DIR" "$ROOT_DIR/build/FocusLock.app"
+cp -R "$BUILT" "$APP_DIR"
 
 echo "Built $APP_DIR ($SHORT_VERSION build $BUILD_NUMBER, $COMMIT)"
 echo "Run with: open \"$APP_DIR\""
