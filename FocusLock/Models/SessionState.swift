@@ -96,6 +96,9 @@ public struct TimerSnapshot: Equatable {
     public var focusMinutes: Int
     public var breakMinutes: Int
 
+    /// Whether this block started under strict mode.
+    public var isStrict: Bool
+
     public init(
         phase: SessionPhase = .idle,
         sessionStartedAt: Date? = nil,
@@ -104,9 +107,11 @@ public struct TimerSnapshot: Equatable {
         focusMinutes: Int = 50,
         breakMinutes: Int = 10,
         task: SessionTask? = nil,
-        currentCycle: Int = 1
+        currentCycle: Int = 1,
+        isStrict: Bool = false
     ) {
         self.task = task
+        self.isStrict = isStrict
         self.currentCycle = max(1, currentCycle)
         self.phase = phase
         self.sessionStartedAt = sessionStartedAt

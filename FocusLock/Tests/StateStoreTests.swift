@@ -8,8 +8,11 @@ final class StateStoreTests: XCTestCase {
         let config = AppConfig(
             focusMinutes: 45,
             breakMinutes: 10,
-            strictMode: true,
-            blockedApps: [BlockedApp(name: "Slack", bundleId: "com.tinyspeck.slackmacgap")]
+            blockerMode: .hideOnly,
+            blockedApps: [BlockedApp(name: "Slack", bundleId: "com.tinyspeck.slackmacgap")],
+            blockedSites: [BlockedSite(pattern: "youtube.com")],
+            strict: StrictModeSettings(enabled: true),
+            schedules: [FocusSchedule(strict: true)]
         )
 
         try store.saveConfig(config)

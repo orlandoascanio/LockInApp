@@ -42,37 +42,50 @@ public struct AppConfig: Codable, Equatable {
     /// Grace period and countdown used when `breakEndBehavior` is `.autopilot`.
     public var autoResume: AutoResumePlanner
     public var blockedApps: [BlockedApp]
+    public var blockedSites: [BlockedSite]
 
-    /// Goal, category, and canvas options used when hosting a shared session.
-    public var stream: StreamSettings
+    /// The goal and category the next block runs with.
+    public var task: FocusTaskSettings
 
     /// Keeps the countdown strip floating above every window during a session.
     public var pinnedHUDEnabled: Bool
 
-    public var strictMode: Bool {
-        get { blockerMode != .guardScreen }
-        set { blockerMode = newValue ? .hideOnly : .guardScreen }
-    }
+    public var strict: StrictModeSettings
+    public var schedules: [FocusSchedule]
+    public var breakSuggestions: BreakSuggestionSettings
+    public var hotkeys: HotkeySettings
+    public var integrations: IntegrationSettings
 
     public init(
         focusMinutes: Int = 50,
         breakMinutes: Int = 10,
         blockerMode: BlockerMode = .guardScreen,
-        strictMode: Bool? = nil,
         breakEndBehavior: BreakEndBehavior = .ask,
         autoResume: AutoResumePlanner = .default,
         blockedApps: [BlockedApp] = [],
+        blockedSites: [BlockedSite] = [],
         pinnedHUDEnabled: Bool = true,
-        stream: StreamSettings = StreamSettings()
+        task: FocusTaskSettings = FocusTaskSettings(),
+        strict: StrictModeSettings = StrictModeSettings(),
+        schedules: [FocusSchedule] = [],
+        breakSuggestions: BreakSuggestionSettings = BreakSuggestionSettings(),
+        hotkeys: HotkeySettings = HotkeySettings(),
+        integrations: IntegrationSettings = IntegrationSettings()
     ) {
         self.focusMinutes = Self.normalizedFocusMinutes(focusMinutes)
         self.breakMinutes = max(0, breakMinutes)
-        self.blockerMode = strictMode.map { $0 ? .hideOnly : .guardScreen } ?? blockerMode
+        self.blockerMode = blockerMode
         self.breakEndBehavior = breakEndBehavior
         self.autoResume = autoResume
         self.blockedApps = blockedApps
+        self.blockedSites = blockedSites
         self.pinnedHUDEnabled = pinnedHUDEnabled
-        self.stream = stream
+        self.task = task
+        self.strict = strict
+        self.schedules = schedules
+        self.breakSuggestions = breakSuggestions
+        self.hotkeys = hotkeys
+        self.integrations = integrations
     }
 
     public static let `default` = AppConfig()
@@ -86,8 +99,15 @@ public struct AppConfig: Codable, Equatable {
         case autoStartFocusAfterBreak
         case autoResume
         case blockedApps
+        case blockedSites
         case pinnedHUDEnabled
+        case task
         case stream
+        case strict
+        case schedules
+        case breakSuggestions
+        case hotkeys
+        case integrations
     }
 
     public init(from decoder: Decoder) throws {
@@ -99,6 +119,7 @@ public struct AppConfig: Codable, Equatable {
         if let decodedMode = try container.decodeIfPresent(BlockerMode.self, forKey: .blockerMode) {
             blockerMode = decodedMode
         } else {
+            // Before blocker modes existed, "strict" meant hiding without the guard screen.
             let legacyStrictMode = try container.decodeIfPresent(Bool.self, forKey: .strictMode) ?? false
             blockerMode = legacyStrictMode ? .hideOnly : .guardScreen
         }
@@ -111,8 +132,22 @@ public struct AppConfig: Codable, Equatable {
         }
         autoResume = try container.decodeIfPresent(AutoResumePlanner.self, forKey: .autoResume) ?? .default
         blockedApps = try container.decodeIfPresent([BlockedApp].self, forKey: .blockedApps) ?? []
-        stream = try container.decodeIfPresent(StreamSettings.self, forKey: .stream) ?? StreamSettings()
+        blockedSites = (try? container.decodeIfPresent([BlockedSite].self, forKey: .blockedSites)) ?? []
+        // Goals and categories used to live with the stream settings; a config
+        // from those builds carries them over rather than losing the list.
+        task = (try? container.decodeIfPresent(FocusTaskSettings.self, forKey: .task))
+            ?? (try? container.decodeIfPresent(FocusTaskSettings.self, forKey: .stream))
+            ?? FocusTaskSettings()
         pinnedHUDEnabled = try container.decodeIfPresent(Bool.self, forKey: .pinnedHUDEnabled) ?? true
+        // A section this build cannot read falls back alone instead of
+        // resetting every other setting with it.
+        strict = (try? container.decodeIfPresent(StrictModeSettings.self, forKey: .strict)) ?? StrictModeSettings()
+        schedules = (try? container.decodeIfPresent([FocusSchedule].self, forKey: .schedules)) ?? []
+        breakSuggestions = (try? container.decodeIfPresent(BreakSuggestionSettings.self, forKey: .breakSuggestions))
+            ?? BreakSuggestionSettings()
+        hotkeys = (try? container.decodeIfPresent(HotkeySettings.self, forKey: .hotkeys)) ?? HotkeySettings()
+        integrations = (try? container.decodeIfPresent(IntegrationSettings.self, forKey: .integrations))
+            ?? IntegrationSettings()
     }
 
     public func encode(to encoder: Encoder) throws {
@@ -123,8 +158,14 @@ public struct AppConfig: Codable, Equatable {
         try container.encode(breakEndBehavior, forKey: .breakEndBehavior)
         try container.encode(autoResume, forKey: .autoResume)
         try container.encode(blockedApps, forKey: .blockedApps)
+        try container.encode(blockedSites, forKey: .blockedSites)
         try container.encode(pinnedHUDEnabled, forKey: .pinnedHUDEnabled)
-        try container.encode(stream, forKey: .stream)
+        try container.encode(task, forKey: .task)
+        try container.encode(strict, forKey: .strict)
+        try container.encode(schedules, forKey: .schedules)
+        try container.encode(breakSuggestions, forKey: .breakSuggestions)
+        try container.encode(hotkeys, forKey: .hotkeys)
+        try container.encode(integrations, forKey: .integrations)
     }
 
     public static func normalizedFocusMinutes(_ minutes: Int) -> Int {

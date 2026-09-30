@@ -77,7 +77,8 @@ public final class TimerEngine {
             focusMinutes: state.focusMinutes,
             breakMinutes: state.breakMinutes,
             task: state.task,
-            currentCycle: state.currentCycle
+            currentCycle: state.currentCycle,
+            isStrict: state.strictMode
         )
     }
 
@@ -104,8 +105,51 @@ public final class TimerEngine {
 
         try? stateStore.saveSessionState(state)
         lastPersistedPhase = .break
-        notificationService.breakStarted(minutes: state.breakMinutes)
+        notificationService.breakStarted(minutes: state.breakMinutes, cycle: state.currentCycle)
         snapshot = makeSnapshot(for: state, now: currentDate)
+    }
+
+    /// Ends focus early and goes straight to the break. The block is logged as
+    /// completed with the minutes actually worked; under a minute counts as
+    /// cancelled, since nothing was focused on.
+    public func skipFocus(now: Date? = nil) {
+        guard let state = stateStore.loadSessionState(), state.state == .focus else { return }
+        let currentDate = now ?? clock()
+        let workedMinutes = Int(currentDate.timeIntervalSince(state.startedAt) / 60)
+
+        var worked = state
+        if workedMinutes >= 1 {
+            worked.focusMinutes = min(state.focusMinutes, workedMinutes)
+            appendHistory(for: worked, endedAt: currentDate, status: .completed)
+        } else {
+            appendHistory(for: state, endedAt: currentDate, status: .cancelled)
+        }
+
+        guard state.breakMinutes > 0 else {
+            try? stateStore.clearSessionState()
+            lastPersistedPhase = .completed
+            notificationService.focusCompleted()
+            snapshot = TimerSnapshot(
+                phase: .completed,
+                sessionStartedAt: state.startedAt,
+                focusMinutes: state.focusMinutes,
+                breakMinutes: state.breakMinutes,
+                task: state.task,
+                currentCycle: state.currentCycle,
+                isStrict: state.strictMode
+            )
+            return
+        }
+
+        // A break is `startedAt + focusMinutes` onwards, so moving the start
+        // back makes the break begin now without touching the durations.
+        var breakState = state
+        breakState.state = .break
+        breakState.startedAt = currentDate.addingTimeInterval(-TimeInterval(state.focusMinutes * 60))
+        try? stateStore.saveSessionState(breakState)
+        lastPersistedPhase = .break
+        notificationService.breakStarted(minutes: breakState.breakMinutes, cycle: breakState.currentCycle)
+        snapshot = makeSnapshot(for: breakState, now: currentDate)
     }
 
     public func endCycle() {
@@ -129,6 +173,13 @@ public final class TimerEngine {
             return
         }
 
+        // A strict session is the exception: being quit is exactly what it
+        // exists to survive, so it picks up where it was.
+        if state.strictMode {
+            refresh(now: currentDate)
+            return
+        }
+
         // Quitting or relaunching ends a session — it never silently resumes.
         // A focus block interrupted this way is logged as abandoned; a break is
         // simply dropped (its focus was already recorded when it completed).
@@ -138,7 +189,8 @@ public final class TimerEngine {
             focusMinutes: state.focusMinutes,
             breakMinutes: state.breakMinutes,
             task: state.task,
-            currentCycle: state.currentCycle
+            currentCycle: state.currentCycle,
+            isStrict: state.strictMode
         )
     }
 
@@ -213,7 +265,7 @@ public final class TimerEngine {
 
         if lastPersistedPhase != .break {
             notificationService.focusCompleted()
-            notificationService.breakStarted(minutes: breakState.breakMinutes)
+            notificationService.breakStarted(minutes: breakState.breakMinutes, cycle: breakState.currentCycle)
         }
 
         lastPersistedPhase = .break
@@ -245,7 +297,8 @@ public final class TimerEngine {
             focusMinutes: state.focusMinutes,
             breakMinutes: state.breakMinutes,
             task: state.task,
-            currentCycle: state.currentCycle
+            currentCycle: state.currentCycle,
+            isStrict: state.strictMode
         )
     }
 
@@ -303,7 +356,8 @@ public final class TimerEngine {
             focusMinutes: state.focusMinutes,
             breakMinutes: state.breakMinutes,
             task: state.task,
-            currentCycle: state.currentCycle
+            currentCycle: state.currentCycle,
+            isStrict: state.strictMode
         )
     }
 }

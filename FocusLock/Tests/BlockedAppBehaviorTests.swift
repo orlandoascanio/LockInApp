@@ -183,10 +183,9 @@ private final class StubMonitor: AppActivationMonitoring {
 
 private final class NoopNotifications: NotificationSending {
     func requestAuthorization() {}
-    func audienceTasksWaiting(count: Int) {}
     func focusStarted(minutes: Int) {}
     func focusCompleted() {}
-    func breakStarted(minutes: Int) {}
+    func breakStarted(minutes: Int, cycle: Int) {}
     func breakEnded() {}
     func sessionCancelled() {}
     func blockedAppHidden(name: String) {}

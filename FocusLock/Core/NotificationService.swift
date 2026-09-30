@@ -5,15 +5,18 @@ public protocol NotificationSending: AnyObject {
     func requestAuthorization()
     func focusStarted(minutes: Int)
     func focusCompleted()
-    func breakStarted(minutes: Int)
+    func breakStarted(minutes: Int, cycle: Int)
     func breakEnded()
     func sessionCancelled()
     func blockedAppHidden(name: String)
-    func audienceTasksWaiting(count: Int)
 }
 
 public final class NotificationService: NSObject, NotificationSending, UNUserNotificationCenterDelegate {
     private let center: UNUserNotificationCenter?
+
+    /// What to suggest doing with a break, by block number and length. Set by
+    /// the app, which owns the settings; `nil` sends the plain notice.
+    public var breakSuggestion: ((_ cycle: Int, _ minutes: Int) -> BreakSuggestion?)?
 
     public init(center: UNUserNotificationCenter? = nil) {
         self.center = center ?? Self.resolveCenter()
@@ -47,8 +50,24 @@ public final class NotificationService: NSObject, NotificationSending, UNUserNot
         send(title: "Focus completed", body: "Nice work. Time for a break.")
     }
 
-    public func breakStarted(minutes: Int) {
-        send(title: "Break started", body: "\(minutes) minutes to reset.")
+    public func breakStarted(minutes: Int, cycle: Int) {
+        if let suggestion = breakSuggestion?(cycle, minutes) {
+            send(title: "Break · \(minutes) min — \(suggestion.title)", body: suggestion.detail)
+        } else {
+            send(title: "Break started", body: "\(minutes) minutes to reset.")
+        }
+    }
+
+    public func eyeReminder() {
+        send(title: BreakSuggestions.eyeReminder.title, body: BreakSuggestions.eyeReminder.detail, sound: false)
+    }
+
+    public func scheduleStarted(name: String, strict: Bool) {
+        send(title: "\(name) schedule started", body: strict ? "Strict mode is on for this block." : "Focus is running.")
+    }
+
+    public func notice(title: String, body: String) {
+        send(title: title, body: body)
     }
 
     public func breakEnded() {
@@ -57,15 +76,6 @@ public final class NotificationService: NSObject, NotificationSending, UNUserNot
 
     public func sessionCancelled() {
         send(title: "Session cancelled", body: "Blocking has stopped.")
-    }
-
-    /// Deliberately carries no viewer-written text — not the task, not even the
-    /// name. A banner is drawn on screen, and a screen is often what is being
-    /// captured; putting unreviewed words in it would hand a stranger the
-    /// broadcast that approve-first exists to protect.
-    public func audienceTasksWaiting(count: Int) {
-        send(title: "Someone wants to join in",
-             body: "\(count) waiting for you to approve.")
     }
 
     public func blockedAppHidden(name: String) {
@@ -80,7 +90,7 @@ public final class NotificationService: NSObject, NotificationSending, UNUserNot
         completionHandler([.banner, .sound])
     }
 
-    private func send(title: String, body: String) {
+    private func send(title: String, body: String, sound: Bool = true) {
         guard let center else {
             return
         }
@@ -88,7 +98,7 @@ public final class NotificationService: NSObject, NotificationSending, UNUserNot
         let content = UNMutableNotificationContent()
         content.title = title
         content.body = body
-        content.sound = .default
+        content.sound = sound ? .default : nil
 
         let request = UNNotificationRequest(
             identifier: "lockin-\(UUID().uuidString)",
@@ -113,15 +123,11 @@ public final class NoopNotificationService: NotificationSending {
         events.append("focusStarted:\(minutes)")
     }
 
-    public func audienceTasksWaiting(count: Int) {
-        events.append("audienceTasksWaiting:\(count)")
-    }
-
     public func focusCompleted() {
         events.append("focusCompleted")
     }
 
-    public func breakStarted(minutes: Int) {
+    public func breakStarted(minutes: Int, cycle: Int) {
         events.append("breakStarted:\(minutes)")
     }
 
