@@ -40,14 +40,14 @@ struct SessionHistoryView: View {
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else {
                 HStack(spacing: 10) {
-                    Picker("Category", selection: $selectedCategory) {
-                        Text("All categories").tag("")
-                        ForEach(categories, id: \.self) {
-                            Text($0).tag($0)
-                        }
-                    }
-                    .labelsHidden()
-                    .frame(maxWidth: 240)
+                    FLMenuPicker(
+                        options: [""] + categories,
+                        selection: selectedCategory,
+                        title: { $0.isEmpty ? "All categories" : $0 },
+                        onSelect: { selectedCategory = $0 },
+                        width: 200,
+                        accessibilityLabel: "Category"
+                    )
                     Spacer()
                 }.padding(.horizontal, 26).padding(.bottom, 16)
                 summaryRow

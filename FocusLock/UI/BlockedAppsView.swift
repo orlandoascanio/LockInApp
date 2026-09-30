@@ -60,33 +60,13 @@ struct BlockedAppsView: View {
     }
 
     private var tabPicker: some View {
-        HStack(spacing: 0) {
-            ForEach(Tab.allCases) { option in
-                let isSelected = tab == option
-                Button {
-                    tab = option
-                } label: {
-                    HStack(spacing: 6) {
-                        Text(option.rawValue)
-                        if option == .websites, controller.browserPermissionProblem != nil {
-                            Circle().fill(Color.flClay).frame(width: 6, height: 6)
-                        }
-                    }
-                    .font(.system(size: 12.5, weight: isSelected ? .semibold : .regular))
-                    .foregroundStyle(isSelected ? Color.flCanvas : Color.flInkSoft)
-                    .padding(.horizontal, 18)
-                    .frame(height: 28)
-                    .background(Capsule().fill(isSelected ? Color.flAccentDeep : .clear))
-                    .contentShape(Capsule())
-                }
-                .buttonStyle(.plain)
-                .accessibilityAddTraits(isSelected ? [.isSelected] : [])
-            }
-        }
-        .padding(3)
-        .background(Capsule().fill(Color.flCanvasWarm))
-        .overlay(Capsule().strokeBorder(Color.flHairline, lineWidth: 1))
-        .fixedSize()
+        FLSegmentedControl(
+            options: Tab.allCases,
+            selection: $tab,
+            title: \.rawValue,
+            badge: { $0 == .websites && controller.browserPermissionProblem != nil },
+            accessibilityLabel: "Apps or websites"
+        )
         .padding(.horizontal, 26)
         .padding(.bottom, 18)
     }

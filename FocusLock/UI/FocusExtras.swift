@@ -1,36 +1,166 @@
 import FocusLockCore
 import SwiftUI
 
+/// The countdown inside a ring that fills as the phase runs, so how far along
+/// a block is reads from across the room, not only the digits.
+struct FocusDial: View {
+    let phaseLabel: String
+    let countdown: String
+    let progress: Double
+    let isBreak: Bool
+    let isActive: Bool
+
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    private let diameter: CGFloat = 276
+    private let lineWidth: CGFloat = 5
+
+    var body: some View {
+        ZStack {
+            Circle()
+                .stroke(Color.flHairline.opacity(isActive ? 0.9 : 0.6), lineWidth: lineWidth)
+
+            Circle()
+                .trim(from: 0, to: max(0.0001, min(1, progress)))
+                .stroke(
+                    isBreak ? Color.flAccent : Color.flAccentDeep,
+                    style: StrokeStyle(lineWidth: lineWidth, lineCap: .round)
+                )
+                .rotationEffect(.degrees(-90))
+                .opacity(isActive ? 1 : 0)
+                .animation(reduceMotion ? nil : .linear(duration: 0.5), value: progress)
+
+            VStack(spacing: 6) {
+                FLMicroLabel(text: phaseLabel, tint: isActive ? .flAccentDeep : .flInkSoft)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.8)
+                    .frame(maxWidth: diameter - 60)
+
+                Text(countdown)
+                    .font(FLTypography.timer(70))
+                    .monospacedDigit()
+                    .foregroundStyle(Color.flInk)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.6)
+                    .contentTransition(.numericText())
+            }
+            .padding(.horizontal, 26)
+        }
+        .frame(width: diameter, height: diameter)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("\(phaseLabel), \(countdown) remaining")
+        .accessibilityValue(isActive ? "\(Int(progress * 100)) percent through this phase" : "")
+    }
+}
+
+/// Every block started today, in order, so the bottom of the Focus page shows
+/// the day taking shape instead of an empty canvas.
+struct TodayBlocks: View {
+    @EnvironmentObject private var controller: MenuBarController
+
+    private var blocks: [SessionHistoryEntry] {
+        controller.history
+            .filter { Calendar.current.isDateInToday($0.startedAt) }
+            .sorted { $0.startedAt < $1.startedAt }
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                FLMicroLabel(text: "Today")
+                Spacer()
+                if !blocks.isEmpty {
+                    Text("\(blocks.filter { $0.status == .completed }.count) of \(blocks.count) finished")
+                        .font(FLTypography.caption)
+                        .foregroundStyle(Color.flInkSoft)
+                }
+            }
+
+            if blocks.isEmpty {
+                Text("Nothing yet. Your first block of the day shows up here.")
+                    .font(FLTypography.body)
+                    .foregroundStyle(Color.flInkSoft)
+                    .padding(.vertical, 6)
+            } else {
+                VStack(spacing: 0) {
+                    ForEach(blocks.suffix(8)) { entry in
+                        row(entry)
+                        if entry.id != blocks.suffix(8).last?.id {
+                            Rectangle().fill(Color.flHairline.opacity(0.5)).frame(height: 1)
+                        }
+                    }
+                }
+            }
+        }
+        .padding(.horizontal, 26)
+        .padding(.top, 20)
+        .padding(.bottom, 28)
+    }
+
+    private func row(_ entry: SessionHistoryEntry) -> some View {
+        HStack(spacing: 14) {
+            Text(MenuBarController.shortTime(entry.startedAt))
+                .font(.system(size: 12, design: .serif))
+                .monospacedDigit()
+                .foregroundStyle(Color.flInkSoft)
+                .frame(width: 70, alignment: .leading)
+
+            Circle()
+                .fill(dotColor(entry.status))
+                .frame(width: 7, height: 7)
+
+            VStack(alignment: .leading, spacing: 1) {
+                Text(title(for: entry))
+                    .font(FLTypography.body)
+                    .foregroundStyle(Color.flInk)
+                    .lineLimit(1)
+                if let outcome = entry.checkIn?.outcome {
+                    Text(outcome.title)
+                        .font(FLTypography.caption)
+                        .foregroundStyle(Color.flAccentDeep)
+                }
+            }
+
+            Spacer(minLength: 8)
+
+            if entry.strictMode {
+                Image(systemName: "lock.fill")
+                    .font(.system(size: 10))
+                    .foregroundStyle(Color.flInkSoft)
+                    .help("Strict block")
+            }
+
+            Text(entry.status == .completed ? "\(entry.focusMinutes) min" : entry.status.displayName)
+                .font(.system(size: 12, design: .serif))
+                .monospacedDigit()
+                .foregroundStyle(entry.status == .completed ? Color.flInk : Color.flInkSoft)
+        }
+        .padding(.vertical, 9)
+        .accessibilityElement(children: .combine)
+    }
+
+    private func title(for entry: SessionHistoryEntry) -> String {
+        let goal = entry.task?.goal ?? ""
+        let category = entry.task?.category ?? ""
+        if !goal.isEmpty { return goal }
+        return category.isEmpty ? "Focus block" : category
+    }
+
+    private func dotColor(_ status: SessionHistoryStatus) -> Color {
+        switch status {
+        case .completed: return .flAccentDeep
+        case .cancelled: return .flWarning
+        case .abandoned: return .flClay
+        }
+    }
+}
+
 /// "What is this block for?" — a goal and a category, under the timer.
 struct FocusGoalBar: View {
     @EnvironmentObject private var controller: MenuBarController
     @State private var newCategory = ""
     @State private var isNamingCategory = false
     @FocusState private var categoryFieldFocused: Bool
-
-    /// A type rather than a sentinel string: any reserved string is either
-    /// something you could type yourself or, as with a NUL, something that
-    /// does not survive the trip through AppKit's menus intact.
-    private enum CategoryChoice: Hashable {
-        case existing(String)
-        case new
-    }
-
-    private var categorySelection: Binding<CategoryChoice> {
-        Binding(
-            get: { isNamingCategory ? .new : .existing(controller.config.task.category) },
-            set: { choice in
-                switch choice {
-                case .new:
-                    isNamingCategory = true
-                case .existing(let name):
-                    isNamingCategory = false
-                    guard !name.isEmpty else { return }
-                    controller.updateTask { $0.category = name }
-                }
-            }
-        )
-    }
 
     var body: some View {
         VStack(spacing: 8) {
@@ -41,15 +171,18 @@ struct FocusGoalBar: View {
                 ))
                 .flField(width: 300)
 
-                Picker("Category", selection: categorySelection) {
-                    ForEach(controller.config.task.categories, id: \.self) {
-                        Text($0).tag(CategoryChoice.existing($0))
-                    }
-                    Divider()
-                    Text("New category…").tag(CategoryChoice.new)
-                }
-                .labelsHidden()
-                .frame(width: 130)
+                FLMenuPicker(
+                    options: controller.config.task.categories,
+                    selection: controller.config.task.category,
+                    title: { $0 },
+                    onSelect: { name in
+                        isNamingCategory = false
+                        controller.updateTask { $0.category = name }
+                    },
+                    width: 140,
+                    extraItems: AnyView(Button("New category…") { isNamingCategory = true }),
+                    accessibilityLabel: "Category"
+                )
             }
 
             // The field only exists while you are actually naming one.
@@ -61,11 +194,13 @@ struct FocusGoalBar: View {
                         .onSubmit(addCategory)
                         .onAppear { categoryFieldFocused = true }
                     Button("Add", action: addCategory)
+                        .buttonStyle(FLInlineButtonStyle())
                         .disabled(newCategory.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                     Button("Cancel") {
                         newCategory = ""
                         isNamingCategory = false
                     }
+                    .buttonStyle(FLInlineButtonStyle(tint: .flInkSoft))
                 }
             }
 
@@ -140,11 +275,12 @@ private struct CheckInView: View {
                     .foregroundStyle(Color.flInk)
                     .lineLimit(2)
             }
-            Picker("Progress", selection: $outcome) {
-                ForEach(CheckInOutcome.allCases) { Text($0.title).tag($0) }
-            }
-            .pickerStyle(.segmented)
-            .labelsHidden()
+            FLSegmentedControl(
+                options: CheckInOutcome.allCases,
+                selection: $outcome,
+                title: \.title,
+                accessibilityLabel: "How the block went"
+            )
             TextField("A note for next time (optional)", text: $note, axis: .vertical)
                 .lineLimit(1...3)
                 .flField()

@@ -4,6 +4,15 @@ import SwiftUI
 struct SettingsView: View {
     @EnvironmentObject private var controller: MenuBarController
 
+    enum Tab: String, CaseIterable {
+        case general = "General"
+        case blocking = "Blocking"
+        case breaks = "Breaks"
+        case shortcuts = "Shortcuts"
+    }
+
+    @State private var tab: Tab = .general
+
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             header
@@ -11,21 +20,26 @@ struct SettingsView: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 0) {
                     FLRule()
-                    durationsSection
-                    FLRule()
-                    behaviourSection
-                    FLRule()
-                    sessionSection
-                    FLRule()
-                    strictSection
-                    FLRule()
-                    breakSuggestionsSection
-                    FLRule()
-                    hotkeySection
-                    FLRule()
-                    hudSection
-                    FLRule()
-                    generalSection
+                    switch tab {
+                    case .general:
+                        durationsSection
+                        FLRule()
+                        appearanceSection
+                        FLRule()
+                        hudSection
+                        FLRule()
+                        generalSection
+                    case .blocking:
+                        behaviourSection
+                        FLRule()
+                        strictSection
+                    case .breaks:
+                        sessionSection
+                        FLRule()
+                        breakSuggestionsSection
+                    case .shortcuts:
+                        hotkeySection
+                    }
                 }
             }
 
@@ -49,10 +63,39 @@ struct SettingsView: View {
             Text("Durations, guarding, strict mode, shortcuts, and how LockIn shows itself.")
                 .font(FLTypography.caption)
                 .foregroundStyle(Color.flInkSoft)
+
+            FLSegmentedControl(
+                options: Tab.allCases,
+                selection: $tab,
+                title: \.rawValue,
+                accessibilityLabel: "Settings section"
+            )
+            .padding(.top, 16)
         }
         .padding(.horizontal, 26)
         .padding(.top, 28)
         .padding(.bottom, 20)
+    }
+
+    private var appearanceSection: some View {
+        section("Appearance") {
+            VStack(alignment: .leading, spacing: 12) {
+                FLSegmentedControl(
+                    options: AppearancePreference.allCases,
+                    selection: Binding(
+                        get: { controller.config.appearance },
+                        set: { controller.updateAppearance($0) }
+                    ),
+                    title: \.displayName,
+                    accessibilityLabel: "Appearance"
+                )
+
+                Text("Dark keeps the same moss palette on charcoal, for late sessions. The guard screen and HUD follow along.")
+                    .font(FLTypography.caption)
+                    .foregroundStyle(Color.flInkSoft)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
     }
 
     // MARK: Sections
@@ -86,21 +129,16 @@ struct SettingsView: View {
     private var behaviourSection: some View {
         section("Default guarding behaviour") {
             VStack(alignment: .leading, spacing: 12) {
-                // A stock segmented picker paints its selection in the system
-                // accent colour, which fights the palette. This one is ours.
-                HStack(spacing: 0) {
-                    ForEach(BlockerMode.allCases) { mode in
-                        behaviourOption(mode)
-                    }
-                }
-                .padding(3)
-                .background(
-                    Capsule().fill(Color.flCanvasWarm)
+                FLSegmentedControl(
+                    options: BlockerMode.allCases,
+                    selection: Binding(
+                        get: { controller.config.blockerMode },
+                        set: { controller.updateBlockerMode($0) }
+                    ),
+                    title: \.displayName,
+                    accessibilityLabel: "Default guarding behaviour"
                 )
-                .overlay(
-                    Capsule().strokeBorder(Color.flHairline, lineWidth: 1)
-                )
-                .fixedSize()
+                .disabled(controller.isStrictLocked)
 
                 Text(controller.config.blockerMode.helperText)
                     .font(FLTypography.caption)
@@ -117,19 +155,15 @@ struct SettingsView: View {
     private var sessionSection: some View {
         section("When a break ends") {
             VStack(alignment: .leading, spacing: 12) {
-                HStack(spacing: 0) {
-                    ForEach(BreakEndBehavior.allCases) { behavior in
-                        breakEndOption(behavior)
-                    }
-                }
-                .padding(3)
-                .background(
-                    Capsule().fill(Color.flCanvasWarm)
+                FLSegmentedControl(
+                    options: BreakEndBehavior.allCases,
+                    selection: Binding(
+                        get: { controller.config.breakEndBehavior },
+                        set: { controller.updateBreakEndBehavior($0) }
+                    ),
+                    title: \.displayName,
+                    accessibilityLabel: "When a break ends"
                 )
-                .overlay(
-                    Capsule().strokeBorder(Color.flHairline, lineWidth: 1)
-                )
-                .fixedSize()
 
                 Text(controller.config.breakEndBehavior.helperText)
                     .font(FLTypography.caption)
@@ -175,27 +209,6 @@ struct SettingsView: View {
     private var countdownLabel: String {
         let seconds = controller.config.autoResume.countdownSeconds
         return seconds < 60 ? "\(seconds) seconds" : "\(seconds / 60) minute\(seconds == 60 ? "" : "s")"
-    }
-
-    private func breakEndOption(_ behavior: BreakEndBehavior) -> some View {
-        let isSelected = controller.config.breakEndBehavior == behavior
-
-        return Button {
-            controller.updateBreakEndBehavior(behavior)
-        } label: {
-            Text(behavior.displayName)
-                .font(.system(size: 12.5, weight: isSelected ? .semibold : .regular))
-                .foregroundStyle(isSelected ? Color.flCanvas : Color.flInkSoft)
-                .padding(.horizontal, 16)
-                .frame(height: 28)
-                .background(
-                    Capsule().fill(isSelected ? Color.flAccentDeep : .clear)
-                )
-                .contentShape(Capsule())
-        }
-        .buttonStyle(.plain)
-        .accessibilityLabel(behavior.displayName)
-        .accessibilityAddTraits(isSelected ? [.isSelected] : [])
     }
 
     private func choiceRow(
@@ -379,27 +392,6 @@ struct SettingsView: View {
                 UpdatesRow()
             }
         }
-    }
-
-    private func behaviourOption(_ mode: BlockerMode) -> some View {
-        let isSelected = controller.config.blockerMode == mode
-
-        return Button {
-            controller.updateBlockerMode(mode)
-        } label: {
-            Text(mode.displayName)
-                .font(.system(size: 12.5, weight: isSelected ? .semibold : .regular))
-                .foregroundStyle(isSelected ? Color.flCanvas : Color.flInkSoft)
-                .padding(.horizontal, 16)
-                .frame(height: 28)
-                .background(
-                    Capsule().fill(isSelected ? Color.flAccentDeep : .clear)
-                )
-                .contentShape(Capsule())
-        }
-        .buttonStyle(.plain)
-        .accessibilityLabel(mode.displayName)
-        .accessibilityAddTraits(isSelected ? [.isSelected] : [])
     }
 
     // MARK: Building blocks

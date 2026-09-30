@@ -43,15 +43,12 @@ struct AnalyticsView: View {
 
             Spacer(minLength: FLSpacing.md)
 
-            Picker("Time range", selection: $period) {
-                ForEach(SessionAnalyticsPeriod.allCases) { option in
-                    Text(option.title).tag(option)
-                }
-            }
-            .pickerStyle(.segmented)
-            .labelsHidden()
-            .frame(width: 238)
-            .accessibilityLabel("Analytics time range")
+            FLSegmentedControl(
+                options: SessionAnalyticsPeriod.allCases,
+                selection: $period,
+                title: \.title,
+                accessibilityLabel: "Analytics time range"
+            )
         }
         .padding(.horizontal, 26)
         .padding(.top, 28)

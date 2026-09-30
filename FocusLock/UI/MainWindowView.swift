@@ -111,7 +111,7 @@ struct MainWindowView: View {
             streakBlock
         }
         .frame(width: 208)
-        .background(Color.flCanvasWarm)
+        .background(FLSidebarBackground())
     }
 
     private var sidebarSubtitle: String {
@@ -253,6 +253,10 @@ struct FocusPageView: View {
                 FLRule()
 
                 weeklyRhythm
+
+                FLRule()
+
+                TodayBlocks()
             }
         }
         .sheet(isPresented: $showingEscape) {
@@ -278,24 +282,20 @@ struct FocusPageView: View {
 
     private var hero: some View {
         VStack(spacing: 0) {
-            FLMicroLabel(text: phaseLabel, tint: controller.isSessionActive ? .flAccentDeep : .flInkSoft)
-                .padding(.bottom, 10)
-
-            Text(controller.displayCountdown)
-                .font(FLTypography.timerLarge)
-                .monospacedDigit()
-                .foregroundStyle(Color.flInk)
-                .lineLimit(1)
-                .minimumScaleFactor(0.6)
-                .contentTransition(.numericText())
-                .accessibilityLabel("\(controller.displayCountdown) remaining")
+            FocusDial(
+                phaseLabel: phaseLabel,
+                countdown: controller.displayCountdown,
+                progress: controller.isSessionActive ? controller.phaseProgress : 0,
+                isBreak: controller.snapshot.phase == .break,
+                isActive: controller.isSessionActive
+            )
 
             FLSessionBeads(
                 total: beadTotal,
                 completed: controller.sessionStats.sessionsCompletedToday,
                 isRunning: controller.isSessionActive
             )
-            .padding(.top, 10)
+            .padding(.top, 16)
 
             controls
                 .padding(.top, 24)
@@ -584,7 +584,7 @@ struct FocusPageView: View {
                     minutes: $0.minutes,
                     isToday: $0.isToday
                 )
-            })
+            }, height: 88)
         }
         .padding(.horizontal, 26)
         .padding(.vertical, 20)

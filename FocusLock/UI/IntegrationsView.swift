@@ -76,8 +76,10 @@ private struct IntegrationsContent: View {
                     slackToken = ""
                     integrations.testSlack()
                 }
+                .buttonStyle(FLInlineButtonStyle())
                 .disabled(slackToken.isEmpty)
                 Button("Test") { integrations.testSlack() }
+                    .buttonStyle(FLInlineButtonStyle())
                     .disabled(!integrations.hasSlackToken)
                 if integrations.hasSlackToken {
                     Button("Remove") { integrations.saveSlackToken("") }
@@ -170,8 +172,10 @@ private struct IntegrationsContent: View {
                         webhook = ""
                     }
                 }
+                .buttonStyle(FLInlineButtonStyle())
                 .disabled(webhook.isEmpty)
                 Button("Send test") { integrations.testDiscordWebhook() }
+                    .buttonStyle(FLInlineButtonStyle())
                     .disabled(!integrations.hasDiscordWebhook)
                 if integrations.hasDiscordWebhook {
                     Button("Remove") { _ = integrations.saveDiscordWebhook("") }

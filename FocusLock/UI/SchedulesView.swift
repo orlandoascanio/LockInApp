@@ -198,32 +198,7 @@ private struct ScheduleRow: View {
     }
 
     private func timePicker(_ label: String, minute: Binding<Int>) -> some View {
-        HStack(spacing: 8) {
-            Text(label)
-                .font(FLTypography.body)
-                .foregroundStyle(Color.flInkSoft)
-            DatePicker(
-                label,
-                selection: Binding(
-                    get: {
-                        Calendar.current.date(
-                            bySettingHour: minute.wrappedValue / 60,
-                            minute: minute.wrappedValue % 60,
-                            second: 0,
-                            of: Date()
-                        ) ?? Date()
-                    },
-                    set: { date in
-                        let parts = Calendar.current.dateComponents([.hour, .minute], from: date)
-                        minute.wrappedValue = (parts.hour ?? 0) * 60 + (parts.minute ?? 0)
-                    }
-                ),
-                displayedComponents: .hourAndMinute
-            )
-            .labelsHidden()
-            .datePickerStyle(.field)
-            .fixedSize()
-        }
+        FLTimePicker(label: label, minute: minute)
     }
 
     private func binding<Value>(_ keyPath: WritableKeyPath<FocusSchedule, Value>) -> Binding<Value> {

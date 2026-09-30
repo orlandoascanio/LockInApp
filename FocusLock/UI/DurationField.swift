@@ -1,7 +1,7 @@
 import FocusLockCore
 import SwiftUI
 
-/// A keyboard-first duration editor with a stepper for small adjustments.
+/// A keyboard-first duration editor with minus and plus for small adjustments.
 struct FLDurationField: View {
     let label: String
     @Binding var minutes: Int
@@ -38,9 +38,13 @@ struct FLDurationField: View {
                 .font(FLTypography.caption)
                 .foregroundStyle(Color.flInkSoft)
 
-            Stepper(label, value: stepperMinutes, in: range)
-                .labelsHidden()
-                .accessibilityLabel("Adjust \(label.lowercased()) duration")
+            FLStepperButtons(
+                label: "\(label) duration",
+                onDecrement: { stepperMinutes.wrappedValue = max(range.lowerBound, minutes - step) },
+                onIncrement: { stepperMinutes.wrappedValue = min(range.upperBound, minutes + step) },
+                canDecrement: minutes > range.lowerBound,
+                canIncrement: minutes < range.upperBound
+            )
         }
         .onChange(of: isFocused) { _, focused in
             if !focused {
@@ -63,6 +67,12 @@ struct FLDurationField: View {
                 text = String(newValue)
             }
         }
+    }
+
+    /// Long focus ranges move in fives; nobody wants to click to 90 one minute
+    /// at a time. Breaks stay precise.
+    private var step: Int {
+        range.upperBound > 60 ? 5 : 1
     }
 
     private var stepperMinutes: Binding<Int> {
