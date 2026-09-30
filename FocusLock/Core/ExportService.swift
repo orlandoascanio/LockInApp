@@ -8,7 +8,7 @@ public final class ExportService {
     public init() {}
 
     public func csvString(from history: [SessionHistoryEntry]) -> String {
-        let header = "id,startedAt,endedAt,durationMinutes,focusMinutes,breakMinutes,status,blockedAppsCount,strictMode,category,goal,shared,checkIn,note"
+        let header = "id,startedAt,endedAt,durationMinutes,focusMinutes,breakMinutes,status,blockedAppsCount,strictMode,category,goal,checkIn,note"
 
         let rows = history
             .sorted { $0.startedAt < $1.startedAt }
@@ -25,7 +25,6 @@ public final class ExportService {
                     String(entry.strictMode),
                     Self.spreadsheetText(entry.task?.category ?? ""),
                     Self.spreadsheetText(entry.task?.goal ?? ""),
-                    entry.task.map { String($0.shared) } ?? "",
                     entry.checkIn?.outcome.title ?? "",
                     Self.spreadsheetText(entry.checkIn?.note ?? "")
                 ]

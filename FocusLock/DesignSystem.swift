@@ -18,13 +18,6 @@ enum FLColor {
     static let inkSoft = NSColor(hex: "#737B6E")
     static let hairline = NSColor(hex: "#CCC7B5")
 
-    /// The audience window's two canvases. Named here rather than inlined in
-    /// the view because the window background has to match them exactly — a
-    /// transparent title bar shows the window's colour, and any difference
-    /// lands as a band across the top of a capture.
-    static let streamDark = NSColor(hex: "#17241F")
-    static let streamLight = NSColor(hex: "#F5F0E0")
-
     /// Fields sit a shade above the canvas rather than being punched out of it
     /// in white. AppKit's stock rounded-border field is pure white, which on a
     /// sand page reads as a hole.
@@ -46,8 +39,6 @@ extension Color {
     static let flInkSoft = Color(nsColor: FLColor.inkSoft)
     static let flHairline = Color(nsColor: FLColor.hairline)
     static let flField = Color(nsColor: FLColor.field)
-    static let flStreamDark = Color(nsColor: FLColor.streamDark)
-    static let flStreamLight = Color(nsColor: FLColor.streamLight)
     static let flClay = Color(nsColor: FLColor.clay)
     static let flDestructive = Color(nsColor: FLColor.destructive)
     static let flWarning = Color(nsColor: FLColor.warning)

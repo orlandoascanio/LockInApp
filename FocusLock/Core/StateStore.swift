@@ -4,7 +4,6 @@ public final class StateStore {
     public let baseDirectory: URL
     public let configURL: URL
     public let sessionStateURL: URL
-    public let streamRunURL: URL
 
     private let fileManager: FileManager
 
@@ -22,7 +21,6 @@ public final class StateStore {
 
         configURL = self.baseDirectory.appendingPathComponent("config.json")
         sessionStateURL = self.baseDirectory.appendingPathComponent("session-state.json")
-        streamRunURL = self.baseDirectory.appendingPathComponent("stream-run.json")
     }
 
     public func prepareDirectory() throws {
@@ -87,32 +85,6 @@ public final class StateStore {
             return
         }
         try fileManager.removeItem(at: sessionStateURL)
-    }
-
-    public func loadStreamRun() -> StreamRunState? {
-        do {
-            try prepareDirectory()
-            guard fileManager.fileExists(atPath: streamRunURL.path) else { return nil }
-            let data = try Data(contentsOf: streamRunURL)
-            return try FocusLockJSONCoding.decoder.decode(StreamRunState.self, from: data)
-        } catch {
-            // The wall is worth keeping a copy of before giving up on it: it is
-            // the only record of what a room full of strangers actually did.
-            preserveInvalidFileIfNeeded(streamRunURL)
-            try? clearStreamRun()
-            return nil
-        }
-    }
-
-    public func saveStreamRun(_ state: StreamRunState) throws {
-        try prepareDirectory()
-        let data = try FocusLockJSONCoding.encoder.encode(state)
-        try atomicWrite(data, to: streamRunURL)
-    }
-
-    public func clearStreamRun() throws {
-        guard fileManager.fileExists(atPath: streamRunURL.path) else { return }
-        try fileManager.removeItem(at: streamRunURL)
     }
 
     private func atomicWrite(_ data: Data, to url: URL) throws {
