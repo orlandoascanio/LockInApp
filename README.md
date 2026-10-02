@@ -1,10 +1,30 @@
-# LockIn
+<p align="center">
+  <img src="docs/images/icon.png" width="96" height="96" alt="LockIn app icon">
+</p>
 
-LockIn is a native macOS Pomodoro/focus app. It lives in the menu bar, runs focus and break blocks, guards the apps and websites that pull you away, and keeps a local history you can export as CSV or JSON.
+<h1 align="center">LockIn</h1>
 
-The default blocking behavior is **Guard Screen**. When you open a guarded app during focus, LockIn hides it and shows a full-screen guard overlay. The app keeps running in the background, so Discord calls, camera, microphone, and screen sharing carry on.
+<p align="center">
+  <strong>Your friends are on the call. LockIn lets you stay.</strong><br>
+  A native macOS focus app that guards apps and websites during focus blocks, without ending your Discord call.
+</p>
+
+<p align="center">
+  <a href="https://www.orlandoascanio.com/products/lockin">Website and demo video</a> ·
+  macOS 14+ · Swift, SwiftUI, AppKit · MIT
+</p>
+
+![LockIn's Focus page with a block running: a countdown ring, the goal, guarded apps and sites, and the week's focus](docs/images/focus.png)
+
+| Dark mode | A break, with something to do |
+|---|---|
+| ![LockIn in dark mode](docs/images/focus-dark.png) | ![A LockIn break suggesting the 20-20-20 rule](docs/images/break.png) |
+
+LockIn lives in the menu bar and runs focus and break blocks. When you open a guarded app during focus, **Guard Screen** hides it and shows a full-screen "Not now." The app keeps running in the background, so a Discord call can carry on. A blocker that quits the app ends the call with it.
 
 No account, no internet, no cloud. Slack and Discord are opt-in and talk only to Slack and Discord.
+
+> **Status:** early build. There is no signed download yet; build it from source below.
 
 ## Features
 
@@ -19,6 +39,7 @@ No account, no internet, no cloud. Slack and Discord are opt-in and talk only to
 - **Widget** for the desktop and Notification Center.
 - **Shortcuts actions and a Focus filter**.
 - **Slack status and Discord** presence and recaps.
+- **Light and dark appearance**, following macOS or your own choice.
 - **History and analytics**, a floating HUD, and **Sparkle auto-updates** in release builds.
 
 ## Websites
@@ -165,6 +186,10 @@ The core logic lives in `FocusLockCore` so timer recovery, persistence, blocking
 ## Stream mode
 
 The study/work-with-me streaming features (audience window, chat wall, Twitch connection) were removed to keep LockIn focused on solo work. The last version with them is on the `archive/stream` branch and the `stream-final` tag.
+
+## License
+
+[MIT](LICENSE).
 
 ## Known limitations
 
