@@ -19,6 +19,7 @@ struct OnboardingView: View {
         case apps
         case sites
         case rhythm
+        case permissions
         case ready
     }
 
@@ -35,6 +36,7 @@ struct OnboardingView: View {
                 case .apps: apps
                 case .sites: sites
                 case .rhythm: rhythm
+                case .permissions: permissions
                 case .ready: ready
                 }
             }
@@ -285,7 +287,7 @@ struct OnboardingView: View {
                 }
             }
 
-            Text("Works in Safari, Chrome, Arc, Brave, Edge, Vivaldi and Opera. The first time, macOS asks once per browser whether LockIn may read the current tab’s address. It never reads page contents or history.")
+            Text("Works in Safari, Chrome, Arc, Brave, Edge, Vivaldi and Opera. Each browser needs your OK once; a later step explains it.")
                 .font(FLTypography.caption)
                 .foregroundStyle(Color.flInkSoft)
                 .multilineTextAlignment(.center)
@@ -420,6 +422,22 @@ struct OnboardingView: View {
         .accessibilityAddTraits(isSelected ? [.isSelected] : [])
     }
 
+    // MARK: - Permissions
+
+    private var permissions: some View {
+        VStack(spacing: FLSpacing.lg) {
+            heading(
+                "Two things macOS will ask about",
+                "Here is what each one is for. Allow them now, or leave them for later: LockIn works either way, and nothing is asked behind your back."
+            )
+
+            PermissionsPanel(
+                permissions: controller.permissions,
+                guardsWebsites: !controller.config.blockedSites.isEmpty
+            )
+        }
+    }
+
     // MARK: - Ready
 
     private var ready: some View {
@@ -439,11 +457,6 @@ struct OnboardingView: View {
                         "Change or switch off the shortcuts in Settings."
                     )
                 }
-                point(
-                    "bell",
-                    "Notifications mark each block and break",
-                    "macOS will ask for permission when you leave this guide."
-                )
                 point(
                     "lock",
                     "There is more when you want it",

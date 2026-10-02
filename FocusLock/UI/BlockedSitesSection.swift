@@ -13,7 +13,9 @@ struct BlockedSitesSection: View {
             addRow
 
             if let browser = controller.browserPermissionProblem {
-                permissionBanner(for: browser)
+                BrowserPermissionBanner(permissions: controller.permissions) {
+                    permissionBanner(for: browser)
+                }
             }
 
             if controller.config.blockedSites.isEmpty {
@@ -76,7 +78,41 @@ struct BlockedSitesSection: View {
         .padding(.bottom, 10)
     }
 
+    @ViewBuilder
     private func permissionBanner(for browser: SupportedBrowser) -> some View {
+        if controller.permissions.state(for: browser) == .denied {
+            deniedBanner(for: browser)
+        } else {
+            askBanner(for: browser)
+        }
+    }
+
+    /// The browser has never been asked: say what the request is for, and let
+    /// the button bring up the macOS dialog.
+    private func askBanner(for browser: SupportedBrowser) -> some View {
+        HStack(alignment: .top, spacing: 12) {
+            Image(systemName: "globe")
+                .foregroundStyle(Color.flAccentDeep)
+            VStack(alignment: .leading, spacing: 6) {
+                Text("\(browser.displayName) needs your OK before websites can be guarded in it")
+                    .font(FLTypography.headline)
+                    .foregroundStyle(Color.flInk)
+                Text("LockIn asks \(browser.displayName) for the address of the tab in front. Only the address, only during focus. Never page contents or history. macOS will ask you to confirm.")
+                    .font(FLTypography.caption)
+                    .foregroundStyle(Color.flInkSoft)
+                    .fixedSize(horizontal: false, vertical: true)
+                Button("Allow \(browser.displayName)…") { controller.permissions.requestBrowser(browser) }
+                    .buttonStyle(FLLinkButtonStyle())
+            }
+        }
+        .padding(14)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color.flAccentSoft.opacity(0.45), in: RoundedRectangle(cornerRadius: FLRadius.lg))
+        .padding(.horizontal, 26)
+        .padding(.bottom, 16)
+    }
+
+    private func deniedBanner(for browser: SupportedBrowser) -> some View {
         HStack(alignment: .top, spacing: 12) {
             Image(systemName: "exclamationmark.triangle.fill")
                 .foregroundStyle(Color.flClay)
@@ -179,5 +215,16 @@ private struct BlockedSiteRow: View {
                 controller.removeBlockedSite(site)
             }
         }
+    }
+}
+
+/// Redraws its content when a permission changes: the controller publishes
+/// which browser has a problem, but not the state of each permission.
+private struct BrowserPermissionBanner<Content: View>: View {
+    @ObservedObject var permissions: PermissionCenter
+    @ViewBuilder let content: () -> Content
+
+    var body: some View {
+        content()
     }
 }

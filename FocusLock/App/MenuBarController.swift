@@ -77,6 +77,7 @@ final class MenuBarController: NSObject, ObservableObject {
     @Published var launchAtLogin: Bool = SMAppService.mainApp.status == .enabled
 
     let integrations: IntegrationCoordinator
+    let permissions = PermissionCenter()
 
     private let stateStore: StateStore
     private let historyStore: SessionHistoryStore
@@ -110,6 +111,7 @@ final class MenuBarController: NSObject, ObservableObject {
 
     private var lastEyeReminderAt: Date?
     private var lastWebsiteCheck = Date.distantPast
+    private var unreadableBrowsersNoticed: Set<SupportedBrowser> = []
     private var lastScheduleCheck = Date.distantPast
     private var lastWidgetSnapshot: WidgetSnapshot?
     private var widgetCommandObserver: DarwinNotificationObserver?
@@ -294,6 +296,13 @@ final class MenuBarController: NSObject, ObservableObject {
         websiteGuard.onPermissionDenied = { [weak self] browser in
             self?.browserPermissionProblem = browser
         }
+        permissions.onBrowserGranted = { [weak self] browser in
+            guard let self else { return }
+            if self.browserPermissionProblem == browser {
+                self.browserPermissionProblem = nil
+            }
+            self.websiteGuard.resetPermissionMemory()
+        }
 
         hotkeys.onAction = { [weak self] action in
             self?.perform(action)
@@ -414,10 +423,8 @@ final class MenuBarController: NSObject, ObservableObject {
         applyAppearance()
         setupMainMenu()
         setupStatusItem()
-        // On a first launch the welcome guide asks once it has said why.
-        if !isOnboarding {
-            notificationService.requestAuthorization()
-        }
+        // No permission is asked for here: the welcome guide and Settings do
+        // that, after saying what each one is for.
         syncPresetFromConfig()
         registerHotkeys()
         startTicking()
@@ -487,7 +494,6 @@ final class MenuBarController: NSObject, ObservableObject {
             config.onboardingCompleted = true
             saveConfig()
         }
-        notificationService.requestAuthorization()
         page = .focus
         if startingFocus {
             startFocus()
@@ -1022,6 +1028,9 @@ final class MenuBarController: NSObject, ObservableObject {
 
     /// After the user has changed the Automation setting, try the browser again.
     func retryBrowserPermission() {
+        if let browser = browserPermissionProblem {
+            permissions.refresh(browser)
+        }
         browserPermissionProblem = nil
         websiteGuard.resetPermissionMemory()
     }
@@ -1396,10 +1405,37 @@ final class MenuBarController: NSObject, ObservableObject {
 
         if snapshot.phase == .focus, now.timeIntervalSince(lastWebsiteCheck) >= 1 {
             lastWebsiteCheck = now
-            websiteGuard.check(frontmostBundleIdentifier: NSWorkspace.shared.frontmostApplication?.bundleIdentifier)
+            checkFrontmostBrowser()
         }
 
         syncEyeReminder(now: now)
+    }
+
+    /// Reading a tab from a browser that has never been asked would make
+    /// macOS put up its dialog mid-block with no explanation. Such a browser
+    /// is flagged for the Blocked page instead, where the request is explained.
+    private func checkFrontmostBrowser() {
+        let frontmost = NSWorkspace.shared.frontmostApplication?.bundleIdentifier
+        guard websiteGuard.isActive, let browser = frontmost.flatMap(SupportedBrowser.init(rawValue:)) else {
+            return
+        }
+
+        switch permissions.browsers[browser] {
+        case .granted:
+            websiteGuard.check(frontmostBundleIdentifier: frontmost)
+        case .notAsked, .denied:
+            guard browserPermissionProblem != browser else { return }
+            browserPermissionProblem = browser
+            if unreadableBrowsersNoticed.insert(browser).inserted {
+                notificationService.notice(
+                    title: "Websites aren’t guarded in \(browser.displayName) yet",
+                    body: "Open LockIn › Blocked to allow it."
+                )
+            }
+        case nil:
+            // Not looked up yet; the answer arrives before the next tick or two.
+            permissions.refresh(browser)
+        }
     }
 
     /// 20-20-20 inside long blocks: every 20 minutes of focus, a quiet nudge.
@@ -1883,7 +1919,7 @@ extension MenuBarController: NSMenuItemValidation {
     @objc private func menuOpenAbout(_ sender: Any?) { openAbout() }
     @objc private func menuShowOnboarding(_ sender: Any?) { showOnboarding() }
     @objc private func menuOpenWebsite(_ sender: Any?) { NSWorkspace.shared.open(AppLinks.website) }
-    @objc private func menuReportProblem(_ sender: Any?) { NSWorkspace.shared.open(AppLinks.issues) }
+    @objc private func menuReportProblem(_ sender: Any?) { NSWorkspace.shared.open(AppBuildInfo.current.feedbackURL) }
     @objc private func menuQuit(_ sender: Any?) { quit() }
 }
 

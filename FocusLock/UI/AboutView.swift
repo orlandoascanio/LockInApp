@@ -6,7 +6,6 @@ enum AppLinks {
     static let website = URL(string: "https://www.orlandoascanio.com/products/lockin")!
     static let source = URL(string: "https://github.com/orlandoascanio/LockInApp")!
     static let releases = URL(string: "https://github.com/orlandoascanio/LockInApp/releases")!
-    static let issues = URL(string: "https://github.com/orlandoascanio/LockInApp/issues")!
 }
 
 /// What this copy of LockIn is, read from its own bundle.
@@ -15,7 +14,6 @@ struct AppBuildInfo {
     let build: String
     /// The commit the build was made from; `nil` for a build that never knew.
     let commit: String?
-    let minimumSystem: String
 
     static let current = AppBuildInfo(info: Bundle.main.infoDictionary ?? [:])
 
@@ -24,21 +22,28 @@ struct AppBuildInfo {
         build = info["CFBundleVersion"] as? String ?? "?"
         let rawCommit = (info["LockInSourceCommit"] as? String ?? "").trimmingCharacters(in: .whitespaces)
         commit = rawCommit.isEmpty || rawCommit == "unknown" || rawCommit.hasPrefix("$(") ? nil : rawCommit
-        minimumSystem = info["LSMinimumSystemVersion"] as? String ?? "14.0"
     }
 
     var versionLine: String {
-        var line = "Version \(version) (\(build))"
+        var line = "\(version) (\(build))"
         if let commit {
             line += " · \(commit)"
         }
         return line
     }
 
-    var requirementLine: String {
-        // "14.0" reads better as "macOS 14".
-        let trimmed = minimumSystem.hasSuffix(".0") ? String(minimumSystem.dropLast(2)) : minimumSystem
-        return "macOS \(trimmed) or newer"
+    /// Where "Report a problem" goes, carrying the build and macOS version so
+    /// a report says what it was written about. Nothing identifying.
+    var feedbackURL: URL {
+        let system = ProcessInfo.processInfo.operatingSystemVersion
+        var components = URLComponents(string: "https://www.orlandoascanio.com/feedback/lockin")!
+        components.queryItems = [
+            URLQueryItem(name: "source", value: "app"),
+            URLQueryItem(name: "v", value: version),
+            URLQueryItem(name: "b", value: build),
+            URLQueryItem(name: "os", value: "\(system.majorVersion).\(system.minorVersion)")
+        ]
+        return components.url ?? AppLinks.website
     }
 }
 
@@ -57,8 +62,8 @@ struct AboutView: View {
             FLRule()
 
             VStack(spacing: 0) {
+                row("Version", value: info.versionLine, selectable: true)
                 row("Made by", value: "Orlando Ascanio")
-                row("Requires", value: info.requirementLine)
                 row("Updates", value: updatesValue) {
                     if updates.isAvailable {
                         Button("Check now") { updates.checkForUpdates() }
@@ -79,7 +84,7 @@ struct AboutView: View {
                 link("Website", AppLinks.website)
                 link("Source code", AppLinks.source)
                 link("Release notes", AppLinks.releases)
-                link("Report a problem", AppLinks.issues)
+                link("Report a problem", info.feedbackURL)
             }
             .padding(.top, FLSpacing.md)
 
@@ -105,12 +110,6 @@ struct AboutView: View {
                 .font(.system(size: 28, weight: .regular, design: .serif))
                 .foregroundStyle(Color.flInk)
 
-            Text(info.versionLine)
-                .font(FLTypography.caption)
-                .monospacedDigit()
-                .foregroundStyle(Color.flInkSoft)
-                .textSelection(.enabled)
-
             Text("A focus timer that guards the apps and sites you reach for, without closing them.")
                 .font(FLTypography.body)
                 .foregroundStyle(Color.flInk.opacity(0.85))
@@ -126,13 +125,14 @@ struct AboutView: View {
         return updates.automaticallyChecks ? "Checks automatically" : "Automatic checks are off"
     }
 
-    private func row(_ label: String, value: String, isLast: Bool = false) -> some View {
-        row(label, value: value, isLast: isLast) { EmptyView() }
+    private func row(_ label: String, value: String, selectable: Bool = false, isLast: Bool = false) -> some View {
+        row(label, value: value, selectable: selectable, isLast: isLast) { EmptyView() }
     }
 
     private func row<Trailing: View>(
         _ label: String,
         value: String,
+        selectable: Bool = false,
         isLast: Bool = false,
         @ViewBuilder trailing: () -> Trailing
     ) -> some View {
@@ -141,9 +141,16 @@ struct AboutView: View {
                 FLMicroLabel(text: label)
                     .frame(width: 84, alignment: .leading)
 
-                Text(value)
-                    .font(FLTypography.body)
-                    .foregroundStyle(Color.flInk)
+                Group {
+                    if selectable {
+                        Text(value).textSelection(.enabled)
+                    } else {
+                        Text(value)
+                    }
+                }
+                .font(FLTypography.body)
+                .monospacedDigit()
+                .foregroundStyle(Color.flInk)
 
                 Spacer(minLength: FLSpacing.sm)
 

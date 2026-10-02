@@ -29,6 +29,8 @@ struct SettingsView: View {
                         hudSection
                         FLRule()
                         generalSection
+                        FLRule()
+                        permissionsSection
                     case .blocking:
                         behaviourSection
                         FLRule()
@@ -391,6 +393,16 @@ struct SettingsView: View {
 
                 UpdatesRow()
             }
+        }
+    }
+
+    private var permissionsSection: some View {
+        section("Permissions") {
+            PermissionsPanel(
+                permissions: controller.permissions,
+                guardsWebsites: !controller.config.blockedSites.isEmpty
+            )
+            .frame(maxWidth: 560)
         }
     }
 
