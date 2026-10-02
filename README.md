@@ -20,7 +20,7 @@
 |---|---|
 | ![LockIn in dark mode](docs/images/focus-dark.png) | ![A LockIn break suggesting the 20-20-20 rule](docs/images/break.png) |
 
-LockIn lives in the menu bar and runs focus and break blocks. When you open a guarded app during focus, **Guard Screen** hides it and shows a full-screen "Not now." The app keeps running in the background, so a Discord call can carry on. A blocker that quits the app ends the call with it.
+LockIn lives in the menu bar and runs focus and break blocks. When you open a guarded app during focus, **Guard Screen** hides it and shows a full-screen "Not now." The app keeps running in the background, so a Discord call can carry on. 
 
 No account, no internet, no cloud. Slack and Discord are opt-in and talk only to Slack and Discord.
 
