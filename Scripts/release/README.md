@@ -46,10 +46,15 @@ them.
 ```bash
 git tag v0.3.0
 Scripts/release.sh
-gh release create v0.3.0 build/release/LockIn-0.3.0.dmg build/release/appcast.xml --title "LockIn 0.3.0"
+gh release create v0.3.0 build/release/LockIn-0.3.0.dmg build/release/LockIn.dmg build/release/appcast.xml --title "LockIn 0.3.0"
 ```
 
 `release.sh` refuses to run on uncommitted changes, an untagged commit, or
 missing credentials, before it spends any time building. It archives with
 Developer ID and a secure timestamp, packages a DMG, notarizes and staples it,
 signs it for Sparkle, and writes `appcast.xml`.
+
+`LockIn.dmg` is the same DMG without the version in its name. Attaching it to
+every release keeps
+`https://github.com/orlandoascanio/LockInApp/releases/latest/download/LockIn.dmg`
+pointing at the newest build, which is what the website's download button uses.

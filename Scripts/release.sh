@@ -97,6 +97,11 @@ spctl --assess --type open --context context:primary-signature -v "$DMG"
 # --- Sparkle ----------------------------------------------------------------
 
 step "Signing for Sparkle and writing the appcast"
+# A copy with no version in its name, so a website can link to
+# releases/latest/download/LockIn.dmg and never need editing. It's made after
+# the appcast: generate_appcast would list a second DMG as a second update.
+STABLE_DMG="$OUT/$APP_NAME.dmg"
+rm -f "$STABLE_DMG"
 SPARKLE_BIN="$(find "$DERIVED/SourcePackages/artifacts" -type d -path '*Sparkle/bin' | head -1)"
 [[ -x "$SPARKLE_BIN/generate_appcast" ]] || fail "Sparkle's tools weren't found in $DERIVED/SourcePackages."
 "$SPARKLE_BIN/generate_appcast" \
@@ -104,10 +109,12 @@ SPARKLE_BIN="$(find "$DERIVED/SourcePackages/artifacts" -type d -path '*Sparkle/
     -o "$OUT/appcast.xml" \
     "$OUT"
 
+cp "$DMG" "$STABLE_DMG"
 rm -rf "$STAGING" "$OUT/export"
 echo
 echo "✓ $DMG"
+echo "✓ $STABLE_DMG"
 echo "✓ $OUT/appcast.xml"
 echo
-echo "Next: create the GitHub release $TAG and attach both files, e.g."
-echo "  gh release create $TAG \"$DMG\" \"$OUT/appcast.xml\" --title \"$APP_NAME $VERSION\""
+echo "Next: create the GitHub release $TAG and attach all three files, e.g."
+echo "  gh release create $TAG \"$DMG\" \"$STABLE_DMG\" \"$OUT/appcast.xml\" --title \"$APP_NAME $VERSION\""
