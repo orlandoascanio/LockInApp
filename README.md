@@ -143,6 +143,12 @@ LOCKIN_DATA_DIR=/tmp/lockin-test build/LockIn.app/Contents/MacOS/LockIn
 
 `Scripts/release.sh` archives with Developer ID, builds a DMG, notarizes and staples it, signs it for Sparkle, and writes `appcast.xml`. One-time setup (a Developer ID certificate, notarization credentials, and a Sparkle key) is in [Scripts/release/README.md](Scripts/release/README.md). Builds without a Sparkle key simply have no updater.
 
+Every release must attach three files: the versioned DMG, `LockIn.dmg` (the same DMG without the version in its name), and `appcast.xml`. The download button on [orlandoascanio.com/products/lockin](https://www.orlandoascanio.com/products/lockin) points at `releases/latest/download/LockIn.dmg`, so a release without `LockIn.dmg` makes that button 404.
+
+```bash
+gh release create v0.3.1 build/release/LockIn-0.3.1.dmg build/release/LockIn.dmg build/release/appcast.xml --title "LockIn 0.3.1"
+```
+
 ## Blocking behavior
 
 LockIn observes macOS app activation events. During focus, if a guarded app becomes active, LockIn reacts immediately.
