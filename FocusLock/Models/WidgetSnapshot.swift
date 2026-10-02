@@ -63,7 +63,7 @@ public struct WidgetSnapshot: Codable, Equatable {
 /// Reads and writes the widget snapshot in the app-group container.
 public enum SharedContainer {
     /// Team-prefixed so it needs no provisioning profile on macOS.
-    public static let appGroupIdentifier = "5BVWR47BQX.com.lockin.shared"
+    public static let appGroupIdentifier = "VW98Z8698B.com.lockin.shared"
 
     /// Posted by the widget's buttons; the app listens and acts.
     public static let commandNotificationPrefix = "com.lockin.app.command."

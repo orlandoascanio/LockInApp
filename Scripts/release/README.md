@@ -8,7 +8,7 @@ Notarization needs a **Developer ID Application** certificate. Your Mac only
 has an *Apple Development* one, which is fine for local builds but not for
 anything you hand to someone else.
 
-Xcode › Settings › Accounts › your team (5BVWR47BQX) › Manage Certificates ›
+Xcode › Settings › Accounts › your team (VW98Z8698B) › Manage Certificates ›
 **+** › Developer ID Application. Check it arrived:
 
 ```bash
@@ -23,7 +23,7 @@ the release script knows. It prompts for the password, which then lives in
 your keychain rather than in any file:
 
 ```bash
-xcrun notarytool store-credentials LockIn-Notary --apple-id YOUR_APPLE_ID --team-id 5BVWR47BQX
+xcrun notarytool store-credentials LockIn-Notary --apple-id YOUR_APPLE_ID --team-id VW98Z8698B
 ```
 
 ## 3. Sparkle signing key

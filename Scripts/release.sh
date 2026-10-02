@@ -6,7 +6,7 @@
 #
 # One-time setup (see Scripts/release/README.md):
 #   1. A "Developer ID Application" certificate in your keychain.
-#   2. xcrun notarytool store-credentials LockIn-Notary --apple-id <you> --team-id 5BVWR47BQX
+#   2. xcrun notarytool store-credentials LockIn-Notary --apple-id <you> --team-id VW98Z8698B
 #   3. Scripts/release/setup_sparkle.sh
 #
 # Output lands in build/release/: LockIn-<version>.dmg and appcast.xml. Upload
@@ -15,7 +15,7 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 APP_NAME="LockIn"
-TEAM_ID="5BVWR47BQX"
+TEAM_ID="VW98Z8698B"
 NOTARY_PROFILE="${NOTARY_PROFILE:-LockIn-Notary}"
 REPO="orlandoascanio/LockInApp"
 OUT="$ROOT_DIR/build/release"

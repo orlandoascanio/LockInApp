@@ -164,7 +164,7 @@ LockIn stores everything locally in `~/Library/Application Support/LockIn/`:
 - `session-history.jsonl`: one line per block
 - `block-activity.json`: today's guard counts
 
-The widget reads a small snapshot in the app-group container (`~/Library/Group Containers/5BVWR47BQX.com.lockin.shared/`). Config and session state use atomic writes. If either becomes invalid, LockIn keeps a timestamped `.invalid-*` copy and recovers with safe defaults. Configs from older builds load as-is, including goals and categories from the old Stream settings.
+The widget reads a small snapshot in the app-group container (`~/Library/Group Containers/VW98Z8698B.com.lockin.shared/`). Config and session state use atomic writes. If either becomes invalid, LockIn keeps a timestamped `.invalid-*` copy and recovers with safe defaults. Configs from older builds load as-is, including goals and categories from the old Stream settings.
 
 ## Project layout
 

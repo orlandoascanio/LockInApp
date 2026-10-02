@@ -18,7 +18,7 @@ packages:
 
 settings:
   base:
-    DEVELOPMENT_TEAM: 5BVWR47BQX
+    DEVELOPMENT_TEAM: VW98Z8698B
     SWIFT_VERSION: "5.0"
     MACOSX_DEPLOYMENT_TARGET: "14.0"
     ENABLE_HARDENED_RUNTIME: YES
@@ -29,7 +29,7 @@ settings:
     MARKETING_VERSION: "0.2.0"
     CURRENT_PROJECT_VERSION: "1"
     # Filled in by Scripts/release/setup_sparkle.sh. Empty means no updater.
-    SPARKLE_PUBLIC_KEY: ""
+    SPARKLE_PUBLIC_KEY: "FR1HigPd8SFZrwm92pp9Xhl6d0awxNvFH3ngp9wzJAk="
     DEAD_CODE_STRIPPING: YES
 
 targets:
@@ -52,7 +52,7 @@ targets:
         # Reading and redirecting the current browser tab for website guarding.
         com.apple.security.automation.apple-events: true
         # Shared with the widget, which can only see this container.
-        com.apple.security.application-groups: [5BVWR47BQX.com.lockin.shared]
+        com.apple.security.application-groups: [VW98Z8698B.com.lockin.shared]
     info:
       path: FocusLock/Supporting/Info.plist
       properties:
@@ -96,7 +96,7 @@ targets:
       path: FocusLock/Supporting/LockInWidget.entitlements
       properties:
         com.apple.security.app-sandbox: true
-        com.apple.security.application-groups: [5BVWR47BQX.com.lockin.shared]
+        com.apple.security.application-groups: [VW98Z8698B.com.lockin.shared]
     info:
       path: FocusLock/Widget/Info.plist
       properties:
