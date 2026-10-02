@@ -49,6 +49,10 @@ final class MenuBarController: NSObject, ObservableObject {
     /// panes rather than separate windows, so navigation lives here.
     @Published var page: MainPage = .focus
 
+    /// The welcome guide takes over the main window while this is set: on a
+    /// first launch, or when replayed from the Help menu.
+    @Published private(set) var isOnboarding = false
+
     /// Focus minutes per weekday for the current week, and the run of days with
     /// at least one completed session. Cached because both are read on every
     /// redraw but only change when a session ends.
@@ -114,6 +118,7 @@ final class MenuBarController: NSObject, ObservableObject {
     private var statusItem: NSStatusItem?
     private let popover = NSPopover()
     private var mainWindow: NSWindow?
+    private var aboutWindow: NSWindow?
     private var reopenObserver: NSObjectProtocol?
     private var blockerRunning = false
     private var hasSetup = false
@@ -248,6 +253,7 @@ final class MenuBarController: NSObject, ObservableObject {
         self.exportService = exportService
         let config = stateStore.loadConfig()
         self.config = config
+        self.isOnboarding = !config.onboardingCompleted
         self.history = historyStore.loadHistory()
         self.integrations = IntegrationCoordinator()
         self.timerEngine = TimerEngine(
@@ -408,7 +414,10 @@ final class MenuBarController: NSObject, ObservableObject {
         applyAppearance()
         setupMainMenu()
         setupStatusItem()
-        notificationService.requestAuthorization()
+        // On a first launch the welcome guide asks once it has said why.
+        if !isOnboarding {
+            notificationService.requestAuthorization()
+        }
         syncPresetFromConfig()
         registerHotkeys()
         startTicking()
@@ -460,6 +469,28 @@ final class MenuBarController: NSObject, ObservableObject {
         integrations.appWillTerminate()
         if !snapshot.isStrict {
             timerEngine.recordAbandonmentIfNeeded()
+        }
+    }
+
+    // MARK: - Welcome guide
+
+    func showOnboarding() {
+        guard !isSessionActive else { return }
+        isOnboarding = true
+        openMainWindow()
+    }
+
+    func finishOnboarding(startingFocus: Bool) {
+        isOnboarding = false
+        settingsMessage = nil
+        if !config.onboardingCompleted {
+            config.onboardingCompleted = true
+            saveConfig()
+        }
+        notificationService.requestAuthorization()
+        page = .focus
+        if startingFocus {
+            startFocus()
         }
     }
 
@@ -1037,6 +1068,37 @@ final class MenuBarController: NSObject, ObservableObject {
         // SwiftUI installs its Settings-scene menu after launch. Restore our
         // app commands once the actual main window has been presented.
         setupMainMenu()
+    }
+
+    func openAbout() {
+        if let aboutWindow {
+            show(aboutWindow, activating: true)
+            return
+        }
+
+        let hosting = NSHostingView(rootView: AboutView().environmentObject(self))
+        let window = NSWindow(
+            contentRect: NSRect(origin: .zero, size: hosting.fittingSize),
+            styleMask: [.titled, .closable, .fullSizeContentView],
+            backing: .buffered,
+            defer: false
+        )
+        window.title = "About \(AppIdentity.name)"
+        window.isReleasedWhenClosed = false
+        window.titlebarAppearsTransparent = true
+        window.titleVisibility = .hidden
+        window.backgroundColor = FLColor.canvas
+        window.isMovableByWindowBackground = true
+        window.standardWindowButton(.miniaturizeButton)?.isHidden = true
+        window.standardWindowButton(.zoomButton)?.isHidden = true
+        window.contentView = hosting
+        window.center()
+        aboutWindow = window
+        show(window, activating: true)
+    }
+
+    func revealDataFolder() {
+        NSWorkspace.shared.activateFileViewerSelecting([stateStore.baseDirectory])
     }
 
     /// These destinations are panes of the one window, so "open" means select
@@ -1634,6 +1696,7 @@ extension MenuBarController: NSMenuItemValidation {
         mainMenu.addItem(makeSessionMenuItem())
         mainMenu.addItem(makeHistoryMenuItem())
         mainMenu.addItem(makeWindowMenuItem())
+        mainMenu.addItem(makeHelpMenuItem())
         NSApp.mainMenu = mainMenu
     }
 
@@ -1643,11 +1706,9 @@ extension MenuBarController: NSMenuItemValidation {
         let menu = NSMenu()
         item.submenu = menu
 
-        menu.addItem(
-            withTitle: "About \(appName)",
-            action: #selector(NSApplication.orderFrontStandardAboutPanel(_:)),
-            keyEquivalent: ""
-        )
+        let about = NSMenuItem(title: "About \(appName)", action: #selector(menuOpenAbout(_:)), keyEquivalent: "")
+        about.target = self
+        menu.addItem(about)
         if UpdateController.shared.isAvailable {
             let updates = NSMenuItem(title: "Check for Updates…", action: #selector(menuCheckForUpdates(_:)), keyEquivalent: "")
             updates.target = self
@@ -1772,6 +1833,26 @@ extension MenuBarController: NSMenuItemValidation {
         return item
     }
 
+    private func makeHelpMenuItem() -> NSMenuItem {
+        let item = NSMenuItem()
+        let menu = NSMenu(title: "Help")
+        item.submenu = menu
+
+        let guide = NSMenuItem(title: "Welcome Guide", action: #selector(menuShowOnboarding(_:)), keyEquivalent: "")
+        guide.target = self
+        menu.addItem(guide)
+        menu.addItem(.separator())
+
+        let website = NSMenuItem(title: "\(Self.appName) Website", action: #selector(menuOpenWebsite(_:)), keyEquivalent: "")
+        website.target = self
+        menu.addItem(website)
+
+        let report = NSMenuItem(title: "Report a Problem…", action: #selector(menuReportProblem(_:)), keyEquivalent: "")
+        report.target = self
+        menu.addItem(report)
+        return item
+    }
+
     func validateMenuItem(_ menuItem: NSMenuItem) -> Bool {
         switch menuItem.action {
         case #selector(menuStartFocus(_:)):
@@ -1782,6 +1863,8 @@ extension MenuBarController: NSMenuItemValidation {
             return (isSessionActive || snapshot.phase == .breakEnded) && !isStrictLocked
         case #selector(menuExportCSV(_:)), #selector(menuExportJSON(_:)):
             return !history.isEmpty
+        case #selector(menuShowOnboarding(_:)):
+            return !isSessionActive
         default:
             return true
         }
@@ -1797,6 +1880,10 @@ extension MenuBarController: NSMenuItemValidation {
     @objc private func menuExportCSV(_ sender: Any?) { exportCSVFromPanel() }
     @objc private func menuExportJSON(_ sender: Any?) { exportJSONFromPanel() }
     @objc private func menuCheckForUpdates(_ sender: Any?) { UpdateController.shared.checkForUpdates() }
+    @objc private func menuOpenAbout(_ sender: Any?) { openAbout() }
+    @objc private func menuShowOnboarding(_ sender: Any?) { showOnboarding() }
+    @objc private func menuOpenWebsite(_ sender: Any?) { NSWorkspace.shared.open(AppLinks.website) }
+    @objc private func menuReportProblem(_ sender: Any?) { NSWorkspace.shared.open(AppLinks.issues) }
     @objc private func menuQuit(_ sender: Any?) { quit() }
 }
 

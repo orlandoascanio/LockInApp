@@ -55,6 +55,21 @@ struct MainWindowView: View {
     @EnvironmentObject private var controller: MenuBarController
 
     var body: some View {
+        Group {
+            if controller.isOnboarding {
+                OnboardingView()
+                    .transition(.opacity)
+            } else {
+                mainLayout
+                    .transition(.opacity)
+            }
+        }
+        .animation(FLAnimation.standard, value: controller.isOnboarding)
+        .frame(minWidth: 860, minHeight: 600)
+        .background(Color.flCanvas)
+    }
+
+    private var mainLayout: some View {
         HStack(spacing: 0) {
             sidebar
 
@@ -83,8 +98,6 @@ struct MainWindowView: View {
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
             .background(Color.flCanvas)
         }
-        .frame(minWidth: 860, minHeight: 600)
-        .background(Color.flCanvas)
     }
 
     // MARK: - Sidebar

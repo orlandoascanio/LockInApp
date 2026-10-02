@@ -75,6 +75,32 @@ final class StateStoreTests: XCTestCase {
         XCTAssertNil(json?["strictMode"])
     }
 
+    func testWelcomeGuideIsOwedOnlyToNewInstalls() throws {
+        // A first launch writes the default config, which still owes the guide.
+        let fresh = StateStore(baseDirectory: try temporaryDirectory())
+        XCTAssertFalse(fresh.loadConfig().onboardingCompleted)
+
+        // A config from before the guide existed belongs to someone already
+        // using the app.
+        let existing = StateStore(baseDirectory: try temporaryDirectory())
+        try existing.prepareDirectory()
+        try Data("""
+        {
+          "focusMinutes": 50,
+          "breakMinutes": 10,
+          "blockerMode": "guard",
+          "blockedApps": []
+        }
+        """.utf8).write(to: existing.configURL)
+        XCTAssertTrue(existing.loadConfig().onboardingCompleted)
+
+        // Finishing it sticks across launches.
+        var finished = fresh.loadConfig()
+        finished.onboardingCompleted = true
+        try fresh.saveConfig(finished)
+        XCTAssertTrue(fresh.loadConfig().onboardingCompleted)
+    }
+
     func testInvalidConfigJSONRecoversSafely() throws {
         let directory = try temporaryDirectory()
         let store = StateStore(baseDirectory: directory)

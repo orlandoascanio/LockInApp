@@ -74,6 +74,10 @@ public struct AppConfig: Codable, Equatable {
     public var integrations: IntegrationSettings
     public var appearance: AppearancePreference
 
+    /// False only on a brand-new install, until the welcome guide is finished
+    /// or skipped.
+    public var onboardingCompleted: Bool
+
     public init(
         focusMinutes: Int = 50,
         breakMinutes: Int = 10,
@@ -89,7 +93,8 @@ public struct AppConfig: Codable, Equatable {
         breakSuggestions: BreakSuggestionSettings = BreakSuggestionSettings(),
         hotkeys: HotkeySettings = HotkeySettings(),
         integrations: IntegrationSettings = IntegrationSettings(),
-        appearance: AppearancePreference = .system
+        appearance: AppearancePreference = .system,
+        onboardingCompleted: Bool = false
     ) {
         self.focusMinutes = Self.normalizedFocusMinutes(focusMinutes)
         self.breakMinutes = max(0, breakMinutes)
@@ -106,6 +111,7 @@ public struct AppConfig: Codable, Equatable {
         self.hotkeys = hotkeys
         self.integrations = integrations
         self.appearance = appearance
+        self.onboardingCompleted = onboardingCompleted
     }
 
     public static let `default` = AppConfig()
@@ -129,6 +135,7 @@ public struct AppConfig: Codable, Equatable {
         case hotkeys
         case integrations
         case appearance
+        case onboardingCompleted
     }
 
     public init(from decoder: Decoder) throws {
@@ -170,6 +177,9 @@ public struct AppConfig: Codable, Equatable {
         integrations = (try? container.decodeIfPresent(IntegrationSettings.self, forKey: .integrations))
             ?? IntegrationSettings()
         appearance = (try? container.decodeIfPresent(AppearancePreference.self, forKey: .appearance)) ?? .system
+        // A config written before the welcome guide existed belongs to someone
+        // already using the app, who should not be walked through it.
+        onboardingCompleted = (try? container.decodeIfPresent(Bool.self, forKey: .onboardingCompleted)) ?? true
     }
 
     public func encode(to encoder: Encoder) throws {
@@ -189,6 +199,7 @@ public struct AppConfig: Codable, Equatable {
         try container.encode(hotkeys, forKey: .hotkeys)
         try container.encode(integrations, forKey: .integrations)
         try container.encode(appearance, forKey: .appearance)
+        try container.encode(onboardingCompleted, forKey: .onboardingCompleted)
     }
 
     public static func normalizedFocusMinutes(_ minutes: Int) -> Int {
