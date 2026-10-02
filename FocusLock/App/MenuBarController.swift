@@ -317,7 +317,7 @@ final class MenuBarController: NSObject, ObservableObject {
 
     private func configurePinnedHUDHandlers() {
         pinnedHUD.onEnd = { [weak self] in
-            self?.stopSession()
+            self?.requestStopSession()
         }
         pinnedHUD.onUnpin = { [weak self] in
             self?.updatePinnedHUD(enabled: false)
@@ -360,8 +360,12 @@ final class MenuBarController: NSObject, ObservableObject {
             self?.allowInterceptedAppTemporarily()
         }
         overlay.onEndSession = { [weak self] in
-            self?.overlay.dismiss()
-            self?.stopSession()
+            guard let self else { return }
+            self.overlay.dismiss()
+            // Changing their mind here is the same as choosing "Back to work".
+            if !self.requestStopSession() {
+                self.returnToLastAllowedApp()
+            }
         }
     }
 
@@ -460,9 +464,18 @@ final class MenuBarController: NSObject, ObservableObject {
     }
 
     func shouldAllowTermination() -> Bool {
-        guard isStrictLocked, !isSystemQuit else { return true }
-        refuseStrict("LockIn can't quit during a strict block. It ends at \(phaseEndLabel), or use the emergency exit.")
-        return false
+        // Logging out, restarting and shutting down are never held up.
+        guard !isSystemQuit else { return true }
+        guard !isStrictLocked else {
+            refuseStrict("LockIn can't quit during a strict block. It ends at \(phaseEndLabel), or use the emergency exit.")
+            return false
+        }
+        guard isSessionActive, config.confirmBeforeEnding else { return true }
+
+        let message = snapshot.phase == .focus
+            ? "\(remainingLabel) left in this focus block. Quitting stops guarding, and the block is saved in History as abandoned."
+            : "A session is running. Quitting ends it, and the next focus block won’t start."
+        return confirmEnding(title: "Quit \(AppIdentity.name)?", message: message, confirm: "Quit", keep: "Keep Running")
     }
 
     /// Quitting mid-session ends it: stop guarding and record an interrupted
@@ -578,6 +591,83 @@ final class MenuBarController: NSObject, ObservableObject {
         syncWatchdog()
     }
 
+    // MARK: - Asking first
+
+    /// What someone meant when they pressed End, from anywhere a person can
+    /// press it. Shortcuts and the Focus filter call `stopSession` directly:
+    /// automation should not sit waiting on a dialog nobody is looking at.
+    /// - Returns: whether the session was ended.
+    @discardableResult
+    func requestStopSession() -> Bool {
+        // A strict block refuses on its own terms, and a finished break has
+        // nothing left to lose.
+        guard isSessionActive, !isStrictLocked, config.confirmBeforeEnding else {
+            stopSession()
+            return true
+        }
+
+        let phase = snapshot.phase
+        let message = phase == .focus
+            ? "\(remainingLabel) left in this focus block. Guarding stops, and the block is saved in History as cancelled."
+            : "You’re on a break. The next focus block won’t start."
+        guard confirmEnding(title: "End this session?", message: message, confirm: "End Session", keep: "Keep Going"),
+              snapshot.phase == phase
+        else {
+            return false
+        }
+        stopSession()
+        return true
+    }
+
+    func requestSkipPhase() {
+        // Only cutting a focus block short gives something up.
+        guard snapshot.phase == .focus, !isStrictLocked, config.confirmBeforeEnding else {
+            skipPhase()
+            return
+        }
+        guard confirmEnding(
+            title: "Skip to the break?",
+            message: "\(remainingLabel) left in this focus block. Guarding stops until the next block starts.",
+            confirm: "Skip to Break",
+            keep: "Keep Focusing"
+        ), snapshot.phase == .focus else {
+            return
+        }
+        skipPhase()
+    }
+
+    func requestRemoveSchedule(_ schedule: FocusSchedule) {
+        let answer = ConfirmationAlert.ask(
+            title: "Delete “\(schedule.name)”?",
+            message: "Its days, times and settings will be gone. This can’t be undone.",
+            confirm: "Delete Schedule",
+            keep: "Cancel"
+        )
+        if answer.confirmed {
+            removeSchedule(schedule)
+        }
+    }
+
+    func updateConfirmBeforeEnding(_ enabled: Bool) {
+        config.confirmBeforeEnding = enabled
+        saveConfig()
+    }
+
+    /// Asks, and remembers a ticked "Don't ask again" if the answer was yes.
+    private func confirmEnding(title: String, message: String, confirm: String, keep: String) -> Bool {
+        let answer = ConfirmationAlert.ask(title: title, message: message, confirm: confirm, keep: keep, suppressible: true)
+        if answer.confirmed, answer.suppress {
+            updateConfirmBeforeEnding(false)
+        }
+        return answer.confirmed
+    }
+
+    private var remainingLabel: String {
+        let minutes = Int((Double(snapshot.remainingSeconds) / 60).rounded())
+        if minutes < 1 { return "Less than a minute is" }
+        return minutes == 1 ? "1 minute is" : "\(minutes) minutes are"
+    }
+
     func stopSession() {
         guard !isStrictLocked else {
             refuseStrict("This is a strict block. It ends at \(phaseEndLabel), or use the emergency exit.")
@@ -630,10 +720,10 @@ final class MenuBarController: NSObject, ObservableObject {
             }
         case .stop:
             if isSessionActive || snapshot.phase == .breakEnded {
-                stopSession()
+                requestStopSession()
             }
         case .skip:
-            skipPhase()
+            requestSkipPhase()
         }
     }
 
@@ -1145,9 +1235,8 @@ final class MenuBarController: NSObject, ObservableObject {
     }
 
     func quit() {
-        // Termination is checked again in the app delegate; asking here first
-        // keeps the refusal message in the right place.
-        guard shouldAllowTermination() else { return }
+        // The app delegate asks `shouldAllowTermination`; asking here as well
+        // would put the same question twice.
         NSApp.terminate(nil)
     }
 
@@ -1907,8 +1996,8 @@ extension MenuBarController: NSMenuItemValidation {
     }
 
     @objc private func menuStartFocus(_ sender: Any?) { startFocus() }
-    @objc private func menuStopSession(_ sender: Any?) { stopSession() }
-    @objc private func menuSkip(_ sender: Any?) { skipPhase() }
+    @objc private func menuStopSession(_ sender: Any?) { requestStopSession() }
+    @objc private func menuSkip(_ sender: Any?) { requestSkipPhase() }
     @objc private func menuOpenSettings(_ sender: Any?) { openSettings() }
     @objc private func menuOpenMainWindow(_ sender: Any?) { openMainWindow() }
     @objc private func menuOpenHistory(_ sender: Any?) { openHistory() }

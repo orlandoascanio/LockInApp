@@ -374,23 +374,23 @@ struct FocusPageView: View {
 
             case .focus:
                 Button("End session") {
-                    controller.stopSession()
+                    controller.requestStopSession()
                 }
                 .buttonStyle(FLActionButtonStyle(variant: .primary, minHeight: 44))
 
                 Button("Skip to break") {
-                    controller.skipPhase()
+                    controller.requestSkipPhase()
                 }
                 .buttonStyle(FLActionButtonStyle(variant: .secondary, minHeight: 44))
 
             case .break:
                 Button("Start next block") {
-                    controller.skipPhase()
+                    controller.requestSkipPhase()
                 }
                 .buttonStyle(FLActionButtonStyle(variant: .primary, minHeight: 44))
 
                 Button("End session") {
-                    controller.stopSession()
+                    controller.requestStopSession()
                 }
                 .buttonStyle(FLActionButtonStyle(variant: .secondary, minHeight: 44))
 
@@ -402,7 +402,7 @@ struct FocusPageView: View {
                 .keyboardShortcut(.defaultAction)
 
                 Button("End cycle") {
-                    controller.stopSession()
+                    controller.requestStopSession()
                 }
                 .buttonStyle(FLActionButtonStyle(variant: .secondary, minHeight: 44))
 

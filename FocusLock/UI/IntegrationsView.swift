@@ -82,7 +82,15 @@ private struct IntegrationsContent: View {
                     .buttonStyle(FLInlineButtonStyle())
                     .disabled(!integrations.hasSlackToken)
                 if integrations.hasSlackToken {
-                    Button("Remove") { integrations.saveSlackToken("") }
+                    Button("Remove") {
+                        let answer = ConfirmationAlert.ask(
+                            title: "Remove the Slack token?",
+                            message: "LockIn will stop setting your Slack status. To reconnect you would have to paste the token again.",
+                            confirm: "Remove Token",
+                            keep: "Cancel"
+                        )
+                        if answer.confirmed { integrations.saveSlackToken("") }
+                    }
                         .buttonStyle(FLLinkButtonStyle(tint: .flClay))
                 }
             }
@@ -178,7 +186,15 @@ private struct IntegrationsContent: View {
                     .buttonStyle(FLInlineButtonStyle())
                     .disabled(!integrations.hasDiscordWebhook)
                 if integrations.hasDiscordWebhook {
-                    Button("Remove") { _ = integrations.saveDiscordWebhook("") }
+                    Button("Remove") {
+                        let answer = ConfirmationAlert.ask(
+                            title: "Remove the Discord webhook?",
+                            message: "LockIn will stop posting to your channel. To reconnect you would have to paste the webhook again.",
+                            confirm: "Remove Webhook",
+                            keep: "Cancel"
+                        )
+                        if answer.confirmed { _ = integrations.saveDiscordWebhook("") }
+                    }
                         .buttonStyle(FLLinkButtonStyle(tint: .flClay))
                 }
             }

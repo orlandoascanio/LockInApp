@@ -391,6 +391,15 @@ struct SettingsView: View {
                     )
                 )
 
+                toggleRow(
+                    title: "Ask before ending a session",
+                    detail: "Also before skipping a focus block, or quitting while one is running.",
+                    isOn: Binding(
+                        get: { controller.config.confirmBeforeEnding },
+                        set: { controller.updateConfirmBeforeEnding($0) }
+                    )
+                )
+
                 UpdatesRow()
             }
         }

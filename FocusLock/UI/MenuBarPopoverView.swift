@@ -63,7 +63,7 @@ struct MenuBarPopoverView: View {
                     .fixedSize()
             } else if controller.isSessionActive {
                 Button("End") {
-                    controller.stopSession()
+                    controller.requestStopSession()
                 }
                 .buttonStyle(FLLinkButtonStyle(tint: .flClay))
                 .fixedSize()

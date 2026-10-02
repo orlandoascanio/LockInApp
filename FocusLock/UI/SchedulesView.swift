@@ -118,7 +118,7 @@ private struct ScheduleRow: View {
                     .accessibilityLabel("Enable \(schedule.name)")
 
                 Button {
-                    controller.removeSchedule(schedule)
+                    controller.requestRemoveSchedule(schedule)
                 } label: {
                     Image(systemName: "trash")
                         .foregroundStyle(Color.flClay)

@@ -78,6 +78,10 @@ public struct AppConfig: Codable, Equatable {
     /// or skipped.
     public var onboardingCompleted: Bool
 
+    /// Ask "are you sure?" before ending a session, skipping a focus block,
+    /// or quitting while one is running.
+    public var confirmBeforeEnding: Bool
+
     public init(
         focusMinutes: Int = 50,
         breakMinutes: Int = 10,
@@ -94,7 +98,8 @@ public struct AppConfig: Codable, Equatable {
         hotkeys: HotkeySettings = HotkeySettings(),
         integrations: IntegrationSettings = IntegrationSettings(),
         appearance: AppearancePreference = .system,
-        onboardingCompleted: Bool = false
+        onboardingCompleted: Bool = false,
+        confirmBeforeEnding: Bool = true
     ) {
         self.focusMinutes = Self.normalizedFocusMinutes(focusMinutes)
         self.breakMinutes = max(0, breakMinutes)
@@ -112,6 +117,7 @@ public struct AppConfig: Codable, Equatable {
         self.integrations = integrations
         self.appearance = appearance
         self.onboardingCompleted = onboardingCompleted
+        self.confirmBeforeEnding = confirmBeforeEnding
     }
 
     public static let `default` = AppConfig()
@@ -136,6 +142,7 @@ public struct AppConfig: Codable, Equatable {
         case integrations
         case appearance
         case onboardingCompleted
+        case confirmBeforeEnding
     }
 
     public init(from decoder: Decoder) throws {
@@ -180,6 +187,7 @@ public struct AppConfig: Codable, Equatable {
         // A config written before the welcome guide existed belongs to someone
         // already using the app, who should not be walked through it.
         onboardingCompleted = (try? container.decodeIfPresent(Bool.self, forKey: .onboardingCompleted)) ?? true
+        confirmBeforeEnding = (try? container.decodeIfPresent(Bool.self, forKey: .confirmBeforeEnding)) ?? true
     }
 
     public func encode(to encoder: Encoder) throws {
@@ -200,6 +208,7 @@ public struct AppConfig: Codable, Equatable {
         try container.encode(integrations, forKey: .integrations)
         try container.encode(appearance, forKey: .appearance)
         try container.encode(onboardingCompleted, forKey: .onboardingCompleted)
+        try container.encode(confirmBeforeEnding, forKey: .confirmBeforeEnding)
     }
 
     public static func normalizedFocusMinutes(_ minutes: Int) -> Int {
