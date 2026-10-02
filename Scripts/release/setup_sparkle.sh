@@ -19,11 +19,14 @@ if [[ -z "$SPARKLE_BIN" ]]; then
 fi
 
 # Prints the existing key if there is one; otherwise creates it.
-PUBLIC_KEY="$("$SPARKLE_BIN/generate_keys" -p 2>/dev/null || true)"
-if [[ -z "$PUBLIC_KEY" ]]; then
+# With no key yet, -p exits non-zero and prints its error on stdout, so go by
+# the exit status rather than by whether anything was printed.
+if ! PUBLIC_KEY="$("$SPARKLE_BIN/generate_keys" -p 2>/dev/null)"; then
     "$SPARKLE_BIN/generate_keys" >/dev/null
     PUBLIC_KEY="$("$SPARKLE_BIN/generate_keys" -p)"
 fi
+[[ "$PUBLIC_KEY" =~ ^[A-Za-z0-9+/]{43}=$ ]] \
+    || { echo "generate_keys didn't return a public key: $PUBLIC_KEY" >&2; exit 1; }
 
 sed -i '' "s|SPARKLE_PUBLIC_KEY: \".*\"|SPARKLE_PUBLIC_KEY: \"$PUBLIC_KEY\"|" project.yml
 echo "Sparkle public key: $PUBLIC_KEY"
