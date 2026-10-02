@@ -10,7 +10,8 @@ struct OnboardingView: View {
     @EnvironmentObject private var controller: MenuBarController
 
     @State private var step: Step = .welcome
-    @State private var suggestedApps: [SuggestedApp] = []
+    @State private var suggestions = AppSuggestionList(likely: [], frequent: [])
+    @State private var hasScannedApps = false
     @State private var siteInput = ""
     @State private var siteError: String?
 
@@ -52,8 +53,13 @@ struct OnboardingView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Color.flCanvas)
-        .onAppear {
-            suggestedApps = SuggestedApp.installed()
+        .task {
+            // Reading a few dozen app bundles is quick, but not main-thread quick.
+            let found = await Task.detached(priority: .userInitiated) {
+                AppUsageScanner.suggestions()
+            }.value
+            suggestions = found
+            hasScannedApps = true
         }
     }
 
@@ -186,31 +192,50 @@ struct OnboardingView: View {
 
     // MARK: - Apps
 
-    /// Suggestions found on this Mac, then anything else already on the list
+    /// Apps already on the guarded list that the suggestions do not cover
     /// (added through the picker), so every guarded app shows as a chip.
-    private var appChoices: [SuggestedApp] {
-        let suggestedIds = Set(suggestedApps.map(\.bundleId))
-        let others = controller.config.blockedApps
-            .filter { !suggestedIds.contains($0.bundleId) }
-            .map { SuggestedApp(name: $0.name, bundleId: $0.bundleId, url: nil) }
-        return suggestedApps + others
+    private var otherGuardedApps: [BlockedApp] {
+        let suggested = Set((suggestions.likely + suggestions.frequent).map(\.bundleId))
+        return controller.config.blockedApps.filter { !suggested.contains($0.bundleId) }
     }
 
     private var apps: some View {
-        VStack(spacing: FLSpacing.lg) {
+        VStack(spacing: FLSpacing.md) {
             heading(
                 "Which apps pull you in?",
-                "LockIn guards these during focus and leaves them alone on breaks. You can change the list any time under Blocked."
+                "Suggested from what you actually open on this Mac, most used first. That information stays here. Change the list any time under Blocked."
             )
 
-            if appChoices.isEmpty {
-                Text("None of the usual suspects are installed. Add any app below.")
+            if !hasScannedApps {
+                Text("Looking at what you use…")
+                    .font(FLTypography.body)
+                    .foregroundStyle(Color.flInkSoft)
+            } else if suggestions.isEmpty && otherGuardedApps.isEmpty {
+                Text("Nothing stood out. Add any app below.")
                     .font(FLTypography.body)
                     .foregroundStyle(Color.flInkSoft)
             } else {
-                LazyVGrid(columns: [GridItem(.adaptive(minimum: 160), spacing: FLSpacing.sm)], spacing: FLSpacing.sm) {
-                    ForEach(appChoices) { app in
-                        appChip(app)
+                if !suggestions.likely.isEmpty || !otherGuardedApps.isEmpty {
+                    appGrid {
+                        ForEach(suggestions.likely) { app in
+                            appChip(name: app.name, bundleId: app.bundleId, url: app.url,
+                                    evidence: AppSuggestions.evidence(for: app, now: Date()))
+                        }
+                        ForEach(otherGuardedApps) { app in
+                            appChip(name: app.name, bundleId: app.bundleId, url: nil, evidence: nil)
+                        }
+                    }
+                }
+
+                if !suggestions.frequent.isEmpty {
+                    VStack(spacing: FLSpacing.sm) {
+                        FLMicroLabel(text: "Other apps you open a lot")
+                        appGrid {
+                            ForEach(suggestions.frequent) { app in
+                                appChip(name: app.name, bundleId: app.bundleId, url: app.url,
+                                        evidence: AppSuggestions.evidence(for: app, now: Date()))
+                            }
+                        }
                     }
                 }
             }
@@ -222,23 +247,36 @@ struct OnboardingView: View {
         }
     }
 
-    private func appChip(_ app: SuggestedApp) -> some View {
-        let guarded = controller.config.blockedApps.first { $0.bundleId == app.bundleId }
+    private func appGrid<Content: View>(@ViewBuilder content: () -> Content) -> some View {
+        LazyVGrid(columns: [GridItem(.adaptive(minimum: 160), spacing: FLSpacing.sm)], spacing: FLSpacing.sm) {
+            content()
+        }
+    }
+
+    private func appChip(name: String, bundleId: String, url: URL?, evidence: String?) -> some View {
+        let guarded = controller.config.blockedApps.first { $0.bundleId == bundleId }
 
         return Button {
             if let guarded {
                 controller.removeBlockedApp(guarded)
-            } else if let url = app.url {
+            } else if let url {
                 controller.addBlockedApp(at: url)
             }
         } label: {
             chipLabel(isSelected: guarded != nil) {
-                FLAppIcon(bundleId: app.bundleId, size: 24)
-                Text(app.name)
+                FLAppIcon(bundleId: bundleId, size: 24)
+                VStack(alignment: .leading, spacing: 1) {
+                    Text(name)
+                    if let evidence {
+                        Text(evidence)
+                            .font(.system(size: 10.5))
+                            .foregroundStyle(Color.flInkSoft)
+                    }
+                }
             }
         }
         .buttonStyle(.plain)
-        .accessibilityLabel(app.name)
+        .accessibilityLabel(evidence.map { "\(name), \($0)" } ?? name)
         .accessibilityAddTraits(guarded != nil ? [.isSelected] : [])
     }
 
@@ -506,7 +544,7 @@ struct OnboardingView: View {
                 .foregroundStyle(isSelected ? Color.flAccentDeep : Color.flInkSoft.opacity(0.7))
         }
         .padding(.horizontal, 12)
-        .frame(height: 42)
+        .frame(height: 46)
         .background(
             isSelected ? Color.flAccentSoft.opacity(0.55) : Color.flField,
             in: RoundedRectangle(cornerRadius: FLRadius.lg, style: .continuous)
@@ -522,45 +560,5 @@ struct OnboardingView: View {
         Text(count == 0 ? "Nothing selected yet" : "\(count) \(count == 1 ? singular : plural) guarded")
             .font(FLTypography.caption)
             .foregroundStyle(count == 0 ? Color.flInkSoft : Color.flAccentDeep)
-    }
-}
-
-/// An app offered in the welcome guide. `url` is `nil` for one that is already
-/// on the guarded list but was not found by bundle id, which can still be
-/// switched off.
-struct SuggestedApp: Identifiable, Equatable {
-    let name: String
-    let bundleId: String
-    let url: URL?
-
-    var id: String { bundleId }
-
-    /// The apps people most often say they open without meaning to.
-    private static let candidates = [
-        "com.hnc.Discord",
-        "com.tinyspeck.slackmacgap",
-        "com.apple.MobileSMS",
-        "net.whatsapp.WhatsApp",
-        "ru.keepcoder.Telegram",
-        "org.whispersystems.signal-desktop",
-        "com.microsoft.teams2",
-        "com.apple.mail",
-        "com.valvesoftware.steam",
-        "com.apple.TV",
-        "com.apple.news"
-    ]
-
-    /// Only what is actually installed here: offering to guard an app this Mac
-    /// does not have would be noise.
-    static func installed() -> [SuggestedApp] {
-        candidates.compactMap { bundleId in
-            guard let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleId) else { return nil }
-            let name = FileManager.default.displayName(atPath: url.path)
-            return SuggestedApp(
-                name: name.hasSuffix(".app") ? String(name.dropLast(4)) : name,
-                bundleId: bundleId,
-                url: url
-            )
-        }
     }
 }
