@@ -23,8 +23,9 @@ settings:
     MACOSX_DEPLOYMENT_TARGET: "14.0"
     ENABLE_HARDENED_RUNTIME: YES
     CODE_SIGN_STYLE: Manual
-    # Local builds sign with your development certificate. Scripts/release.sh
-    # overrides this with "Developer ID Application" for anything shipped.
+    # The default when building from Xcode. Scripts/build_app.sh overrides it
+    # with whichever certificate this Mac has for the team, and
+    # Scripts/release.sh with "Developer ID Application" for anything shipped.
     CODE_SIGN_IDENTITY: Apple Development
     MARKETING_VERSION: "0.2.0"
     CURRENT_PROJECT_VERSION: "1"

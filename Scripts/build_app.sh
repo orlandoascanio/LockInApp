@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
-# Build LockIn.app (with its widget) into build/LockIn.app, signed with your
-# development certificate. For a notarized DMG, use Scripts/release.sh.
+# Build LockIn.app (with its widget) into build/LockIn.app, signed with the
+# certificate you have for the project's team. For a notarized DMG, use
+# Scripts/release.sh.
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
@@ -28,6 +29,31 @@ if ! command -v xcodegen >/dev/null 2>&1; then
 fi
 xcodegen generate --quiet
 
+# Sign with whichever certificate this Mac has for the project's team: an
+# Apple Development one if there is one, otherwise Developer ID. The widget's
+# app group carries the team prefix, so a certificate from another team would
+# build an app whose widget cannot read its data.
+TEAM_ID="$(sed -n 's/^ *DEVELOPMENT_TEAM: *//p' project.yml | head -1)"
+IDENTITY=""
+while IFS= read -r line; do
+    hash="$(awk '{print $2}' <<<"$line")"
+    name="$(sed -E 's/^[^"]*"(.*)"$/\1/' <<<"$line")"
+    if security find-certificate -c "$name" -p 2>/dev/null \
+        | openssl x509 -noout -subject 2>/dev/null | grep -q "OU *= *$TEAM_ID"; then
+        IDENTITY="$hash"
+        break
+    fi
+done < <(security find-identity -v -p codesigning | grep '"Apple Development: ')
+if [[ -z "$IDENTITY" ]]; then
+    IDENTITY="$(security find-identity -v -p codesigning \
+        | grep "Developer ID Application: .*($TEAM_ID)" | head -1 | awk '{print $2}')"
+fi
+if [[ -z "$IDENTITY" ]]; then
+    echo "No signing certificate for team $TEAM_ID in your keychain." >&2
+    echo "Add an Apple Development certificate in Xcode › Settings › Accounts, or set DEVELOPMENT_TEAM in project.yml to your own team." >&2
+    exit 1
+fi
+
 xcodebuild \
     -project "$APP_NAME.xcodeproj" \
     -scheme "$APP_NAME" \
@@ -37,6 +63,7 @@ xcodebuild \
     MARKETING_VERSION="$SHORT_VERSION" \
     CURRENT_PROJECT_VERSION="$BUILD_NUMBER" \
     LOCKIN_SOURCE_COMMIT="$COMMIT" \
+    CODE_SIGN_IDENTITY="$IDENTITY" \
     build \
     | grep -E "error:|warning: .*\.swift|BUILD (SUCCEEDED|FAILED)" || true
 

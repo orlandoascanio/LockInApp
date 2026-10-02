@@ -115,7 +115,7 @@ Run the core tests (timer, persistence, blocking rules, schedules, strict mode, 
 swift test
 ```
 
-Build `build/LockIn.app`, signed with your development certificate:
+Build `build/LockIn.app`, signed with whichever certificate you have for the project's team (Apple Development if there is one, otherwise Developer ID):
 
 ```bash
 Scripts/build_app.sh
