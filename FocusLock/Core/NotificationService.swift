@@ -18,6 +18,14 @@ public final class NotificationService: NSObject, NotificationSending, UNUserNot
     /// the app, which owns the settings; `nil` sends the plain notice.
     public var breakSuggestion: ((_ cycle: Int, _ minutes: Int) -> BreakSuggestion?)?
 
+    /// True while the app plays its own chime when a timer runs out. The
+    /// banners for those moments then arrive silently instead of on top of it.
+    public var appPlaysTimerEndSound: (() -> Bool)?
+
+    private var timerEndNeedsSound: Bool {
+        !(appPlaysTimerEndSound?() ?? false)
+    }
+
     public init(center: UNUserNotificationCenter? = nil) {
         self.center = center ?? Self.resolveCenter()
         super.init()
@@ -47,14 +55,14 @@ public final class NotificationService: NSObject, NotificationSending, UNUserNot
     }
 
     public func focusCompleted() {
-        send(title: "Focus completed", body: "Nice work. Time for a break.")
+        send(title: "Focus completed", body: "Nice work. Time for a break.", sound: timerEndNeedsSound)
     }
 
     public func breakStarted(minutes: Int, cycle: Int) {
         if let suggestion = breakSuggestion?(cycle, minutes) {
-            send(title: "Break · \(minutes) min — \(suggestion.title)", body: suggestion.detail)
+            send(title: "Break · \(minutes) min — \(suggestion.title)", body: suggestion.detail, sound: timerEndNeedsSound)
         } else {
-            send(title: "Break started", body: "\(minutes) minutes to reset.")
+            send(title: "Break started", body: "\(minutes) minutes to reset.", sound: timerEndNeedsSound)
         }
     }
 
@@ -66,12 +74,12 @@ public final class NotificationService: NSObject, NotificationSending, UNUserNot
         send(title: "\(name) schedule started", body: strict ? "Strict mode is on for this block." : "Focus is running.")
     }
 
-    public func notice(title: String, body: String) {
-        send(title: title, body: body)
+    public func notice(title: String, body: String, sound: Bool = true) {
+        send(title: title, body: body, sound: sound)
     }
 
     public func breakEnded() {
-        send(title: "Break is done.", body: "Time to get locked in again.")
+        send(title: "Break is done.", body: "Time to get locked in again.", sound: timerEndNeedsSound)
     }
 
     public func sessionCancelled() {

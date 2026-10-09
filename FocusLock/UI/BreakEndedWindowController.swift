@@ -35,6 +35,9 @@ final class BreakEndedWindowController {
         )
         window.title = "Break is done"
         window.level = .floating
+        // Show up on whatever Space is in front, including someone's
+        // full-screen app, instead of on the desktop they left behind.
+        window.collectionBehavior = [.moveToActiveSpace, .fullScreenAuxiliary]
         window.isReleasedWhenClosed = false
         window.contentView = NSHostingView(rootView: rootView)
         window.center()

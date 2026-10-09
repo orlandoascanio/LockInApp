@@ -24,6 +24,8 @@ struct SettingsView: View {
                     case .general:
                         durationsSection
                         FLRule()
+                        timerSoundSection
+                        FLRule()
                         appearanceSection
                         FLRule()
                         hudSection
@@ -257,16 +259,82 @@ struct SettingsView: View {
         }
     }
 
+    private var timerSoundSection: some View {
+        section("When time is up") {
+            VStack(alignment: .leading, spacing: 12) {
+                FLSegmentedControl(
+                    options: TimerEndSound.allCases,
+                    selection: Binding(
+                        get: { controller.config.timerEndSound },
+                        set: { controller.updateTimerEndSound($0) }
+                    ),
+                    title: \.displayName,
+                    accessibilityLabel: "Sound when time is up"
+                )
+
+                Text("Plays when a focus block or a break runs out, even with notifications off or a Focus mode on.")
+                    .font(FLTypography.caption)
+                    .foregroundStyle(Color.flInkSoft)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+    }
+
     private var hudSection: some View {
         section("Floating HUD") {
-            toggleRow(
-                title: "Pin the countdown above every window",
-                detail: "A thin strip stays on screen during a session so the time left is always one glance away.",
-                isOn: Binding(
-                    get: { controller.config.pinnedHUDEnabled },
-                    set: { controller.updatePinnedHUD(enabled: $0) }
+            VStack(alignment: .leading, spacing: 14) {
+                toggleRow(
+                    title: "Pin the countdown above every window",
+                    detail: "A small pill stays on screen during a session so the time left is always one glance away. Drag it anywhere; it snaps to edges and corners. Right-click it for more.",
+                    isOn: Binding(
+                        get: { controller.config.pinnedHUDEnabled },
+                        set: { controller.updatePinnedHUD(enabled: $0) }
+                    )
                 )
-            )
+
+                if controller.config.pinnedHUDEnabled {
+                    HStack(spacing: FLSpacing.md) {
+                        Text("Size")
+                            .font(FLTypography.body)
+                            .foregroundStyle(Color.flInk)
+                            .frame(width: 120, alignment: .leading)
+                        FLSegmentedControl(
+                            options: HUDSettings.Size.allCases,
+                            selection: Binding(
+                                get: { controller.config.hud.size },
+                                set: { size in controller.updateHUD { $0.size = size } }
+                            ),
+                            title: \.displayName,
+                            accessibilityLabel: "HUD size"
+                        )
+                    }
+
+                    HStack(spacing: FLSpacing.md) {
+                        Text("While you work")
+                            .font(FLTypography.body)
+                            .foregroundStyle(Color.flInk)
+                            .frame(width: 120, alignment: .leading)
+                        FLSegmentedControl(
+                            options: HUDSettings.restingOpacityChoices,
+                            selection: Binding(
+                                get: { controller.config.hud.restingOpacity },
+                                set: { opacity in controller.updateHUD { $0.restingOpacity = opacity } }
+                            ),
+                            title: { $0 >= 1 ? "Don't fade" : "\(Int(($0 * 100).rounded()))%" },
+                            accessibilityLabel: "HUD opacity while you work"
+                        )
+                    }
+
+                    toggleRow(
+                        title: "Let clicks pass through it",
+                        detail: "For reading: clicks reach whatever is under the HUD. Hold Option to use it.",
+                        isOn: Binding(
+                            get: { controller.config.hud.clickThrough },
+                            set: { enabled in controller.updateHUD { $0.clickThrough = enabled } }
+                        )
+                    )
+                }
+            }
         }
     }
 

@@ -582,31 +582,42 @@ struct FocusPageView: View {
 
     private var weeklyRhythm: some View {
         VStack(alignment: .leading, spacing: 14) {
-            HStack {
+            HStack(alignment: .firstTextBaseline, spacing: 8) {
                 FLMicroLabel(text: "This week")
+                Text("· \(formatted(minutes: controller.weekSummary.totalMinutes))")
+                    .font(FLTypography.caption.weight(.semibold))
+                    .foregroundStyle(Color.flInk)
                 Spacer()
-                Text(weekSummary)
+                Text(controller.weekSummary.detail)
                     .font(FLTypography.caption)
                     .foregroundStyle(Color.flInkSoft)
             }
 
-            FLWeeklyRhythm(days: controller.weeklyRhythm.map {
-                FLWeeklyRhythm.DailyFocusColumn(
-                    id: $0.date,
-                    label: $0.label,
-                    minutes: $0.minutes,
-                    isToday: $0.isToday
-                )
-            }, height: 88)
+            FLWeeklyRhythm(
+                days: controller.weeklyRhythm.map { day in
+                    FLWeeklyRhythm.DailyFocusColumn(
+                        id: day.date,
+                        label: day.label,
+                        dayName: Self.dayName(day.date),
+                        minutes: day.minutes,
+                        sessions: day.sessions,
+                        categories: day.categories.map { ($0.name, $0.minutes) },
+                        isToday: day.isToday,
+                        isFuture: day.isFuture
+                    )
+                },
+                goalMinutes: controller.config.dailyFocusGoalMinutes
+            )
         }
         .padding(.horizontal, 26)
         .padding(.vertical, 20)
     }
 
-    private var weekSummary: String {
-        let stats = controller.sessionStats
-        let sessions = stats.sessionsCompletedToday
-        return "Today \(formatted(minutes: stats.focusMinutesToday)) · \(sessions) session\(sessions == 1 ? "" : "s")"
+    private static func dayName(_ date: Date) -> String {
+        let calendar = Calendar.current
+        let index = calendar.component(.weekday, from: date) - 1
+        let symbols = calendar.weekdaySymbols
+        return symbols.indices.contains(index) ? symbols[index] : ""
     }
 
     private func formatted(minutes: Int) -> String {

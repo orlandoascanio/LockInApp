@@ -174,64 +174,73 @@ struct AnalyticsView: View {
 
                 Spacer()
 
-                HStack(spacing: 6) {
-                    Rectangle()
-                        .fill(Color.flInkSoft.opacity(0.55))
-                        .frame(width: 18, height: 1)
+                if let line = referenceLine {
+                    HStack(spacing: 6) {
+                        Line()
+                            .stroke(Color.flInkSoft.opacity(0.6), style: StrokeStyle(lineWidth: 1, dash: [2, 3]))
+                            .frame(width: 18, height: 1)
 
-                    Text("avg \(formatted(minutes: averagePerBucket))/\(bucketName)")
-                        .font(.system(size: 10.5))
-                        .foregroundStyle(Color.flInkSoft)
-                        .monospacedDigit()
+                        Text(line.legend)
+                            .font(.system(size: 10.5))
+                            .foregroundStyle(Color.flInkSoft)
+                            .monospacedDigit()
+                    }
+                    .accessibilityElement(children: .combine)
                 }
-                .accessibilityElement(children: .combine)
             }
 
             Chart {
+                if let line = referenceLine {
+                    // Drawn first so the bars sit on top of it.
+                    RuleMark(y: .value(line.name, line.minutes))
+                        .foregroundStyle(Color.flInkSoft.opacity(0.6))
+                        .lineStyle(StrokeStyle(lineWidth: 1, dash: [2, 3]))
+                        .accessibilityLabel(line.name)
+                        .accessibilityValue(line.legend)
+                }
+
                 ForEach(analytics.timeline) { point in
                     BarMark(
                         x: .value("Period", point.startDate, unit: chartCalendarComponent),
-                        y: .value("Focus minutes", point.minutes)
+                        y: .value("Focus minutes", point.minutes),
+                        width: barWidth
                     )
-                    .foregroundStyle(
-                        isCurrent(point)
-                            ? Color.flAccentDeep
-                            : Color.flAccent.opacity(point.minutes == 0 ? 0.18 : 0.62)
-                    )
-                    .cornerRadius(3)
+                    .foregroundStyle(isCurrent(point) ? Color.flAccentDeep : Color.flAccent.opacity(0.62))
+                    // Rounded on top only, so bars stand on the baseline.
+                    .clipShape(UnevenRoundedRectangle(topLeadingRadius: 4, topTrailingRadius: 4, style: .continuous))
+                    .annotation(position: .top, spacing: 4) {
+                        if showsBarValues, point.minutes > 0 {
+                            Text(formatted(minutes: point.minutes))
+                                .font(.system(size: 10, weight: isCurrent(point) ? .semibold : .regular))
+                                .foregroundStyle(isCurrent(point) ? Color.flInk : Color.flInkSoft)
+                                .monospacedDigit()
+                        }
+                    }
                     .accessibilityLabel(chartPointLabel(point))
-                    .accessibilityValue("\(point.minutes) focus minutes")
-                }
-
-                if averagePerBucket > 0 {
-                    RuleMark(y: .value("Average focus", averagePerBucket))
-                        .foregroundStyle(Color.flInkSoft.opacity(0.55))
-                        .lineStyle(StrokeStyle(lineWidth: 1, dash: [4, 4]))
-                        .accessibilityLabel("Average")
-                        .accessibilityValue("\(averagePerBucket) focus minutes per \(bucketName)")
+                    .accessibilityValue("\(formatted(minutes: point.minutes)) of focus")
                 }
             }
             .chartYScale(domain: 0...chartMaximum)
             .chartXAxis {
-                AxisMarks(values: .automatic(desiredCount: desiredXAxisCount)) { value in
-                    AxisTick(stroke: StrokeStyle(lineWidth: 1))
-                        .foregroundStyle(Color.flHairline)
-                    AxisValueLabel {
+                AxisMarks(values: xAxisValues) { value in
+                    // Centred in its day, week or month: under the bar, not
+                    // at the boundary before it.
+                    AxisValueLabel(centered: true) {
                         if let date = value.as(Date.self) {
                             Text(axisLabel(for: date))
-                                .font(.system(size: 9.5))
-                                .foregroundStyle(Color.flInkSoft)
+                                .font(.system(size: 9.5, weight: isCurrentPeriod(date) ? .semibold : .regular))
+                                .foregroundStyle(isCurrentPeriod(date) ? Color.flInk : Color.flInkSoft)
                         }
                     }
                 }
             }
             .chartYAxis {
-                AxisMarks(position: .leading, values: .automatic(desiredCount: 4)) { value in
+                AxisMarks(position: .leading, values: yAxisValues) { value in
                     AxisGridLine(stroke: StrokeStyle(lineWidth: 0.7))
                         .foregroundStyle(Color.flHairline.opacity(0.5))
                     AxisValueLabel {
                         if let minutes = value.as(Int.self) {
-                            Text(shortAxisMinutes(minutes))
+                            Text(formatted(minutes: minutes))
                                 .font(.system(size: 9.5))
                                 .foregroundStyle(Color.flInkSoft)
                                 .monospacedDigit()
@@ -440,26 +449,65 @@ struct AnalyticsView: View {
         }
     }
 
-    private var chartMaximum: Int {
-        let peak = max(analytics.timeline.map(\.minutes).max() ?? 0, averagePerBucket)
-        if peak <= 30 {
-            return 30
-        }
-        if peak <= 60 {
-            return 60
-        }
-        return Int(ceil(Double(peak) / 30.0) * 30.0)
-    }
-
-    private var desiredXAxisCount: Int {
+    /// The dotted line: the daily goal on a chart of days, as on the Focus
+    /// page; the average on a chart of weeks or months, where a daily goal
+    /// means nothing.
+    private var referenceLine: (name: String, minutes: Int, legend: String)? {
         switch analytics.granularity {
         case .day:
-            return period == .sevenDays ? 7 : 6
-        case .week:
-            return min(8, max(4, analytics.timeline.count))
-        case .month:
-            return min(8, max(4, analytics.timeline.count))
+            let goal = controller.config.dailyFocusGoalMinutes
+            return ("Daily goal", goal, "\(formatted(minutes: goal)) daily goal")
+        case .week, .month:
+            guard averagePerBucket > 0 else { return nil }
+            return ("Average", averagePerBucket, "avg \(formatted(minutes: averagePerBucket)) a \(bucketName)")
         }
+    }
+
+    /// Gridline spacing in minutes: a round step that gives three to five lines.
+    private var yAxisStep: Int {
+        let top = max(analytics.timeline.map(\.minutes).max() ?? 0, referenceLine?.minutes ?? 0, 1)
+        let steps = [15, 30, 60, 120, 180, 240, 360, 480, 600, 720, 1_200, 1_800, 2_400, 3_600, 6_000]
+        return steps.first { top <= $0 * 4 } ?? steps.last!
+    }
+
+    /// The top of the scale: the best period or the reference line, rounded
+    /// up to the next gridline. Never the best period itself, so one good
+    /// day doesn't touch the ceiling.
+    private var chartMaximum: Int {
+        let top = max(analytics.timeline.map(\.minutes).max() ?? 0, referenceLine?.minutes ?? 0, 1)
+        return (top / yAxisStep + 1) * yAxisStep
+    }
+
+    private var yAxisValues: [Int] {
+        Array(stride(from: 0, through: chartMaximum, by: yAxisStep))
+    }
+
+    /// Every day for a week; otherwise every few periods, so labels never
+    /// crowd.
+    private var xAxisValues: AxisMarkValues {
+        switch analytics.granularity {
+        case .day:
+            return .stride(by: .day, count: period == .sevenDays ? 1 : 5)
+        case .week:
+            return .stride(by: .weekOfYear, count: max(1, analytics.timeline.count / 6))
+        case .month:
+            return .stride(by: .month, count: max(1, analytics.timeline.count / 6))
+        }
+    }
+
+    /// Slim bars: a fixed width while there are few of them, a share of
+    /// each slot once there are enough that a fixed width wouldn't fit.
+    private var barWidth: MarkDimension {
+        analytics.timeline.count <= 12 ? .fixed(28) : .ratio(0.6)
+    }
+
+    /// Values above the bars only where there is room for them.
+    private var showsBarValues: Bool {
+        analytics.timeline.count <= 12
+    }
+
+    private func isCurrentPeriod(_ date: Date) -> Bool {
+        isCurrent(SessionAnalyticsPoint(startDate: date, minutes: 0, completedSessions: 0))
     }
 
     private var periodDescription: String {
@@ -526,10 +574,6 @@ struct AnalyticsView: View {
         case .month:
             return Self.monthFormatter.string(from: date)
         }
-    }
-
-    private func shortAxisMinutes(_ minutes: Int) -> String {
-        return "\(minutes)m"
     }
 
     private func formatted(minutes: Int) -> String {
@@ -613,5 +657,15 @@ private extension View {
             RoundedRectangle(cornerRadius: FLRadius.lg, style: .continuous)
                 .strokeBorder(Color.flHairline.opacity(0.7), lineWidth: 1)
         )
+    }
+}
+
+/// A horizontal line across the full width, for dashing.
+private struct Line: Shape {
+    func path(in rect: CGRect) -> Path {
+        Path { path in
+            path.move(to: CGPoint(x: rect.minX, y: rect.midY))
+            path.addLine(to: CGPoint(x: rect.maxX, y: rect.midY))
+        }
     }
 }

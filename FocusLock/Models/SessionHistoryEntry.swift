@@ -65,15 +65,71 @@ public struct SessionHistoryEntry: Codable, Equatable, Identifiable {
 public struct DailyFocus: Equatable, Identifiable {
     public var id: Date { date }
     public var date: Date
+    /// The short weekday name, such as "Mon".
     public var label: String
     public var minutes: Int
     public var isToday: Bool
+    /// After today, so nothing could have happened yet.
+    public var isFuture: Bool
+    public var sessions: Int
+    /// Every category focused on that day, the most time first.
+    public var categories: [CategoryTime]
 
-    public init(date: Date, label: String, minutes: Int, isToday: Bool) {
+    public struct CategoryTime: Equatable {
+        public var name: String
+        public var minutes: Int
+
+        public init(name: String, minutes: Int) {
+            self.name = name
+            self.minutes = minutes
+        }
+    }
+
+    public init(
+        date: Date,
+        label: String,
+        minutes: Int,
+        isToday: Bool,
+        isFuture: Bool = false,
+        sessions: Int = 0,
+        categories: [CategoryTime] = []
+    ) {
         self.date = date
         self.label = label
         self.minutes = max(0, minutes)
         self.isToday = isToday
+        self.isFuture = isFuture
+        self.sessions = max(0, sessions)
+        self.categories = categories
+    }
+}
+
+/// The week as a whole, for the line above the chart.
+public struct WeekFocusSummary: Equatable {
+    public var totalMinutes: Int
+    /// Last week up to the same moment, so Tuesday is never measured against
+    /// a whole finished week.
+    public var lastWeekSoFarMinutes: Int
+    /// Days of this week so far, today included.
+    public var elapsedDays: Int
+
+    public init(totalMinutes: Int, lastWeekSoFarMinutes: Int, elapsedDays: Int) {
+        self.totalMinutes = max(0, totalMinutes)
+        self.lastWeekSoFarMinutes = max(0, lastWeekSoFarMinutes)
+        self.elapsedDays = max(1, elapsedDays)
+    }
+
+    /// "+40m vs last week", or the daily average when last week has nothing
+    /// to compare against.
+    public var detail: String {
+        guard lastWeekSoFarMinutes > 0 else {
+            let average = totalMinutes / elapsedDays
+            return average > 0 ? "Avg \(RunRecap.duration(average)) a day" : "Nothing yet this week"
+        }
+        let difference = totalMinutes - lastWeekSoFarMinutes
+        if difference == 0 { return "Same as last week" }
+        let sign = difference > 0 ? "+" : "−"
+        return "\(sign)\(RunRecap.duration(abs(difference))) vs last week"
     }
 }
 

@@ -108,21 +108,63 @@ public final class SessionHistoryStore {
                 return nil
             }
 
-            let minutes = completed
-                .filter { calendar.isDate($0.startedAt, inSameDayAs: day) }
-                .reduce(0) { $0 + $1.focusMinutes }
+            let entries = completed.filter { calendar.isDate($0.startedAt, inSameDayAs: day) }
+            let minutes = entries.reduce(0) { $0 + $1.focusMinutes }
 
+            var minutesByCategory: [String: Int] = [:]
+            for entry in entries {
+                guard let category = entry.task?.category, !category.isEmpty else { continue }
+                minutesByCategory[category, default: 0] += entry.focusMinutes
+            }
+            let categories = minutesByCategory
+                .sorted { $0.value != $1.value ? $0.value > $1.value : $0.key < $1.key }
+                .map { DailyFocus.CategoryTime(name: $0.key, minutes: $0.value) }
+
+            // "Mon" rather than "M": two T's and two S's are a guess.
             let weekdayIndex = calendar.component(.weekday, from: day) - 1
-            let symbols = calendar.veryShortWeekdaySymbols
+            let symbols = calendar.shortWeekdaySymbols
             let label = symbols.indices.contains(weekdayIndex) ? symbols[weekdayIndex] : ""
 
             return DailyFocus(
                 date: day,
                 label: label,
                 minutes: minutes,
-                isToday: calendar.isDate(day, inSameDayAs: referenceDate)
+                isToday: calendar.isDate(day, inSameDayAs: referenceDate),
+                isFuture: day > calendar.startOfDay(for: referenceDate),
+                sessions: entries.count,
+                categories: categories
             )
         }
+    }
+
+    /// This week's total, and last week's up to the same moment.
+    public func weekSummary(referenceDate: Date = Date(), calendar: Calendar = .current) -> WeekFocusSummary {
+        let completed = loadHistory().filter { $0.status == .completed }
+        guard
+            let thisWeek = calendar.dateInterval(of: .weekOfYear, for: referenceDate),
+            let lastWeekStart = calendar.date(byAdding: .weekOfYear, value: -1, to: thisWeek.start),
+            let lastWeekSameMoment = calendar.date(byAdding: .weekOfYear, value: -1, to: referenceDate)
+        else {
+            return WeekFocusSummary(totalMinutes: 0, lastWeekSoFarMinutes: 0, elapsedDays: 1)
+        }
+
+        func minutes(from start: Date, to end: Date) -> Int {
+            completed
+                .filter { $0.startedAt >= start && $0.startedAt < end }
+                .reduce(0) { $0 + $1.focusMinutes }
+        }
+
+        let elapsed = (calendar.dateComponents(
+            [.day],
+            from: thisWeek.start,
+            to: calendar.startOfDay(for: referenceDate)
+        ).day ?? 0) + 1
+
+        return WeekFocusSummary(
+            totalMinutes: minutes(from: thisWeek.start, to: thisWeek.end),
+            lastWeekSoFarMinutes: minutes(from: lastWeekStart, to: lastWeekSameMoment),
+            elapsedDays: elapsed
+        )
     }
 
     /// Consecutive days ending today with at least one completed session. Today

@@ -17,7 +17,8 @@ final class SessionRhythmTests: XCTestCase {
         _ store: SessionHistoryStore,
         at iso: String,
         focusMinutes: Int = 25,
-        status: SessionHistoryStatus = .completed
+        status: SessionHistoryStatus = .completed,
+        category: String? = nil
     ) throws {
         let start = date(iso)
         try store.append(SessionHistoryEntry(
@@ -27,7 +28,8 @@ final class SessionRhythmTests: XCTestCase {
             breakMinutes: 5,
             status: status,
             blockedAppsCount: 1,
-            strictMode: false
+            strictMode: false,
+            task: category.map { SessionTask(goal: "", category: $0) }
         ))
     }
 
@@ -134,5 +136,69 @@ final class SessionRhythmTests: XCTestCase {
         )
 
         XCTAssertEqual(streak, 0)
+    }
+
+    // MARK: Week chart details
+
+    func testEachDayCarriesItsSessionsCategoriesAndWhetherItHasHappened() throws {
+        let store = SessionHistoryStore(baseDirectory: try temporaryDirectory())
+        var calendar = calendarUTC()
+        calendar.locale = Locale(identifier: "en_US")
+
+        try append(store, at: "2026-07-21T08:00:00Z", focusMinutes: 25, category: "Study")
+        try append(store, at: "2026-07-21T09:00:00Z", focusMinutes: 50, category: "Reading")
+        try append(store, at: "2026-07-21T10:00:00Z", focusMinutes: 10, category: "Study")
+
+        let days = store.weeklyRhythm(referenceDate: date("2026-07-21T12:00:00Z"), calendar: calendar)
+
+        XCTAssertEqual(days.map(\.label), ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"])
+        XCTAssertEqual(days[2].sessions, 3)
+        XCTAssertEqual(days[2].categories, [
+            DailyFocus.CategoryTime(name: "Reading", minutes: 50),
+            DailyFocus.CategoryTime(name: "Study", minutes: 35)
+        ])
+        XCTAssertEqual(days.map(\.isFuture), [false, false, false, true, true, true, true])
+    }
+
+    func testWeekStartsOnTheCalendarsFirstWeekday() throws {
+        let store = SessionHistoryStore(baseDirectory: try temporaryDirectory())
+        var calendar = calendarUTC()
+        calendar.locale = Locale(identifier: "en_GB")
+        calendar.firstWeekday = 2
+
+        let days = store.weeklyRhythm(referenceDate: date("2026-07-21T12:00:00Z"), calendar: calendar)
+
+        XCTAssertEqual(days.first?.label, "Mon")
+        XCTAssertEqual(days.last?.label, "Sun")
+    }
+
+    func testWeekSummaryComparesWithLastWeekUpToTheSameMoment() throws {
+        let store = SessionHistoryStore(baseDirectory: try temporaryDirectory())
+
+        // Last week: Monday counts, Thursday is after "this time last week".
+        try append(store, at: "2026-07-13T09:00:00Z", focusMinutes: 30)
+        try append(store, at: "2026-07-16T09:00:00Z", focusMinutes: 90)
+        // This week, Sunday the 19th to Tuesday the 21st.
+        try append(store, at: "2026-07-20T09:00:00Z", focusMinutes: 45)
+        try append(store, at: "2026-07-21T09:00:00Z", focusMinutes: 25)
+
+        let summary = store.weekSummary(referenceDate: date("2026-07-21T12:00:00Z"), calendar: calendarUTC())
+
+        XCTAssertEqual(summary.totalMinutes, 70)
+        XCTAssertEqual(summary.lastWeekSoFarMinutes, 30)
+        XCTAssertEqual(summary.elapsedDays, 3)
+        XCTAssertEqual(summary.detail, "+40m vs last week")
+    }
+
+    func testWeekSummaryWording() {
+        XCTAssertEqual(WeekFocusSummary(totalMinutes: 75, lastWeekSoFarMinutes: 0, elapsedDays: 6).detail, "Avg 12m a day")
+        XCTAssertEqual(WeekFocusSummary(totalMinutes: 0, lastWeekSoFarMinutes: 0, elapsedDays: 2).detail, "Nothing yet this week")
+        XCTAssertEqual(WeekFocusSummary(totalMinutes: 60, lastWeekSoFarMinutes: 150, elapsedDays: 3).detail, "−1h 30m vs last week")
+        XCTAssertEqual(WeekFocusSummary(totalMinutes: 60, lastWeekSoFarMinutes: 60, elapsedDays: 3).detail, "Same as last week")
+    }
+
+    func testDailyGoalDefaultsToTwoHours() throws {
+        let config = try JSONDecoder().decode(AppConfig.self, from: Data(#"{"focusMinutes":25}"#.utf8))
+        XCTAssertEqual(config.dailyFocusGoalMinutes, 120)
     }
 }

@@ -66,6 +66,7 @@ public struct AppConfig: Codable, Equatable {
 
     /// Keeps the countdown strip floating above every window during a session.
     public var pinnedHUDEnabled: Bool
+    public var hud: HUDSettings
 
     public var strict: StrictModeSettings
     public var schedules: [FocusSchedule]
@@ -82,6 +83,12 @@ public struct AppConfig: Codable, Equatable {
     /// or quitting while one is running.
     public var confirmBeforeEnding: Bool
 
+    /// Played when a focus block or a break runs out.
+    public var timerEndSound: TimerEndSound
+
+    /// The daily focus the week chart measures each day against.
+    public var dailyFocusGoalMinutes: Int
+
     public init(
         focusMinutes: Int = 50,
         breakMinutes: Int = 10,
@@ -91,6 +98,7 @@ public struct AppConfig: Codable, Equatable {
         blockedApps: [BlockedApp] = [],
         blockedSites: [BlockedSite] = [],
         pinnedHUDEnabled: Bool = true,
+        hud: HUDSettings = HUDSettings(),
         task: FocusTaskSettings = FocusTaskSettings(),
         strict: StrictModeSettings = StrictModeSettings(),
         schedules: [FocusSchedule] = [],
@@ -99,7 +107,9 @@ public struct AppConfig: Codable, Equatable {
         integrations: IntegrationSettings = IntegrationSettings(),
         appearance: AppearancePreference = .system,
         onboardingCompleted: Bool = false,
-        confirmBeforeEnding: Bool = true
+        confirmBeforeEnding: Bool = true,
+        timerEndSound: TimerEndSound = .glass,
+        dailyFocusGoalMinutes: Int = 120
     ) {
         self.focusMinutes = Self.normalizedFocusMinutes(focusMinutes)
         self.breakMinutes = max(0, breakMinutes)
@@ -109,6 +119,7 @@ public struct AppConfig: Codable, Equatable {
         self.blockedApps = blockedApps
         self.blockedSites = blockedSites
         self.pinnedHUDEnabled = pinnedHUDEnabled
+        self.hud = hud
         self.task = task
         self.strict = strict
         self.schedules = schedules
@@ -118,6 +129,8 @@ public struct AppConfig: Codable, Equatable {
         self.appearance = appearance
         self.onboardingCompleted = onboardingCompleted
         self.confirmBeforeEnding = confirmBeforeEnding
+        self.timerEndSound = timerEndSound
+        self.dailyFocusGoalMinutes = Self.normalizedDailyGoal(dailyFocusGoalMinutes)
     }
 
     public static let `default` = AppConfig()
@@ -133,6 +146,7 @@ public struct AppConfig: Codable, Equatable {
         case blockedApps
         case blockedSites
         case pinnedHUDEnabled
+        case hud
         case task
         case stream
         case strict
@@ -143,6 +157,8 @@ public struct AppConfig: Codable, Equatable {
         case appearance
         case onboardingCompleted
         case confirmBeforeEnding
+        case timerEndSound
+        case dailyFocusGoalMinutes
     }
 
     public init(from decoder: Decoder) throws {
@@ -174,6 +190,7 @@ public struct AppConfig: Codable, Equatable {
             ?? (try? container.decodeIfPresent(FocusTaskSettings.self, forKey: .stream))
             ?? FocusTaskSettings()
         pinnedHUDEnabled = try container.decodeIfPresent(Bool.self, forKey: .pinnedHUDEnabled) ?? true
+        hud = (try? container.decodeIfPresent(HUDSettings.self, forKey: .hud)) ?? HUDSettings()
         // A section this build cannot read falls back alone instead of
         // resetting every other setting with it.
         strict = (try? container.decodeIfPresent(StrictModeSettings.self, forKey: .strict)) ?? StrictModeSettings()
@@ -188,6 +205,10 @@ public struct AppConfig: Codable, Equatable {
         // already using the app, who should not be walked through it.
         onboardingCompleted = (try? container.decodeIfPresent(Bool.self, forKey: .onboardingCompleted)) ?? true
         confirmBeforeEnding = (try? container.decodeIfPresent(Bool.self, forKey: .confirmBeforeEnding)) ?? true
+        timerEndSound = (try? container.decodeIfPresent(TimerEndSound.self, forKey: .timerEndSound)) ?? .glass
+        dailyFocusGoalMinutes = Self.normalizedDailyGoal(
+            (try? container.decodeIfPresent(Int.self, forKey: .dailyFocusGoalMinutes)) ?? 120
+        )
     }
 
     public func encode(to encoder: Encoder) throws {
@@ -200,6 +221,7 @@ public struct AppConfig: Codable, Equatable {
         try container.encode(blockedApps, forKey: .blockedApps)
         try container.encode(blockedSites, forKey: .blockedSites)
         try container.encode(pinnedHUDEnabled, forKey: .pinnedHUDEnabled)
+        try container.encode(hud, forKey: .hud)
         try container.encode(task, forKey: .task)
         try container.encode(strict, forKey: .strict)
         try container.encode(schedules, forKey: .schedules)
@@ -209,6 +231,12 @@ public struct AppConfig: Codable, Equatable {
         try container.encode(appearance, forKey: .appearance)
         try container.encode(onboardingCompleted, forKey: .onboardingCompleted)
         try container.encode(confirmBeforeEnding, forKey: .confirmBeforeEnding)
+        try container.encode(timerEndSound, forKey: .timerEndSound)
+        try container.encode(dailyFocusGoalMinutes, forKey: .dailyFocusGoalMinutes)
+    }
+
+    public static func normalizedDailyGoal(_ minutes: Int) -> Int {
+        min(1_440, max(15, minutes))
     }
 
     public static func normalizedFocusMinutes(_ minutes: Int) -> Int {

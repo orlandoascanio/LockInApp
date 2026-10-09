@@ -23,6 +23,8 @@ enum FLColor {
     /// sand page reads as a hole.
     static let field = dynamic(light: "#FBF9F1", dark: "#222924")
     static let clay = dynamic(light: "#B87355", dark: "#D4906F")
+    /// Breaks. A cool slate, so a break never reads as more focus.
+    static let rest = dynamic(light: "#56788B", dark: "#8EB1C4")
 
     static let success = accentDeep
     static let warning = dynamic(light: "#B8874A", dark: "#D2A862")
@@ -48,6 +50,7 @@ extension Color {
     static let flHairline = Color(nsColor: FLColor.hairline)
     static let flField = Color(nsColor: FLColor.field)
     static let flClay = Color(nsColor: FLColor.clay)
+    static let flRest = Color(nsColor: FLColor.rest)
     static let flDestructive = Color(nsColor: FLColor.destructive)
     static let flWarning = Color(nsColor: FLColor.warning)
 }
@@ -346,51 +349,214 @@ struct FLAppPile: View {
 /// Weekly rhythm chart: bars on a shared baseline, today emphasised.
 struct FLWeeklyRhythm: View {
     let days: [DailyFocusColumn]
-    var height: CGFloat = 62
+    /// Each bar is measured against this, drawn as a dotted line.
+    let goalMinutes: Int
+    var height: CGFloat = 96
 
     struct DailyFocusColumn: Identifiable {
         let id: Date
+        /// "Mon".
         let label: String
+        /// "Monday", for the hover card.
+        let dayName: String
         let minutes: Int
+        let sessions: Int
+        /// Every category that day with its minutes, the most time first.
+        let categories: [(name: String, minutes: Int)]
         let isToday: Bool
+        let isFuture: Bool
     }
 
-    private var peak: Int {
-        max(days.map(\.minutes).max() ?? 0, 1)
+    private static let barWidth: CGFloat = 30
+    /// Room above the tallest bar for its value.
+    private static let valueRoom: CGFloat = 18
+    /// Right-hand gutter for the goal label.
+    private static let gutter: CGFloat = 40
+
+    @State private var hovered: Date?
+
+    /// The goal, or the best day if that went past it, so every bar fits.
+    private var scale: Int {
+        max(goalMinutes, days.map(\.minutes).max() ?? 0, 1)
+    }
+
+    private var goalOffset: CGFloat {
+        height * CGFloat(goalMinutes) / CGFloat(scale)
     }
 
     var body: some View {
         VStack(spacing: 0) {
-            HStack(alignment: .bottom, spacing: 12) {
-                ForEach(days) { day in
-                    Rectangle()
-                        .fill(day.isToday ? Color.flAccentDeep : Color.flAccent.opacity(0.5))
-                        .frame(height: barHeight(for: day))
-                        .frame(maxWidth: .infinity)
-                        .accessibilityLabel("\(day.label): \(day.minutes) focus minutes")
+            HStack(alignment: .bottom, spacing: 0) {
+                ZStack(alignment: .bottom) {
+                    goalLine
+                    HStack(alignment: .bottom, spacing: 0) {
+                        ForEach(days) { day in
+                            column(day)
+                                .frame(maxWidth: .infinity)
+                                .zIndex(hovered == day.id ? 1 : 0)
+                        }
+                    }
                 }
+
+                Text(Self.duration(goalMinutes))
+                    .font(.system(size: 9.5, weight: .medium))
+                    .foregroundStyle(Color.flInkSoft.opacity(0.8))
+                    .frame(width: Self.gutter, alignment: .leading)
+                    .padding(.leading, 6)
+                    .padding(.bottom, goalOffset - 6)
+                    .accessibilityLabel("Daily goal \(Self.duration(goalMinutes))")
             }
-            .frame(height: height, alignment: .bottom)
+            .frame(height: height + Self.valueRoom, alignment: .bottom)
 
-            Rectangle().fill(Color.flHairline).frame(height: 1)
+            Rectangle()
+                .fill(Color.flHairline)
+                .frame(height: 1)
+                .padding(.trailing, Self.gutter + 6)
 
-            HStack(spacing: 12) {
+            HStack(spacing: 0) {
                 ForEach(days) { day in
                     Text(day.label)
-                        .font(.system(size: 10, weight: day.isToday ? .semibold : .regular))
-                        .foregroundStyle(day.isToday ? Color.flInk : Color.flInkSoft)
+                        .font(.system(size: 10.5, weight: day.isToday ? .semibold : .regular))
+                        .foregroundStyle(labelColor(day))
                         .frame(maxWidth: .infinity)
                 }
             }
+            .padding(.trailing, Self.gutter + 6)
             .padding(.top, 7)
         }
     }
 
-    private func barHeight(for day: DailyFocusColumn) -> CGFloat {
-        guard day.minutes > 0 else {
-            return 2
+    private var goalLine: some View {
+        Line()
+            .stroke(Color.flInkSoft.opacity(0.45), style: StrokeStyle(lineWidth: 1, dash: [2, 3]))
+            .frame(height: 1)
+            .padding(.bottom, goalOffset)
+            .accessibilityHidden(true)
+    }
+
+    private func column(_ day: DailyFocusColumn) -> some View {
+        VStack(spacing: 4) {
+            if !day.isFuture {
+                Text(day.minutes > 0 ? Self.duration(day.minutes) : "–")
+                    .font(.system(size: 10.5, weight: day.isToday ? .semibold : .regular))
+                    .monospacedDigit()
+                    .foregroundStyle(day.isToday ? Color.flInk : Color.flInkSoft)
+                    .fixedSize()
+            }
+            bar(day)
         }
-        return max(3, height * CGFloat(day.minutes) / CGFloat(peak))
+        .frame(maxWidth: .infinity, alignment: .bottom)
+        .contentShape(Rectangle())
+        .overlay(alignment: .bottom) {
+            if hovered == day.id {
+                detailCard(day)
+                    .padding(.bottom, barHeight(day) + 26)
+                    .transition(.opacity)
+            }
+        }
+        .onHover { inside in
+            withAnimation(FLAnimation.quick) {
+                hovered = inside ? day.id : (hovered == day.id ? nil : hovered)
+            }
+        }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(accessibilityText(day))
+    }
+
+    @ViewBuilder
+    private func bar(_ day: DailyFocusColumn) -> some View {
+        let shape = UnevenRoundedRectangle(topLeadingRadius: 5, topTrailingRadius: 5, style: .continuous)
+        if day.isFuture {
+            // An empty slot up to the goal: still to come, not zero.
+            shape
+                .stroke(Color.flHairline, style: StrokeStyle(lineWidth: 1, dash: [3, 3]))
+                .frame(width: Self.barWidth, height: goalOffset)
+        } else if day.minutes > 0 {
+            shape
+                .fill(day.isToday ? Color.flAccentDeep : Color.flAccent.opacity(hovered == day.id ? 0.75 : 0.5))
+                .frame(width: Self.barWidth, height: barHeight(day))
+        } else {
+            Color.clear.frame(width: Self.barWidth, height: 0)
+        }
+    }
+
+    private func barHeight(_ day: DailyFocusColumn) -> CGFloat {
+        guard !day.isFuture, day.minutes > 0 else { return 0 }
+        return max(4, height * CGFloat(day.minutes) / CGFloat(scale))
+    }
+
+    private func detailCard(_ day: DailyFocusColumn) -> some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text(day.isToday ? "Today" : day.dayName)
+                .font(.system(size: 11, weight: .semibold))
+                .foregroundStyle(Color.flInk)
+            Text(detailLine(day))
+                .font(.system(size: 11))
+                .foregroundStyle(Color.flInkSoft)
+
+            if !day.isFuture, !day.categories.isEmpty {
+                Grid(alignment: .leading, horizontalSpacing: 14, verticalSpacing: 2) {
+                    ForEach(day.categories, id: \.name) { category in
+                        GridRow {
+                            Text(category.name)
+                                .foregroundStyle(Color.flInk)
+                            Text(Self.duration(category.minutes))
+                                .monospacedDigit()
+                                .foregroundStyle(Color.flInkSoft)
+                                .gridColumnAlignment(.trailing)
+                        }
+                        .font(.system(size: 11))
+                    }
+                }
+                .padding(.top, 4)
+            }
+        }
+        .fixedSize()
+        .padding(.horizontal, 10)
+        .padding(.vertical, 7)
+        .background(
+            RoundedRectangle(cornerRadius: FLRadius.md, style: .continuous)
+                .fill(Color.flCanvas)
+                .shadow(color: .black.opacity(0.12), radius: 6, y: 2)
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: FLRadius.md, style: .continuous)
+                .strokeBorder(Color.flHairline, lineWidth: 1)
+        )
+        .allowsHitTesting(false)
+    }
+
+    private func detailLine(_ day: DailyFocusColumn) -> String {
+        if day.isFuture { return "Still to come" }
+        guard day.sessions > 0 else { return "No focus" }
+        let sessions = day.sessions == 1 ? "1 session" : "\(day.sessions) sessions"
+        return "\(Self.duration(day.minutes)) · \(sessions)"
+    }
+
+    private func accessibilityText(_ day: DailyFocusColumn) -> String {
+        let categories = day.categories.map { "\($0.name) \(Self.duration($0.minutes))" }
+        return (["\(day.isToday ? "Today" : day.dayName): \(detailLine(day))"] + categories).joined(separator: ", ")
+    }
+
+    private func labelColor(_ day: DailyFocusColumn) -> Color {
+        if day.isToday { return .flInk }
+        return day.isFuture ? Color.flInkSoft.opacity(0.55) : .flInkSoft
+    }
+
+    static func duration(_ minutes: Int) -> String {
+        guard minutes >= 60 else { return "\(minutes)m" }
+        let remainder = minutes % 60
+        return remainder == 0 ? "\(minutes / 60)h" : "\(minutes / 60)h \(remainder)m"
+    }
+
+    /// A horizontal line across the full width, for dashing.
+    private struct Line: Shape {
+        func path(in rect: CGRect) -> Path {
+            Path { path in
+                path.move(to: CGPoint(x: rect.minX, y: rect.midY))
+                path.addLine(to: CGPoint(x: rect.maxX, y: rect.midY))
+            }
+        }
     }
 }
 
@@ -399,14 +565,16 @@ struct FLProgressRing: View {
     let progress: Double
     var size: CGFloat = 22
     var lineWidth: CGFloat = 2
+    var tint: Color = .flAccentDeep
+    var trackTint: Color = .flAccent
 
     var body: some View {
         ZStack {
             Circle()
-                .stroke(Color.flAccent.opacity(0.22), lineWidth: lineWidth)
+                .stroke(trackTint.opacity(0.22), lineWidth: lineWidth)
             Circle()
                 .trim(from: 0, to: max(0.001, min(1, progress)))
-                .stroke(Color.flAccentDeep, style: StrokeStyle(lineWidth: lineWidth, lineCap: .round))
+                .stroke(tint, style: StrokeStyle(lineWidth: lineWidth, lineCap: .round))
                 .rotationEffect(.degrees(-90))
         }
         .frame(width: size, height: size)

@@ -57,6 +57,7 @@ final class MenuBarController: NSObject, ObservableObject {
     /// at least one completed session. Cached because both are read on every
     /// redraw but only change when a session ends.
     @Published private(set) var weeklyRhythm: [DailyFocus] = []
+    @Published private(set) var weekSummary = WeekFocusSummary(totalMinutes: 0, lastWeekSoFarMinutes: 0, elapsedDays: 1)
     @Published private(set) var streak: Int = 0
     @Published private(set) var blockedTodayCounts: [String: Int] = [:]
     @Published private(set) var sessionStats: SessionStats = .empty
@@ -272,6 +273,9 @@ final class MenuBarController: NSObject, ObservableObject {
             guard let settings = self?.config.breakSuggestions else { return nil }
             return BreakSuggestions.suggestion(forCycle: cycle, breakMinutes: minutes, settings: settings)
         }
+        notificationService.appPlaysTimerEndSound = { [weak self] in
+            self?.config.timerEndSound != .off
+        }
 
         self.timerEngine.onChange = { [weak self] snapshot in
             Task { @MainActor in
@@ -321,7 +325,16 @@ final class MenuBarController: NSObject, ObservableObject {
         }
         pinnedHUD.onUnpin = { [weak self] in
             self?.updatePinnedHUD(enabled: false)
+            self?.notificationService.notice(
+                title: "HUD unpinned",
+                body: "Pin it again from LockIn in the menu bar, or in Settings.",
+                sound: false
+            )
         }
+        pinnedHUD.onSettingsChange = { [weak self] mutate in
+            self?.updateHUD(mutate)
+        }
+        pinnedHUD.apply(config.hud)
     }
 
     private func recordInterception(key: String) {
@@ -346,6 +359,7 @@ final class MenuBarController: NSObject, ObservableObject {
     private func refreshDerivedStats() {
         sessionStats = historyStore.stats()
         weeklyRhythm = historyStore.weeklyRhythm()
+        weekSummary = historyStore.weekSummary()
         streak = historyStore.focusStreak()
         blockedTodayCounts = activityStore.countsToday()
         publishWidgetSnapshot()
@@ -968,10 +982,29 @@ final class MenuBarController: NSObject, ObservableObject {
         }
     }
 
+    func updateTimerEndSound(_ sound: TimerEndSound) {
+        config.timerEndSound = sound
+        saveConfig()
+        // Picking one is the only way to know what it sounds like.
+        playTimerEndSound()
+    }
+
+    private func playTimerEndSound() {
+        guard let name = config.timerEndSound.systemSoundName else { return }
+        let played = NSSound(named: NSSound.Name(name))?.play() ?? false
+        FocusLockLog.debug("timer-end sound \(name) played: \(played)")
+    }
+
     func updatePinnedHUD(enabled: Bool) {
         config.pinnedHUDEnabled = enabled
         saveConfig()
         syncPinnedHUD()
+    }
+
+    func updateHUD(_ change: (inout HUDSettings) -> Void) {
+        change(&config.hud)
+        saveConfig()
+        pinnedHUD.apply(config.hud)
     }
 
     func updateBreakSuggestions(_ update: (inout BreakSuggestionSettings) -> Void) {
@@ -1321,13 +1354,15 @@ final class MenuBarController: NSObject, ObservableObject {
             return
         }
 
+        pinnedHUD.apply(config.hud)
         pinnedHUD.show()
         pinnedHUD.update(
             countdown: snapshot.formattedRemaining,
             phaseLabel: hudPhaseLabel,
-            guardedLine: hudGuardedLine,
+            goal: hudGoal,
             progress: phaseProgress,
-            canEnd: !isStrictLocked
+            canEnd: !isStrictLocked,
+            tone: hudTone
         )
     }
 
@@ -1336,8 +1371,18 @@ final class MenuBarController: NSObject, ObservableObject {
         case .break:
             return "Break"
         default:
-            return "Focus · \(snapshot.focusMinutes)/\(snapshot.breakMinutes)\(snapshot.isStrict ? " · Strict" : "")"
+            return snapshot.isStrict ? "Focus · Strict" : "Focus"
         }
+    }
+
+    private var hudGoal: String? {
+        let goal = snapshot.task?.goal ?? ""
+        return goal.isEmpty ? nil : goal
+    }
+
+    private var hudTone: HUDTone {
+        if snapshot.remainingSeconds <= 60 { return .finalMinute }
+        return snapshot.phase == .break ? .rest : .focus
     }
 
     var guardedSummaryLine: String {
@@ -1352,10 +1397,6 @@ final class MenuBarController: NSObject, ObservableObject {
         let shown = names.prefix(3).joined(separator: ", ")
         let extra = names.count - min(3, names.count)
         return extra > 0 ? "\(shown) +\(extra)" : shown
-    }
-
-    private var hudGuardedLine: String {
-        guardedSummaryLine
     }
 
     private func setupStatusItem() {
@@ -1484,7 +1525,12 @@ final class MenuBarController: NSObject, ObservableObject {
     }
 
     private func tick(now: Date = Date()) {
+        let phaseBeforeTick = timerEngine.snapshot.phase
         timerEngine.refresh()
+        if TimerEndSound.timerRanOut(from: phaseBeforeTick, to: timerEngine.snapshot.phase) {
+            playTimerEndSound()
+            pinnedHUD.pulse()
+        }
         syncEscape(now: now)
 
         if now.timeIntervalSince(lastScheduleCheck) >= 5 {
