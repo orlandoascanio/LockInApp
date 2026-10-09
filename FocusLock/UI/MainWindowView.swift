@@ -541,6 +541,49 @@ struct FocusPageView: View {
     // MARK: Guarded summary
 
     private var guardedSummary: some View {
+        VStack(spacing: 0) {
+            guardedSummaryRow
+
+            if let browser = controller.browserPermissionProblem, !controller.config.blockedSites.isEmpty {
+                unguardedBrowserWarning(browser)
+            }
+        }
+    }
+
+    /// Without the browser's OK, LockIn can't see its tabs, so guarded sites
+    /// open freely. That must not hide on the Blocked page.
+    private func unguardedBrowserWarning(_ browser: SupportedBrowser) -> some View {
+        HStack(spacing: 10) {
+            Image(systemName: "exclamationmark.triangle.fill")
+                .font(.system(size: 12))
+                .foregroundStyle(Color.flWarning)
+
+            Text("Websites aren’t guarded in \(browser.displayName) yet. It needs your OK first.")
+                .font(.system(size: 12.5))
+                .foregroundStyle(Color.flInk)
+
+            Spacer(minLength: FLSpacing.sm)
+
+            Button {
+                controller.page = .blockedApps
+            } label: {
+                HStack(spacing: 5) {
+                    Text("Allow…")
+                        .font(.system(size: 12, weight: .semibold))
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 9, weight: .bold))
+                }
+                .foregroundStyle(Color.flWarning)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+        }
+        .padding(.horizontal, 26)
+        .padding(.vertical, 10)
+        .background(Color.flWarning.opacity(0.1))
+    }
+
+    private var guardedSummaryRow: some View {
         HStack(spacing: 12) {
             if controller.config.blockedApps.isEmpty && controller.config.blockedSites.isEmpty {
                 Text("Nothing guarded yet")

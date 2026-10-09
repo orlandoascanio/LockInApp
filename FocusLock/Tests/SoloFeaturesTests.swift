@@ -2,6 +2,18 @@
 import XCTest
 
 final class BlockedSiteTests: XCTestCase {
+    func testGmailCoversWhereGmailActuallyLives() {
+        let gmail = BlockedSite(pattern: "gmail.com")
+        XCTAssertTrue(gmail.matches(URL(string: "https://mail.google.com/mail/u/0/#inbox")!))
+        XCTAssertTrue(gmail.matches(URL(string: "https://gmail.com/")!))
+        // The rest of Google stays reachable.
+        XCTAssertFalse(gmail.matches(URL(string: "https://docs.google.com/document/d/1")!))
+        XCTAssertFalse(gmail.matches(URL(string: "https://www.google.com/search?q=gmail")!))
+
+        XCTAssertTrue(BlockedSite(pattern: "twitter.com").matches(URL(string: "https://x.com/home")!))
+        XCTAssertTrue(BlockedSite(pattern: "x.com").matches(URL(string: "https://twitter.com/home")!))
+    }
+
     func testNormalizesWhateverIsPasted() {
         XCTAssertEqual(SitePattern.normalize("YouTube.com"), "youtube.com")
         XCTAssertEqual(SitePattern.normalize("https://www.youtube.com/"), "youtube.com")

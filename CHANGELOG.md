@@ -29,6 +29,11 @@ What changed in each LockIn release. Versions come from the git tag the release 
   - Daily charts show the same dotted daily-goal line as the Focus page, and charts by week or month keep the average line.
   - Each bar shows its time when there is room.
 
+### Fixes
+
+- Guarding gmail.com now also guards mail.google.com, where Gmail actually opens. Before, a gmail.com rule never matched anything. twitter.com and x.com now cover each other the same way.
+- When a browser hasn't given LockIn its OK, the Focus page now says that websites aren't guarded there, with a link straight to the Websites tab to allow it. Before, the only signs were one notification and a badge on the Blocked page, so guarded sites could open freely without you noticing.
+
 ## 0.3.3 (2026-10-02)
 
 - LockIn now asks before ending a session, skipping a focus block, or quitting while one is running, and says how much time is left and what History will record. The safe answer is the default; turn it off with "Don't ask again" or in Settings › General.

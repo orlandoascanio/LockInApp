@@ -78,12 +78,28 @@ public enum SitePattern {
 
         let (patternHost, patternPath) = split(pattern)
         let host = strippingWWW(rawHost)
-        guard host == patternHost || host.hasSuffix("." + patternHost) else { return false }
+        if patternPath.isEmpty, (aliases[patternHost] ?? []).contains(where: { covers($0, host) }) {
+            return true
+        }
+        guard covers(patternHost, host) else { return false }
         guard !patternPath.isEmpty else { return true }
 
         // `/r/all` covers `/r/all/top` but not `/r/allergies`.
         let path = url.path.lowercased()
         return path == patternPath || path.hasPrefix(patternPath + "/")
+    }
+
+    /// Sites whose name and address differ: typing `gmail.com` takes you to
+    /// `mail.google.com`, so guarding one has to guard where it really lives.
+    static let aliases: [String: [String]] = [
+        "gmail.com": ["mail.google.com"],
+        "twitter.com": ["x.com"],
+        "x.com": ["twitter.com"]
+    ]
+
+    /// The host itself or any of its subdomains.
+    private static func covers(_ patternHost: String, _ host: String) -> Bool {
+        host == patternHost || host.hasSuffix("." + patternHost)
     }
 
     private static func strippingWWW(_ host: String) -> String {

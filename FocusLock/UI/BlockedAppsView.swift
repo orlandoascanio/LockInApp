@@ -57,6 +57,12 @@ struct BlockedAppsView: View {
                     .padding(.vertical, 10)
             }
         }
+        .onAppear {
+            // Arriving with a browser still unguarded means arriving to fix it.
+            if controller.browserPermissionProblem != nil {
+                tab = .websites
+            }
+        }
     }
 
     private var tabPicker: some View {
