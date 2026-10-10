@@ -15,28 +15,28 @@ import SwiftUI
 //   · the odd "today" bar log → Studio's weekly rhythm + streak
 // =====================================================================
 
-struct LockInShowcase: View {
+struct QuietwhileShowcase: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 40) {
             SectionTitle(
                 index: "★",
-                title: "LockIn — the redesign",
+                title: "Quietwhile — the redesign",
                 body_: "Sage does the talking: sand canvas, moss accent, serif numerals, hairline rules, one filled button per screen. Studio lends the sidebar so History and Settings stop being modal detours, and lends the blocked-apps table with behaviour and hit counts. Ember lends the timer's control pair, moved back up under the countdown so it reads as part of the clock. The guard screen stays exactly as it was.",
                 accent: SagePalette.accentDeep
             )
 
             ScreenCard("Focus", note: "900 × 620 · sidebar + timer, controls under the clock") {
-                LockInWindow(page: .focus, running: true)
+                QuietwhileWindow(page: .focus, running: true)
             }
 
             HStack(alignment: .top, spacing: 32) {
                 ScreenCard("Focus — idle", note: "One filled button, nothing else") {
-                    LockInWindow(page: .focus, running: false)
+                    QuietwhileWindow(page: .focus, running: false)
                         .scaleEffect(0.62, anchor: .topLeading)
                         .frame(width: 558, height: 384)
                 }
                 ScreenCard("Blocked apps", note: "Studio's table, Sage's skin") {
-                    LockInWindow(page: .apps, running: true)
+                    QuietwhileWindow(page: .apps, running: true)
                         .scaleEffect(0.62, anchor: .topLeading)
                         .frame(width: 558, height: 384)
                 }
@@ -59,10 +59,10 @@ struct LockInShowcase: View {
 
             HStack(alignment: .top, spacing: 32) {
                 ScreenCard("HUD — expanded on hover", note: "Reveals controls without unpinning") {
-                    LockInHUD(hovered: true)
+                    QuietwhileHUD(hovered: true)
                 }
                 ScreenCard("Menu-bar tuck", note: "Same strip, dropped from the status item") {
-                    LockInMenuBarTuck()
+                    QuietwhileMenuBarTuck()
                 }
             }
         }
@@ -71,10 +71,10 @@ struct LockInShowcase: View {
 
 // MARK: - Window
 
-enum LockInPage { case focus, apps }
+enum QuietwhilePage { case focus, apps }
 
-struct LockInWindow: View {
-    let page: LockInPage
+struct QuietwhileWindow: View {
+    let page: QuietwhilePage
     var running: Bool = true
 
     var body: some View {
@@ -98,7 +98,7 @@ struct LockInWindow: View {
     private var sidebar: some View {
         VStack(alignment: .leading, spacing: 0) {
             VStack(alignment: .leading, spacing: 2) {
-                Text("LockIn")
+                Text("Quietwhile")
                     .font(.system(size: 19, weight: .regular, design: .serif))
                     .foregroundStyle(SagePalette.ink)
                 Text("FOCUS")
@@ -458,7 +458,7 @@ struct LockInWindow: View {
 
 // MARK: - Pinned HUD
 
-struct LockInHUD: View {
+struct QuietwhileHUD: View {
     var hovered: Bool = false
 
     var body: some View {
@@ -558,7 +558,7 @@ struct PinnedHUDContext: View {
                 .background(Color(white: 0.945))
             }
 
-            LockInHUD(hovered: false)
+            QuietwhileHUD(hovered: false)
                 .shadow(color: .black.opacity(0.18), radius: 18, x: 0, y: 8)
                 .padding(.top, 54)
         }
@@ -568,7 +568,7 @@ struct PinnedHUDContext: View {
 
 // MARK: - Menu-bar tuck
 
-struct LockInMenuBarTuck: View {
+struct QuietwhileMenuBarTuck: View {
     var body: some View {
         VStack(spacing: 0) {
             HStack(spacing: 14) {
@@ -625,7 +625,7 @@ struct LockInMenuBarTuck: View {
                     Rectangle().fill(SagePalette.hairline.opacity(0.7)).frame(height: 1)
 
                     HStack(spacing: 0) {
-                        tuckAction("Open LockIn")
+                        tuckAction("Open Quietwhile")
                         Rectangle().fill(SagePalette.hairline.opacity(0.7)).frame(width: 1, height: 16)
                         tuckAction("Pin HUD")
                     }

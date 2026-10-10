@@ -336,16 +336,16 @@ final class AppBlockerTests: XCTestCase {
         }
     }
 
-    func testLockInItselfCannotBeAdded() {
+    func testQuietwhileItselfCannotBeAdded() {
         let result = AppBlocker.validate(
-            BlockedApp(name: "LockIn", bundleId: "com.lockin.app"),
+            BlockedApp(name: "Quietwhile", bundleId: "com.lockin.app"),
             existingApps: [],
             ownBundleIdentifier: "com.lockin.app"
         )
 
         switch result {
         case .success:
-            XCTFail("LockIn should not be blockable")
+            XCTFail("Quietwhile should not be blockable")
         case .failure(let error):
             XCTAssertEqual(error, .protectedApp)
         }

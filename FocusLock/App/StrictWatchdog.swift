@@ -1,12 +1,12 @@
 import Foundation
 import FocusLockCore
 
-/// Brings LockIn back if it is force-quit during a strict block.
+/// Brings Quietwhile back if it is force-quit during a strict block.
 ///
 /// A per-user launch agent is kept alive by launchd only while a lock file
 /// exists (`KeepAlive` → `PathState`). The lock is created when a strict block
 /// starts and removed when it ends, so outside strict blocks the agent sits
-/// idle and costs nothing. Each run checks once for LockIn and relaunches it;
+/// idle and costs nothing. Each run checks once for Quietwhile and relaunches it;
 /// launchd runs it again ten seconds later for as long as the lock is there.
 /// No privileges are involved — the agent is yours, in ~/Library/LaunchAgents.
 final class StrictWatchdog {
@@ -60,7 +60,7 @@ final class StrictWatchdog {
         launchctl(["bootstrap", "gui/\(getuid())", agentURL.path])
     }
 
-    /// If LockIn is gone, reopen it; if it can no longer be found (deleted),
+    /// If Quietwhile is gone, reopen it; if it can no longer be found (deleted),
     /// drop the lock so launchd stops trying.
     private func agentPlist() -> Data {
         let lock = lockURL.path.replacingOccurrences(of: "'", with: "'\\''")

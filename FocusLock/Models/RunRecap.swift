@@ -53,7 +53,7 @@ public struct RunRecap: Equatable {
 
     /// Plain text, for the clipboard and for a Discord message.
     public var text: String {
-        var lines = ["LockIn recap · \(headline)"]
+        var lines = ["Quietwhile recap · \(headline)"]
         if !categories.isEmpty {
             lines.append(categories.map { "\($0.name) \(Self.duration($0.minutes))" }.joined(separator: " · "))
         }

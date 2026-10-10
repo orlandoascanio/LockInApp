@@ -7,7 +7,7 @@ import FocusLockCore
 /// is open right now. All of it is already on the Mac and none of it needs a
 /// permission; nothing is sent anywhere.
 enum AppUsageScanner {
-    /// Never offered: apps LockIn refuses to guard, and browsers, which are
+    /// Never offered: apps Quietwhile refuses to guard, and browsers, which are
     /// guarded one website at a time instead.
     static let excludedBundleIds: Set<String> = AppBlocker.protectedBundleIdentifiers
         .union(SupportedBrowser.allCases.map(\.bundleIdentifier))

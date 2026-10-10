@@ -11,12 +11,12 @@ enum ConceptExporter {
         let dir = args.indices.contains(flag + 1) ? args[flag + 1] : FileManager.default.currentDirectoryPath
         try? FileManager.default.createDirectory(atPath: dir, withIntermediateDirectories: true)
 
-        write(LockInWindow(page: .focus, running: true), to: dir, name: "redesign-1-focus")
-        write(LockInWindow(page: .focus, running: false), to: dir, name: "redesign-2-focus-idle")
-        write(LockInWindow(page: .apps, running: true), to: dir, name: "redesign-3-apps")
+        write(QuietwhileWindow(page: .focus, running: true), to: dir, name: "redesign-1-focus")
+        write(QuietwhileWindow(page: .focus, running: false), to: dir, name: "redesign-2-focus-idle")
+        write(QuietwhileWindow(page: .apps, running: true), to: dir, name: "redesign-3-apps")
         write(PinnedHUDContext(), to: dir, name: "redesign-4-hud-pinned")
-        write(LockInHUD(hovered: true), to: dir, name: "redesign-5-hud-hover")
-        write(LockInMenuBarTuck(), to: dir, name: "redesign-6-menubar")
+        write(QuietwhileHUD(hovered: true), to: dir, name: "redesign-5-hud-hover")
+        write(QuietwhileMenuBarTuck(), to: dir, name: "redesign-6-menubar")
 
         write(EmberPanel(isRunning: true), to: dir, name: "ember-1-panel-running")
         write(EmberPanel(isRunning: false), to: dir, name: "ember-2-panel-idle")

@@ -1,7 +1,7 @@
 import FocusLockCore
 import SwiftUI
 
-/// What LockIn asks macOS for, why, and where each one stands. Used wherever a
+/// What Quietwhile asks macOS for, why, and where each one stands. Used wherever a
 /// permission comes up, so the explanation always arrives before the system
 /// dialog does.
 struct PermissionsPanel: View {
@@ -32,7 +32,7 @@ struct PermissionsPanel: View {
                 row(
                     symbol: "globe",
                     title: "Your browser’s current tab",
-                    detail: "To guard a website, LockIn asks the browser for the address of the tab in front. Only the address, only during focus. Never page contents, and never your history."
+                    detail: "To guard a website, Quietwhile asks the browser for the address of the tab in front. Only the address, only during focus. Never page contents, and never your history."
                 ) {
                     EmptyView()
                 }

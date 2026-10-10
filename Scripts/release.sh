@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Build, sign with Developer ID, notarize, and package LockIn as a DMG, then
+# Build, sign with Developer ID, notarize, and package Quietwhile as a DMG, then
 # sign it for Sparkle and write the appcast.
 #
 #   Scripts/release.sh            # version from the latest vX.Y.Z tag
@@ -9,12 +9,12 @@
 #   2. xcrun notarytool store-credentials LockIn-Notary --apple-id <you> --team-id VW98Z8698B
 #   3. Scripts/release/setup_sparkle.sh
 #
-# Output lands in build/release/: LockIn-<version>.dmg and appcast.xml. Upload
+# Output lands in build/release/: Quietwhile-<version>.dmg and appcast.xml. Upload
 # both to a GitHub release; the app's feed points at the latest release.
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
-APP_NAME="LockIn"
+APP_NAME="Quietwhile"
 TEAM_ID="VW98Z8698B"
 NOTARY_PROFILE="${NOTARY_PROFILE:-LockIn-Notary}"
 REPO="orlandoascanio/LockInApp"
@@ -60,7 +60,7 @@ xcodebuild archive \
     -destination 'generic/platform=macOS' \
     MARKETING_VERSION="$VERSION" \
     CURRENT_PROJECT_VERSION="$BUILD_NUMBER" \
-    LOCKIN_SOURCE_COMMIT="$COMMIT" \
+    QUIETWHILE_SOURCE_COMMIT="$COMMIT" \
     CODE_SIGN_IDENTITY="Developer ID Application" \
     OTHER_CODE_SIGN_FLAGS="--timestamp" \
     | grep -E "error:|ARCHIVE (SUCCEEDED|FAILED)" || true
@@ -98,7 +98,7 @@ spctl --assess --type open --context context:primary-signature -v "$DMG"
 
 step "Signing for Sparkle and writing the appcast"
 # A copy with no version in its name, so a website can link to
-# releases/latest/download/LockIn.dmg and never need editing. It's made after
+# releases/latest/download/Quietwhile.dmg and never need editing. It's made after
 # the appcast: generate_appcast would list a second DMG as a second update.
 STABLE_DMG="$OUT/$APP_NAME.dmg"
 rm -f "$STABLE_DMG"

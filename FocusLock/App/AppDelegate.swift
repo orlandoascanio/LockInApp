@@ -16,7 +16,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
-        NotificationCenter.default.post(name: .lockInShowMainWindow, object: nil)
+        NotificationCenter.default.post(name: .quietwhileShowMainWindow, object: nil)
         return true
     }
 
@@ -35,11 +35,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         menuBarController?.handleAppWillTerminate()
     }
 
-    /// `lockin://start`, `lockin://stop`, `lockin://skip`, or just `lockin://`
-    /// to bring the window forward. Used by the widget when LockIn is not
-    /// already running to receive its buttons.
+    /// `quietwhile://start`, `quietwhile://stop`, `quietwhile://skip`, or just
+    /// `quietwhile://` to bring the window forward. Used by the widget when
+    /// Quietwhile is not already running to receive its buttons. The LockIn-era
+    /// `lockin://` still works, for shortcuts and scripts made before the rename.
     func application(_ application: NSApplication, open urls: [URL]) {
-        for url in urls where url.scheme == "lockin" {
+        for url in urls where url.scheme == "quietwhile" || url.scheme == "lockin" {
             let command = url.host ?? ""
             if let action = HotkeyAction(rawValue: command) {
                 menuBarController?.perform(action)
@@ -51,5 +52,5 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 }
 
 extension Notification.Name {
-    static let lockInShowMainWindow = Notification.Name("LockInShowMainWindow")
+    static let quietwhileShowMainWindow = Notification.Name("QuietwhileShowMainWindow")
 }

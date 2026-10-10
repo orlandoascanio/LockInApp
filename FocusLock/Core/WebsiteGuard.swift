@@ -1,6 +1,6 @@
 import Foundation
 
-/// A browser LockIn can read the current tab of through Apple Events.
+/// A browser Quietwhile can read the current tab of through Apple Events.
 /// Firefox has no scripting dictionary for tabs, so it is not on the list.
 public enum SupportedBrowser: String, CaseIterable, Identifiable {
     case safari = "com.apple.Safari"
@@ -63,7 +63,7 @@ public enum SupportedBrowser: String, CaseIterable, Identifiable {
 }
 
 public enum BrowserScriptError: Error, Equatable {
-    /// The user said no to LockIn controlling this browser, or has not been asked yet.
+    /// The user said no to Quietwhile controlling this browser, or has not been asked yet.
     case notPermitted
     case failed(String)
 }
@@ -121,7 +121,7 @@ public struct BlockedVisit: Equatable {
 
 /// Guards websites without a browser extension: while a supported browser is
 /// frontmost during focus, it reads the current tab's address about once a
-/// second and swaps a blocked page out for LockIn's own.
+/// second and swaps a blocked page out for Quietwhile's own.
 public final class WebsiteGuard {
     public var onBlocked: ((BlockedVisit) -> Void)?
     public var onPermissionDenied: ((SupportedBrowser) -> Void)?
@@ -236,7 +236,7 @@ public enum BlockedPage {
             .replacingOccurrences(of: "<", with: "&lt;")
             .replacingOccurrences(of: ">", with: "&gt;")
         return """
-        <!doctype html><html><head><meta charset="utf-8"><title>Not now · LockIn</title>
+        <!doctype html><html><head><meta charset="utf-8"><title>Not now · Quietwhile</title>
         <style>
         :root{color-scheme:light dark;--bg:#F4EFE3;--ink:#1F2A24;--soft:#6B7169;--accent:#2F5D4A}
         @media (prefers-color-scheme:dark){:root{--bg:#17201C;--ink:#ECE7DA;--soft:#9AA197;--accent:#7FB89C}}
@@ -247,7 +247,7 @@ public enum BlockedPage {
         small{letter-spacing:.14em;text-transform:uppercase;color:var(--accent);font-weight:600;font-size:12px}
         h1{font-size:44px;margin:.2em 0;font-weight:700}p{color:var(--soft);max-width:30em}
         </style></head><body><main>
-        <small>LockIn</small><h1>Not now.</h1>
+        <small>Quietwhile</small><h1>Not now.</h1>
         <p><b>\(safeHost)</b> is guarded \(until). Close this tab and get back to the thing you sat down to do.</p>
         </main></body></html>
         """

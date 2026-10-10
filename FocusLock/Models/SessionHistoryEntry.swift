@@ -3,7 +3,7 @@ import Foundation
 public enum SessionHistoryStatus: String, Codable, Equatable {
     case completed
     case cancelled
-    /// A focus session that ended because LockIn was quit (or relaunched) while
+    /// A focus session that ended because Quietwhile was quit (or relaunched) while
     /// it was still running. The guard is friction, not a cage — but the ledger
     /// records that you walked away.
     case abandoned

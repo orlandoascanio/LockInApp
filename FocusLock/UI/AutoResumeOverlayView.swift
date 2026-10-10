@@ -12,7 +12,7 @@ final class AutoResumeOverlayModel: ObservableObject {
 }
 
 /// The screen autopilot takes over with when a break has been over for a while
-/// and nothing has happened. Same paper as the guard screen — this is LockIn
+/// and nothing has happened. Same paper as the guard screen — this is Quietwhile
 /// speaking, not a system alert — but the countdown is the loudest thing on it.
 struct AutoResumeOverlayView: View {
     @ObservedObject var model: AutoResumeOverlayModel

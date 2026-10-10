@@ -8,20 +8,21 @@ import WidgetKit
 #if !WIDGET_RENDER_HARNESS
 @main
 #endif
-struct LockInWidgets: WidgetBundle {
+struct QuietwhileWidgets: WidgetBundle {
     var body: some Widget {
-        LockInStatusWidget()
+        QuietwhileStatusWidget()
     }
 }
 
-struct LockInStatusWidget: Widget {
+struct QuietwhileStatusWidget: Widget {
+    // LockIn-era kind, kept so widgets already on the desktop stay put.
     let kind = "LockInStatus"
 
     var body: some WidgetConfiguration {
-        StaticConfiguration(kind: kind, provider: LockInTimelineProvider()) { entry in
-            LockInWidgetView(entry: entry)
+        StaticConfiguration(kind: kind, provider: QuietwhileTimelineProvider()) { entry in
+            QuietwhileWidgetView(entry: entry)
         }
-        .configurationDisplayName("LockIn")
+        .configurationDisplayName("Quietwhile")
         .description("Time left in your block, today's focus, and your streak.")
         .supportedFamilies([.systemSmall, .systemMedium])
     }
@@ -29,7 +30,7 @@ struct LockInStatusWidget: Widget {
 
 // MARK: - Timeline
 
-struct LockInEntry: TimelineEntry {
+struct QuietwhileEntry: TimelineEntry {
     let date: Date
     let snapshot: WidgetSnapshot?
 
@@ -41,9 +42,9 @@ struct LockInEntry: TimelineEntry {
     }
 }
 
-struct LockInTimelineProvider: TimelineProvider {
-    func placeholder(in context: Context) -> LockInEntry {
-        LockInEntry(date: Date(), snapshot: WidgetSnapshot(
+struct QuietwhileTimelineProvider: TimelineProvider {
+    func placeholder(in context: Context) -> QuietwhileEntry {
+        QuietwhileEntry(date: Date(), snapshot: WidgetSnapshot(
             phase: .focus,
             phaseEndsAt: Date().addingTimeInterval(18 * 60),
             goal: "Finish the chapter",
@@ -54,20 +55,20 @@ struct LockInTimelineProvider: TimelineProvider {
         ))
     }
 
-    func getSnapshot(in context: Context, completion: @escaping (LockInEntry) -> Void) {
-        completion(context.isPreview ? placeholder(in: context) : LockInEntry(date: Date(), snapshot: SharedContainer.load()))
+    func getSnapshot(in context: Context, completion: @escaping (QuietwhileEntry) -> Void) {
+        completion(context.isPreview ? placeholder(in: context) : QuietwhileEntry(date: Date(), snapshot: SharedContainer.load()))
     }
 
-    func getTimeline(in context: Context, completion: @escaping (Timeline<LockInEntry>) -> Void) {
+    func getTimeline(in context: Context, completion: @escaping (Timeline<QuietwhileEntry>) -> Void) {
         let now = Date()
         let snapshot = SharedContainer.load()
-        var entries = [LockInEntry(date: now, snapshot: snapshot)]
+        var entries = [QuietwhileEntry(date: now, snapshot: snapshot)]
 
         // One more entry just after the phase ends, so the widget stops
         // counting even if the app's own refresh is late. The app reloads the
         // timeline itself whenever the phase changes.
         if let end = snapshot?.phaseEndsAt, end > now {
-            entries.append(LockInEntry(date: end.addingTimeInterval(61), snapshot: snapshot))
+            entries.append(QuietwhileEntry(date: end.addingTimeInterval(61), snapshot: snapshot))
         }
 
         var refresh = now.addingTimeInterval(30 * 60)
@@ -83,7 +84,7 @@ struct LockInTimelineProvider: TimelineProvider {
 /// Runs in the widget's sandbox, so it cannot touch the app directly; it
 /// posts a Darwin notification that the running app listens for.
 struct WidgetCommandIntent: AppIntent {
-    static let title: LocalizedStringResource = "LockIn Command"
+    static let title: LocalizedStringResource = "Quietwhile Command"
     static let isDiscoverable = false
 
     @Parameter(title: "Command")
@@ -114,8 +115,8 @@ private enum Palette {
     static let clay = Color(red: 0.722, green: 0.451, blue: 0.333)
 }
 
-struct LockInWidgetView: View {
-    let entry: LockInEntry
+struct QuietwhileWidgetView: View {
+    let entry: QuietwhileEntry
     /// Set only when rendering outside WidgetKit, which otherwise supplies it.
     var familyOverride: WidgetFamily?
     @Environment(\.widgetFamily) private var environmentFamily
@@ -140,7 +141,7 @@ struct LockInWidgetView: View {
         .containerBackground(for: .widget) {
             colorScheme == .dark ? Palette.canvasDark : Palette.canvas
         }
-        .widgetURL(URL(string: "lockin://"))
+        .widgetURL(URL(string: "quietwhile://"))
     }
 
     private var snapshot: WidgetSnapshot? { entry.snapshot }
@@ -191,7 +192,7 @@ struct LockInWidgetView: View {
     }
 
     private var phaseLabel: String {
-        if entry.isAppAway && snapshot?.isRunning == true { return "LockIn closed" }
+        if entry.isAppAway && snapshot?.isRunning == true { return "Quietwhile closed" }
         guard isRunning, let snapshot else { return "Ready" }
         switch snapshot.phase {
         case .focus: return snapshot.isStrict ? "Strict focus" : "Focus"
@@ -203,8 +204,8 @@ struct LockInWidgetView: View {
     @ViewBuilder
     private var actionButton: some View {
         if entry.snapshot == nil || entry.isAppAway {
-            Link(destination: URL(string: "lockin://")!) {
-                pill("Open LockIn", systemImage: "arrow.up.forward.app")
+            Link(destination: URL(string: "quietwhile://")!) {
+                pill("Open Quietwhile", systemImage: "arrow.up.forward.app")
             }
         } else if isRunning, snapshot?.phase == .break {
             Button(intent: WidgetCommandIntent("skip")) {

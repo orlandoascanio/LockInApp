@@ -195,13 +195,13 @@ public final class TimerEngine {
     }
 
     /// Records an interrupted focus block as an abandoned session and clears the
-    /// persisted state. Called both when LockIn terminates mid-session and when
+    /// persisted state. Called both when Quietwhile terminates mid-session and when
     /// it relaunches to find leftover state (e.g. after a crash). Break and
     /// break-ended phases produce no entry because the focus they follow was
     /// already logged as completed.
     ///
     /// The abandoned entry's end time is capped at the focus window so time
-    /// spent with LockIn closed cannot inflate the recorded focus duration.
+    /// spent with Quietwhile closed cannot inflate the recorded focus duration.
     @discardableResult
     public func recordAbandonmentIfNeeded(now: Date? = nil) -> Bool {
         guard let state = stateStore.loadSessionState() else {

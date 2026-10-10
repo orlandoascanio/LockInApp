@@ -1,6 +1,6 @@
 # UI Concepts
 
-Three competing UI/UX directions for LockIn, built as real SwiftUI so what you
+Three competing UI/UX directions for Quietwhile, built as real SwiftUI so what you
 see is what the app would actually render. **Mockups only** — nothing is wired
 up, no buttons act, no state changes. Pick a direction, then it gets built for
 real against `MenuBarController`.
@@ -17,11 +17,11 @@ swift run UIConcepts --export DIR  # write every screen to DIR as a 2x PNG
 
 Pre-rendered PNGs live in `renders/`.
 
-The real app is untouched — `swift run LockIn` and `swift test` behave exactly
+The real app is untouched — `swift run Quietwhile` and `swift test` behave exactly
 as before. Delete this folder and its `Package.swift` target to drop the whole
 exploration.
 
-## ★ The redesign (`ConceptLockIn.swift`)
+## ★ The redesign (`ConceptQuietwhile.swift`)
 
 The chosen direction — Sage's minimalism as the base, with the parts of Ember
 and Studio that tested well merged in.
@@ -45,7 +45,7 @@ Problems fixed from plain Sage:
 New feature carried out of the exploration: the **pinned HUD**. The collapsed
 strip floats above every window so the countdown is always one glance away, and
 reveals `Pause` / `End` on hover. The **menu-bar tuck** is the same strip,
-dropped from the status item, with `Open LockIn` and `Pin HUD` actions.
+dropped from the status item, with `Open Quietwhile` and `Pin HUD` actions.
 
 ## The three source directions
 
@@ -57,13 +57,13 @@ dropped from the status item, with `Open LockIn` and `Pin HUD` actions.
 | Colour | Coral / amber on cream | Indigo / violet on slate | Moss on sand |
 | Type | SF Rounded throughout | SF, tight and dense | Serif display + micro-caps |
 | Density | Low | High | Very low |
-| Best if | LockIn should feel like a calm ritual | You want to see your focus data | LockIn should stay out of the way |
+| Best if | Quietwhile should feel like a calm ritual | You want to see your focus data | Quietwhile should stay out of the way |
 
 **Ember** — evolution of today's popover. The ring makes remaining time legible
 as a shape before it is read as a number; presets, guarded apps and the primary
 action orbit it. One filled button per screen.
 
-**Studio** — promotes LockIn from menu-bar utility to a real app. Settings and
+**Studio** — promotes Quietwhile from menu-bar utility to a real app. Settings and
 History stop being modal detours and become permanent addresses. The dashboard
 answers "how is my day going" before you start a session.
 

@@ -36,7 +36,7 @@ public final class DiscordPresence {
         close()
     }
 
-    /// Replaces whatever LockIn was showing. `nil` clears it.
+    /// Replaces whatever Quietwhile was showing. `nil` clears it.
     public func update(_ activity: Activity?, clientID: String) {
         queue.async { [weak self] in
             self?.send(activity, clientID: clientID)
@@ -74,7 +74,7 @@ public final class DiscordPresence {
         if let activity {
             var body: [String: Any] = [
                 "details": String(activity.details.prefix(128)),
-                "assets": ["large_image": "lockin", "large_text": AppIdentity.name]
+                "assets": ["large_image": "quietwhile", "large_text": AppIdentity.name]
             ]
             if let state = activity.state, state.count >= 2 {
                 body["state"] = String(state.prefix(128))

@@ -1,26 +1,26 @@
 <p align="center">
-  <img src="docs/images/icon.png" width="96" height="96" alt="LockIn app icon">
+  <img src="docs/images/icon.png" width="96" height="96" alt="Quietwhile app icon">
 </p>
 
-<h1 align="center">LockIn</h1>
+<h1 align="center">Quietwhile</h1>
 
 <p align="center">
-  <strong>Your friends are on the call. LockIn lets you stay.</strong><br>
+  <strong>Your friends are on the call. Quietwhile lets you stay.</strong><br>
   A native macOS focus app that guards apps and websites during focus blocks, without ending your Discord call.
 </p>
 
 <p align="center">
-  <a href="https://www.orlandoascanio.com/products/lockin">Website and demo video</a> ·
+  <a href="https://www.orlandoascanio.com/products/quietwhile">Website and demo video</a> ·
   macOS 14+ · Swift, SwiftUI, AppKit · MIT
 </p>
 
-![LockIn's Focus page with a block running: a countdown ring, the goal, guarded apps and sites, and the week's focus](docs/images/focus.png)
+![Quietwhile's Focus page with a block running: a countdown ring, the goal, guarded apps and sites, and the week's focus](docs/images/focus.png)
 
 | Dark mode | A break, with something to do |
 |---|---|
-| ![LockIn in dark mode](docs/images/focus-dark.png) | ![A LockIn break suggesting the 20-20-20 rule](docs/images/break.png) |
+| ![Quietwhile in dark mode](docs/images/focus-dark.png) | ![A Quietwhile break suggesting the 20-20-20 rule](docs/images/break.png) |
 
-LockIn lives in the menu bar and runs focus and break blocks. When you open a guarded app during focus, **Guard Screen** hides it and shows a full-screen "Not now." The app keeps running in the background, so a Discord call can carry on. 
+Quietwhile lives in the menu bar and runs focus and break blocks. When you open a guarded app during focus, **Guard Screen** hides it and shows a full-screen "Not now." The app keeps running in the background, so a Discord call can carry on. 
 
 No account, no internet, no cloud. Slack and Discord are opt-in and talk only to Slack and Discord.
 
@@ -35,7 +35,7 @@ No account, no internet, no cloud. Slack and Discord are opt-in and talk only to
 - **Schedules**: focus that starts itself, such as weekdays from 9:00 to 12:00.
 - **Global keyboard shortcuts** to start, stop, and skip from any app.
 - **Break suggestions**: stretch, water, 20-20-20 for your eyes, a walk, and more.
-- **Autopilot**: if a finished break goes unanswered, LockIn takes the screen back, counts down, and starts the next block.
+- **Autopilot**: if a finished break goes unanswered, Quietwhile takes the screen back, counts down, and starts the next block.
 - **Widget** for the desktop and Notification Center.
 - **Shortcuts actions and a Focus filter**.
 - **Slack status and Discord** presence and recaps.
@@ -46,9 +46,9 @@ No account, no internet, no cloud. Slack and Discord are opt-in and talk only to
 
 Add sites on **Blocked › Websites**, either a whole site (`youtube.com`, which covers `m.youtube.com` too) or a section (`reddit.com/r/all`). Pasting a full link blocks its whole site.
 
-During focus, while a supported browser is frontmost, LockIn asks it for the current tab's address about once a second through Apple Events. If the address is guarded, LockIn replaces the page with its own "Not now" page. LockIn never reads page contents or history. There's no extension, no `/etc/hosts` edit, and no network filter.
+During focus, while a supported browser is frontmost, Quietwhile asks it for the current tab's address about once a second through Apple Events. If the address is guarded, Quietwhile replaces the page with its own "Not now" page. Quietwhile never reads page contents or history. There's no extension, no `/etc/hosts` edit, and no network filter.
 
-Works in Safari, Chrome, Arc, Brave, Edge, Vivaldi, Opera, and Chromium. macOS asks once per browser whether LockIn may control it. If you said no, the Websites tab shows a link to **Privacy & Security › Automation**. Firefox has no scripting access to its tabs, so it can't be covered this way.
+Works in Safari, Chrome, Arc, Brave, Edge, Vivaldi, Opera, and Chromium. macOS asks once per browser whether Quietwhile may control it. If you said no, the Websites tab shows a link to **Privacy & Security › Automation**. Firefox has no scripting access to its tabs, so it can't be covered this way.
 
 ## Strict mode
 
@@ -57,7 +57,7 @@ Turn it on for every block in **Settings › Strict mode**, or per schedule. Dur
 - **End**, **Skip**, and **Allow 5 minutes** are gone from the guard screen, the HUD, the menu bar, the shortcuts, Shortcuts actions, and the widget.
 - You can add to the Blocked list but not remove from it, switch anything off, or loosen the guarding behavior.
 - **Quitting is refused**, whether from ⌘Q, the Dock, or a script. Logging out, restarting, or shutting down still works, and the block picks up afterwards if there's time left.
-- **If LockIn is force-quit, it reopens and carries on.** A small launch agent in `~/Library/LaunchAgents` runs only while a strict block is active and relaunches LockIn if it disappears. LockIn removes the agent when nothing can start a strict block any more.
+- **If Quietwhile is force-quit, it reopens and carries on.** A small launch agent in `~/Library/LaunchAgents` runs only while a strict block is active and relaunches Quietwhile if it disappears. Quietwhile removes the agent when nothing can start a strict block any more.
 
 The **emergency exit** asks you to type a sentence exactly, then waits (2 minutes by default). The block is logged as cancelled. Breaks are never strict.
 
@@ -65,7 +65,7 @@ The **emergency exit** asks you to type a sentence exactly, then waits (2 minute
 
 Create them on the **Schedules** page: pick days, a start and end time (overnight windows work), and optionally make them strict. Inside a window, each break rolls straight into the next block. Stopping a session skips the rest of that window, and the next window starts as normal. A block still running when the window closes gets to finish.
 
-Schedules only run while LockIn is open, so turn on **Open LockIn at login** (in Settings, or from the prompt on the Schedules page).
+Schedules only run while Quietwhile is open, so turn on **Open Quietwhile at login** (in Settings, or from the prompt on the Schedules page).
 
 ## Keyboard shortcuts
 
@@ -89,17 +89,17 @@ Add it from the desktop's **Edit Widgets** menu or from Notification Center. It 
 
 ## Shortcuts and Focus modes
 
-LockIn adds **Start Focus** (with optional minutes and strict), **Stop Focus**, **Skip to Next Phase**, and **Get Focus Status** to the Shortcuts app and Spotlight.
+Quietwhile adds **Start Focus** (with optional minutes and strict), **Stop Focus**, **Skip to Next Phase**, and **Get Focus Status** to the Shortcuts app and Spotlight.
 
-To tie LockIn to a macOS Focus, go to **System Settings › Focus**, pick a Focus, then **Focus Filters › Add Filter › LockIn**. Turn on **Start a focus block**, and optionally **Use strict mode** and **End the block when this Focus turns off**.
+To tie Quietwhile to a macOS Focus, go to **System Settings › Focus**, pick a Focus, then **Focus Filters › Add Filter › Quietwhile**. Turn on **Start a focus block**, and optionally **Use strict mode** and **End the block when this Focus turns off**.
 
 ## Slack and Discord
 
 Set these up on the **Integrations** page. Secrets are stored in your Keychain, never in `config.json`.
 
-- **Slack**: sets your status to "Focusing · back at 10:45" and pauses notifications for exactly the length of the block. Both are cleared when the block ends, but only if LockIn set them. Needs a user token from a Slack app you create with the `users.profile:write` and `dnd:write` scopes. The page walks you through it.
-- **Discord status**: Rich Presence shows "Focusing · 18 min left" on your profile while the Discord desktop app is running. Needs the Application ID of a Discord app you create, named whatever you want your profile to show. LockIn can't change your *custom* status text, because Discord only allows that with your account token, which is against its rules.
-- **Discord recap**: when a run of blocks ends, LockIn posts blocks, focus time, categories, and goals to a channel webhook. Mentions are disabled, so a goal containing `@everyone` stays plain text.
+- **Slack**: sets your status to "Focusing · back at 10:45" and pauses notifications for exactly the length of the block. Both are cleared when the block ends, but only if Quietwhile set them. Needs a user token from a Slack app you create with the `users.profile:write` and `dnd:write` scopes. The page walks you through it.
+- **Discord status**: Rich Presence shows "Focusing · 18 min left" on your profile while the Discord desktop app is running. Needs the Application ID of a Discord app you create, named whatever you want your profile to show. Quietwhile can't change your *custom* status text, because Discord only allows that with your account token, which is against its rules.
+- **Discord recap**: when a run of blocks ends, Quietwhile posts blocks, focus time, categories, and goals to a channel webhook. Mentions are disabled, so a goal containing `@everyone` stays plain text.
 
 ## Requirements
 
@@ -115,7 +115,7 @@ Run the core tests (timer, persistence, blocking rules, schedules, strict mode, 
 swift test
 ```
 
-Build `build/LockIn.app`, signed with whichever certificate you have for the project's team (Apple Development if there is one, otherwise Developer ID):
+Build `build/Quietwhile.app`, signed with whichever certificate you have for the project's team (Apple Development if there is one, otherwise Developer ID):
 
 ```bash
 Scripts/build_app.sh
@@ -127,31 +127,31 @@ Build it and put it in `/Applications`:
 Scripts/install_app.sh
 ```
 
-To open the project in Xcode, generate it first. `LockIn.xcodeproj` is generated from `project.yml` and not committed.
+To open the project in Xcode, generate it first. `Quietwhile.xcodeproj` is generated from `project.yml` and not committed.
 
 ```bash
-xcodegen generate && open LockIn.xcodeproj
+xcodegen generate && open Quietwhile.xcodeproj
 ```
 
-To try a build against throwaway data instead of your real settings and history, run it with `LOCKIN_DATA_DIR`:
+To try a build against throwaway data instead of your real settings and history, run it with `QUIETWHILE_DATA_DIR`:
 
 ```bash
-LOCKIN_DATA_DIR=/tmp/lockin-test build/LockIn.app/Contents/MacOS/LockIn
+QUIETWHILE_DATA_DIR=/tmp/quietwhile-test build/Quietwhile.app/Contents/MacOS/Quietwhile
 ```
 
 ## Releases
 
 `Scripts/release.sh` archives with Developer ID, builds a DMG, notarizes and staples it, signs it for Sparkle, and writes `appcast.xml`. One-time setup (a Developer ID certificate, notarization credentials, and a Sparkle key) is in [Scripts/release/README.md](Scripts/release/README.md). Builds without a Sparkle key simply have no updater.
 
-Every release must attach three files: the versioned DMG, `LockIn.dmg` (the same DMG without the version in its name), and `appcast.xml`. The download button on [orlandoascanio.com/products/lockin](https://www.orlandoascanio.com/products/lockin) points at `releases/latest/download/LockIn.dmg`, so a release without `LockIn.dmg` makes that button 404.
+Every release must attach three files: the versioned DMG, `Quietwhile.dmg` (the same DMG without the version in its name), and `appcast.xml`. The download button on [orlandoascanio.com/products/quietwhile](https://www.orlandoascanio.com/products/quietwhile) points at `releases/latest/download/Quietwhile.dmg`, so a release without `Quietwhile.dmg` makes that button 404.
 
 ```bash
-gh release create v0.3.1 build/release/LockIn-0.3.1.dmg build/release/LockIn.dmg build/release/appcast.xml --title "LockIn 0.3.1"
+gh release create v0.3.1 build/release/Quietwhile-0.3.1.dmg build/release/Quietwhile.dmg build/release/appcast.xml --title "Quietwhile 0.3.1"
 ```
 
 ## Blocking behavior
 
-LockIn observes macOS app activation events. During focus, if a guarded app becomes active, LockIn reacts immediately.
+Quietwhile observes macOS app activation events. During focus, if a guarded app becomes active, Quietwhile reacts immediately.
 
 - **Guard Screen**: hides the app, shows the guard overlay, and lets the app keep running in the background.
 - **Hide Only**: hides the app without showing the guard overlay.
@@ -159,18 +159,18 @@ LockIn observes macOS app activation events. During focus, if a guarded app beco
 
 Guarding only runs during focus. It stops during break, break-ended, idle, completed, and cancelled states.
 
-Protected apps are never hidden or quit and cannot be added: Finder, Dock, System Settings / System Preferences, Terminal, loginwindow, WindowServer, and LockIn itself.
+Protected apps are never hidden or quit and cannot be added: Finder, Dock, System Settings / System Preferences, Terminal, loginwindow, WindowServer, and Quietwhile itself.
 
 ## Storage
 
-LockIn stores everything locally in `~/Library/Application Support/LockIn/`:
+Quietwhile stores everything locally in `~/Library/Application Support/Quietwhile/`:
 
 - `config.json`: settings, blocked apps and sites, schedules
 - `session-state.json`: the running block, if any
 - `session-history.jsonl`: one line per block
 - `block-activity.json`: today's guard counts
 
-The widget reads a small snapshot in the app-group container (`~/Library/Group Containers/VW98Z8698B.com.lockin.shared/`). Config and session state use atomic writes. If either becomes invalid, LockIn keeps a timestamped `.invalid-*` copy and recovers with safe defaults. Configs from older builds load as-is, including goals and categories from the old Stream settings.
+The widget reads a small snapshot in the app-group container (`~/Library/Group Containers/VW98Z8698B.com.lockin.shared/`). Config and session state use atomic writes. If either becomes invalid, Quietwhile keeps a timestamped `.invalid-*` copy and recovers with safe defaults. Configs from older builds load as-is, including goals and categories from the old Stream settings.
 
 ## Project layout
 
@@ -191,7 +191,7 @@ The core logic lives in `FocusLockCore` so timer recovery, persistence, blocking
 
 ## Stream mode
 
-The study/work-with-me streaming features (audience window, chat wall, Twitch connection) were removed to keep LockIn focused on solo work. The last version with them is on the `archive/stream` branch and the `stream-final` tag.
+The study/work-with-me streaming features (audience window, chat wall, Twitch connection) were removed to keep Quietwhile focused on solo work. The last version with them is on the `archive/stream` branch and the `stream-final` tag.
 
 ## License
 

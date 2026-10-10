@@ -283,7 +283,7 @@ final class PinnedHUDController: NSObject, NSMenuDelegate {
     /// The display the HUD belongs on: the last one it was put on, if it is
     /// still connected.
     private var targetScreen: NSScreen? {
-        if let last = settings.lastDisplay, let screen = NSScreen.screens.first(where: { $0.lockInDisplayKey == last }) {
+        if let last = settings.lastDisplay, let screen = NSScreen.screens.first(where: { $0.quietwhileDisplayKey == last }) {
             return screen
         }
         return NSScreen.main ?? NSScreen.screens.first
@@ -293,7 +293,7 @@ final class PinnedHUDController: NSObject, NSMenuDelegate {
         guard let panel, let screen = targetScreen else { return }
         let expanded = isExpanded
         let size = expanded ? PinnedHUDView.expandedSize : PinnedHUDView.compactSize
-        let placement = settings.placement(forDisplay: screen.lockInDisplayKey)
+        let placement = settings.placement(forDisplay: screen.quietwhileDisplayKey)
         let frame = placement.frame(size: size, in: screen.visibleFrame)
 
         if model.isExpanded != expanded { model.isExpanded = expanded }
@@ -326,7 +326,7 @@ final class PinnedHUDController: NSObject, NSMenuDelegate {
     private func finishDrag() {
         guard draggedSinceSnap, let panel else { return }
         draggedSinceSnap = false
-        guard let screen = panel.screen ?? targetScreen, let key = screen.lockInDisplayKey else { return }
+        guard let screen = panel.screen ?? targetScreen, let key = screen.quietwhileDisplayKey else { return }
 
         let placement = HUDPlacement.snapped(frame: panel.frame, in: screen.visibleFrame)
         change {
@@ -372,7 +372,7 @@ final class PinnedHUDController: NSObject, NSMenuDelegate {
 
         menu.addItem(.separator())
         menu.addItem(ActionMenuItem("Move to Top Right") { [weak self] in
-            guard let self, let key = self.targetScreen?.lockInDisplayKey else { return }
+            guard let self, let key = self.targetScreen?.quietwhileDisplayKey else { return }
             self.change { $0.placements[key] = nil }
             self.layout(animated: true)
         })
@@ -416,7 +416,7 @@ private final class ActionMenuItem: NSMenuItem {
 extension NSScreen {
     /// A stable identifier for the display, kept across launches and
     /// reconnections, unlike its display number.
-    var lockInDisplayKey: String? {
+    var quietwhileDisplayKey: String? {
         guard
             let number = deviceDescription[NSDeviceDescriptionKey("NSScreenNumber")] as? CGDirectDisplayID,
             let uuid = CGDisplayCreateUUIDFromDisplayID(number)?.takeRetainedValue()

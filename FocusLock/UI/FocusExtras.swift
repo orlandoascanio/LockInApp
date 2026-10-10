@@ -369,7 +369,7 @@ struct StrictEscapeSheet: View {
                         .buttonStyle(FLActionButtonStyle(variant: .quiet, minHeight: 36))
                 }
             } else {
-                Text("Type this sentence exactly. After that, LockIn waits \(Self.format(TimeInterval(controller.config.strict.escapeWaitSeconds))) before ending the block.")
+                Text("Type this sentence exactly. After that, Quietwhile waits \(Self.format(TimeInterval(controller.config.strict.escapeWaitSeconds))) before ending the block.")
                     .font(FLTypography.body)
                     .foregroundStyle(Color.flInkSoft)
                     .fixedSize(horizontal: false, vertical: true)

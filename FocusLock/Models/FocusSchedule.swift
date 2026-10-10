@@ -1,6 +1,6 @@
 import Foundation
 
-/// A recurring window in which LockIn starts focus on its own — "weekdays,
+/// A recurring window in which Quietwhile starts focus on its own — "weekdays,
 /// 9:00 to 12:00". Blocks keep rolling one after another until the window
 /// closes; a block that is running when it closes is allowed to finish.
 public struct FocusSchedule: Codable, Equatable, Hashable, Identifiable {

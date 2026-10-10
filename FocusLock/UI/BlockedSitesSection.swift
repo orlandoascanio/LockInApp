@@ -1,7 +1,7 @@
 import FocusLockCore
 import SwiftUI
 
-/// Websites guarded during focus. No browser extension: LockIn asks the
+/// Websites guarded during focus. No browser extension: Quietwhile asks the
 /// browser for its current tab through Apple Events and swaps a blocked page
 /// out for its own.
 struct BlockedSitesSection: View {
@@ -97,7 +97,7 @@ struct BlockedSitesSection: View {
                 Text("\(browser.displayName) needs your OK before websites can be guarded in it")
                     .font(FLTypography.headline)
                     .foregroundStyle(Color.flInk)
-                Text("LockIn asks \(browser.displayName) for the address of the tab in front. Only the address, only during focus. Never page contents or history. macOS will ask you to confirm.")
+                Text("Quietwhile asks \(browser.displayName) for the address of the tab in front. Only the address, only during focus. Never page contents or history. macOS will ask you to confirm.")
                     .font(FLTypography.caption)
                     .foregroundStyle(Color.flInkSoft)
                     .fixedSize(horizontal: false, vertical: true)
@@ -117,10 +117,10 @@ struct BlockedSitesSection: View {
             Image(systemName: "exclamationmark.triangle.fill")
                 .foregroundStyle(Color.flClay)
             VStack(alignment: .leading, spacing: 6) {
-                Text("LockIn isn't allowed to read \(browser.displayName)'s tabs")
+                Text("Quietwhile isn't allowed to read \(browser.displayName)'s tabs")
                     .font(FLTypography.headline)
                     .foregroundStyle(Color.flInk)
-                Text("Turn on \(browser.displayName) under LockIn in System Settings › Privacy & Security › Automation, then try again.")
+                Text("Turn on \(browser.displayName) under Quietwhile in System Settings › Privacy & Security › Automation, then try again.")
                     .font(FLTypography.caption)
                     .foregroundStyle(Color.flInkSoft)
                     .fixedSize(horizontal: false, vertical: true)

@@ -4,8 +4,8 @@ import FocusLockCore
 /// Where App Intents and widget buttons find the running app. Intents run in
 /// the app's own process, so they reach the controller directly.
 @MainActor
-final class LockInCommandCenter {
-    static let shared = LockInCommandCenter()
+final class QuietwhileCommandCenter {
+    static let shared = QuietwhileCommandCenter()
 
     weak var controller: MenuBarController?
 

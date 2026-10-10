@@ -30,7 +30,7 @@ public enum BreakEndBehavior: String, Codable, Equatable, CaseIterable, Identifi
         case .startImmediately:
             return "The next focus block begins the moment the break runs out."
         case .autopilot:
-            return "If you wander off, LockIn takes the screen back, counts down, and starts the next block for you."
+            return "If you wander off, Quietwhile takes the screen back, counts down, and starts the next block for you."
         }
     }
 }

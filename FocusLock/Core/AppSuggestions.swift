@@ -122,7 +122,7 @@ public enum AppSuggestions {
         return distractingCategories.contains(category) || category.contains("games")
     }
 
-    /// - Parameter excluding: bundle ids never to offer: apps LockIn cannot
+    /// - Parameter excluding: bundle ids never to offer: apps Quietwhile cannot
     ///   guard, and browsers, which are guarded site by site instead.
     public static func rank(
         _ apps: [AppUsage],

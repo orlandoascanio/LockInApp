@@ -93,7 +93,7 @@ final class TimerEngineTests: XCTestCase {
         ))
 
         // Relaunched long after the focus window would have ended; time spent
-        // with LockIn closed must not inflate the recorded focus duration.
+        // with Quietwhile closed must not inflate the recorded focus duration.
         let engine = TimerEngine(
             stateStore: stateStore,
             historyStore: historyStore,

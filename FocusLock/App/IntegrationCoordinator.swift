@@ -1,7 +1,7 @@
 import Foundation
 import FocusLockCore
 
-/// Tells Slack and Discord what LockIn is doing. Everything here is
+/// Tells Slack and Discord what Quietwhile is doing. Everything here is
 /// best-effort: a network hiccup or a revoked token shows up as a message on
 /// the Integrations page and never gets in the way of the timer.
 @MainActor
@@ -14,7 +14,7 @@ final class IntegrationCoordinator: ObservableObject {
     private lazy var slack = SlackClient { [keychain] in keychain.string(for: .slackToken) }
     private let presence = DiscordPresence()
 
-    /// Only undo what LockIn itself did: a status you set by hand is not ours
+    /// Only undo what Quietwhile itself did: a status you set by hand is not ours
     /// to clear.
     private var slackStatusIsOurs = false
     private var slackSnoozeIsOurs = false
@@ -67,7 +67,7 @@ final class IntegrationCoordinator: ObservableObject {
         discordMessage = "Sending a test message…"
         Task {
             do {
-                try await DiscordWebhook.post("LockIn is connected. Recaps will show up here when a run ends.", to: link)
+                try await DiscordWebhook.post("Quietwhile is connected. Recaps will show up here when a run ends.", to: link)
                 discordMessage = "Test message sent."
             } catch {
                 discordMessage = error.localizedDescription

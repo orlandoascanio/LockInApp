@@ -109,7 +109,7 @@ public final class NotificationService: NSObject, NotificationSending, UNUserNot
         content.sound = sound ? .default : nil
 
         let request = UNNotificationRequest(
-            identifier: "lockin-\(UUID().uuidString)",
+            identifier: "quietwhile-\(UUID().uuidString)",
             content: content,
             trigger: nil
         )

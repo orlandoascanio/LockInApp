@@ -1,10 +1,11 @@
 # Changelog
 
-What changed in each LockIn release. Versions come from the git tag the release is built from (`vX.Y.Z`).
+What changed in each Quietwhile release (called LockIn up to 0.3.3). Versions come from the git tag the release is built from (`vX.Y.Z`).
 
 ## 0.3.4 (unreleased)
 
-- LockIn plays a chime when a focus block or a break runs out. It plays from the app itself, so you still hear it with notifications off, with Do Not Disturb or another Focus mode on, or while you are in a full-screen app. Pick the sound, or turn it off, in Settings › General › When time is up (Glass by default).
+- LockIn is now called Quietwhile. Updating keeps your settings, history, schedules, permissions, widgets, Shortcuts and Focus filters. Your data is copied to `~/Library/Application Support/Quietwhile/` on first launch; the old `LockIn` folder is left untouched.
+- Quietwhile plays a chime when a focus block or a break runs out. It plays from the app itself, so you still hear it with notifications off, with Do Not Disturb or another Focus mode on, or while you are in a full-screen app. Pick the sound, or turn it off, in Settings › General › When time is up (Glass by default).
 - The notifications for those moments now arrive silently while the chime is on, so you don't hear two sounds at once.
 - Skipping or ending something yourself doesn't play the chime.
 - The "Break is done" window now opens over whatever is in front, including a full-screen app, instead of on the desktop behind it.
@@ -33,7 +34,7 @@ What changed in each LockIn release. Versions come from the git tag the release 
 
 - The floating HUD can be moved again. Dragging it did nothing before.
 - Guarding gmail.com now also guards mail.google.com, where Gmail actually opens. Before, a gmail.com rule never matched anything. twitter.com and x.com now cover each other the same way.
-- When a browser hasn't given LockIn its OK, the Focus page now says that websites aren't guarded there, with a link straight to the Websites tab to allow it. Before, the only signs were one notification and a badge on the Blocked page, so guarded sites could open freely without you noticing.
+- When a browser hasn't given Quietwhile its OK, the Focus page now says that websites aren't guarded there, with a link straight to the Websites tab to allow it. Before, the only signs were one notification and a badge on the Blocked page, so guarded sites could open freely without you noticing.
 
 ## 0.3.3 (2026-10-02)
 

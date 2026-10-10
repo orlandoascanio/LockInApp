@@ -93,7 +93,7 @@ struct EmberPanel: View {
                 )
 
             VStack(alignment: .leading, spacing: 1) {
-                Text("LockIn")
+                Text("Quietwhile")
                     .font(.system(size: 15, weight: .semibold, design: .rounded))
                     .foregroundStyle(EmberPalette.ink)
                 Text(isRunning ? "Session 3 of 4" : "Ready when you are")

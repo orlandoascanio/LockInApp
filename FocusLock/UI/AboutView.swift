@@ -3,12 +3,12 @@ import FocusLockCore
 import SwiftUI
 
 enum AppLinks {
-    static let website = URL(string: "https://www.orlandoascanio.com/products/lockin")!
+    static let website = URL(string: "https://www.orlandoascanio.com/products/quietwhile")!
     static let source = URL(string: "https://github.com/orlandoascanio/LockInApp")!
     static let releases = URL(string: "https://github.com/orlandoascanio/LockInApp/releases")!
 }
 
-/// What this copy of LockIn is, read from its own bundle.
+/// What this copy of Quietwhile is, read from its own bundle.
 struct AppBuildInfo {
     let version: String
     let build: String
@@ -20,7 +20,7 @@ struct AppBuildInfo {
     init(info: [String: Any]) {
         version = info["CFBundleShortVersionString"] as? String ?? "?"
         build = info["CFBundleVersion"] as? String ?? "?"
-        let rawCommit = (info["LockInSourceCommit"] as? String ?? "").trimmingCharacters(in: .whitespaces)
+        let rawCommit = (info["QuietwhileSourceCommit"] as? String ?? "").trimmingCharacters(in: .whitespaces)
         commit = rawCommit.isEmpty || rawCommit == "unknown" || rawCommit.hasPrefix("$(") ? nil : rawCommit
     }
 
@@ -36,7 +36,7 @@ struct AppBuildInfo {
     /// a report says what it was written about. Nothing identifying.
     var feedbackURL: URL {
         let system = ProcessInfo.processInfo.operatingSystemVersion
-        var components = URLComponents(string: "https://www.orlandoascanio.com/feedback/lockin")!
+        var components = URLComponents(string: "https://www.orlandoascanio.com/feedback/quietwhile")!
         components.queryItems = [
             URLQueryItem(name: "source", value: "app"),
             URLQueryItem(name: "v", value: version),

@@ -1,4 +1,4 @@
-// Renders the LockIn app icon. Regenerate every size with:
+// Renders the Quietwhile app icon. Regenerate every size with:
 //   swiftc -O Scripts/app_icon.swift -o /tmp/app_icon && /tmp/app_icon FocusLock/Resources/AppIcon.iconset iconset A
 //   cp FocusLock/Resources/AppIcon.iconset/*.png FocusLock/Assets.xcassets/AppIcon.appiconset/
 //   iconutil -c icns FocusLock/Resources/AppIcon.iconset -o FocusLock/Resources/AppIcon.icns
@@ -7,7 +7,7 @@
 import AppKit
 import CoreGraphics
 
-// LockIn app icon renderer. Draws on Apple's 1024 macOS grid: an 824pt
+// Quietwhile app icon renderer. Draws on Apple's 1024 macOS grid: an 824pt
 // continuous-corner tile centred with room for its shadow.
 
 func rgb(_ hex: UInt32, _ a: CGFloat = 1) -> CGColor {

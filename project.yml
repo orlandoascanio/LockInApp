@@ -1,6 +1,6 @@
-# Generates LockIn.xcodeproj. Run `xcodegen generate` (Scripts/build_app.sh
+# Generates Quietwhile.xcodeproj. Run `xcodegen generate` (Scripts/build_app.sh
 # does it for you) after adding, moving, or deleting source files.
-name: LockIn
+name: Quietwhile
 
 options:
   bundleIdPrefix: com.lockin
@@ -10,7 +10,7 @@ options:
   groupSortPosition: top
 
 packages:
-  LockInCore:
+  QuietwhileCore:
     path: .
   Sparkle:
     url: https://github.com/sparkle-project/Sparkle
@@ -34,7 +34,7 @@ settings:
     DEAD_CODE_STRIPPING: YES
 
 targets:
-  LockIn:
+  Quietwhile:
     type: application
     platform: macOS
     sources:
@@ -43,12 +43,12 @@ targets:
       - path: FocusLock/DesignSystem.swift
       - path: FocusLock/Assets.xcassets
     dependencies:
-      - package: LockInCore
+      - package: QuietwhileCore
         product: FocusLockCore
       - package: Sparkle
-      - target: LockInWidget
+      - target: QuietwhileWidget
     entitlements:
-      path: FocusLock/Supporting/LockIn.entitlements
+      path: FocusLock/Supporting/Quietwhile.entitlements
       properties:
         # Reading and redirecting the current browser tab for website guarding.
         com.apple.security.automation.apple-events: true
@@ -57,51 +57,51 @@ targets:
     info:
       path: FocusLock/Supporting/Info.plist
       properties:
-        CFBundleDisplayName: LockIn
-        CFBundleName: LockIn
+        CFBundleDisplayName: Quietwhile
+        CFBundleName: Quietwhile
         CFBundleShortVersionString: $(MARKETING_VERSION)
         CFBundleVersion: $(CURRENT_PROJECT_VERSION)
         LSApplicationCategoryType: public.app-category.productivity
         LSMinimumSystemVersion: $(MACOSX_DEPLOYMENT_TARGET)
         NSPrincipalClass: NSApplication
         NSHumanReadableCopyright: Made for fun, and for focus.
-        NSAppleEventsUsageDescription: LockIn reads the address of your current browser tab during focus so it can swap guarded websites out. It never reads page contents or history.
+        NSAppleEventsUsageDescription: Quietwhile reads the address of your current browser tab during focus so it can swap guarded websites out. It never reads page contents or history.
         CFBundleURLTypes:
           - CFBundleURLName: com.lockin.app
-            CFBundleURLSchemes: [lockin]
-        LockInSourceCommit: $(LOCKIN_SOURCE_COMMIT)
+            CFBundleURLSchemes: [quietwhile, lockin]
+        QuietwhileSourceCommit: $(QUIETWHILE_SOURCE_COMMIT)
         SUFeedURL: https://github.com/orlandoascanio/LockInApp/releases/latest/download/appcast.xml
         SUPublicEDKey: $(SPARKLE_PUBLIC_KEY)
         SUEnableAutomaticChecks: true
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.lockin.app
-        PRODUCT_NAME: LockIn
+        PRODUCT_NAME: Quietwhile
         CODE_SIGN_IDENTITY: Apple Development
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
-        LOCKIN_SOURCE_COMMIT: unknown
+        QUIETWHILE_SOURCE_COMMIT: unknown
         # App Intents metadata (Shortcuts, Focus filter) is extracted at build time.
         ENABLE_APP_INTENTS_METADATA_GENERATION: YES
 
-  LockInWidget:
+  QuietwhileWidget:
     type: app-extension
     platform: macOS
     sources:
       - path: FocusLock/Widget
     dependencies:
-      - package: LockInCore
+      - package: QuietwhileCore
         product: FocusLockCore
       - sdk: WidgetKit.framework
       - sdk: SwiftUI.framework
     entitlements:
-      path: FocusLock/Supporting/LockInWidget.entitlements
+      path: FocusLock/Supporting/QuietwhileWidget.entitlements
       properties:
         com.apple.security.app-sandbox: true
         com.apple.security.application-groups: [VW98Z8698B.com.lockin.shared]
     info:
       path: FocusLock/Widget/Info.plist
       properties:
-        CFBundleDisplayName: LockIn
+        CFBundleDisplayName: Quietwhile
         CFBundleShortVersionString: $(MARKETING_VERSION)
         CFBundleVersion: $(CURRENT_PROJECT_VERSION)
         NSExtension:
@@ -109,16 +109,16 @@ targets:
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.lockin.app.widget
-        PRODUCT_NAME: LockInWidget
+        PRODUCT_NAME: QuietwhileWidget
         CODE_SIGN_IDENTITY: Apple Development
         SKIP_INSTALL: YES
 
 schemes:
-  LockIn:
+  Quietwhile:
     build:
       targets:
-        LockIn: all
-        LockInWidget: all
+        Quietwhile: all
+        QuietwhileWidget: all
     run:
       config: Debug
     archive:

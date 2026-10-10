@@ -9,7 +9,7 @@ struct UIConceptsGalleryApp: App {
     }
 
     var body: some Scene {
-        WindowGroup("LockIn — UI Concepts") {
+        WindowGroup("Quietwhile — UI Concepts") {
             GalleryRoot()
                 .frame(minWidth: 1080, minHeight: 760)
         }
@@ -21,7 +21,7 @@ struct UIConceptsGalleryApp: App {
 // MARK: - Gallery shell
 
 enum Concept: String, CaseIterable, Identifiable {
-    case lockIn = "★ Redesign"
+    case quietwhile = "★ Redesign"
     case ember = "Ember"
     case studio = "Studio"
     case sage = "Sage"
@@ -30,7 +30,7 @@ enum Concept: String, CaseIterable, Identifiable {
 
     var tagline: String {
         switch self {
-        case .lockIn: return "Sage base · Studio sidebar · Ember controls"
+        case .quietwhile: return "Sage base · Studio sidebar · Ember controls"
         case .ember: return "Warm ritual panel · radial timer"
         case .studio: return "Sidebar dashboard · data rich"
         case .sage: return "Quiet HUD · typographic minimalism"
@@ -39,7 +39,7 @@ enum Concept: String, CaseIterable, Identifiable {
 
     var swatch: [Color] {
         switch self {
-        case .lockIn: return [SagePalette.accent, SagePalette.accentDeep, SagePalette.canvas]
+        case .quietwhile: return [SagePalette.accent, SagePalette.accentDeep, SagePalette.canvas]
         case .ember: return [EmberPalette.accent, EmberPalette.accentDeep, EmberPalette.canvas]
         case .studio: return [StudioPalette.accent, StudioPalette.violet, StudioPalette.canvas]
         case .sage: return [SagePalette.accent, SagePalette.accentDeep, SagePalette.canvas]
@@ -48,7 +48,7 @@ enum Concept: String, CaseIterable, Identifiable {
 }
 
 struct GalleryRoot: View {
-    @State private var concept: Concept = .lockIn
+    @State private var concept: Concept = .quietwhile
 
     var body: some View {
         VStack(spacing: 0) {
@@ -58,7 +58,7 @@ struct GalleryRoot: View {
             ScrollView {
                 VStack(spacing: 56) {
                     switch concept {
-                    case .lockIn: LockInShowcase()
+                    case .quietwhile: QuietwhileShowcase()
                     case .ember: EmberShowcase()
                     case .studio: StudioShowcase()
                     case .sage: SageShowcase()
@@ -76,7 +76,7 @@ struct GalleryRoot: View {
     private var chrome: some View {
         HStack(spacing: 20) {
             VStack(alignment: .leading, spacing: 2) {
-                Text("LockIn · UI Concepts")
+                Text("Quietwhile · UI Concepts")
                     .font(.system(size: 15, weight: .semibold))
                 Text(concept.tagline)
                     .font(.system(size: 12))

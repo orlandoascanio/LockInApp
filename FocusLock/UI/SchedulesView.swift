@@ -16,7 +16,7 @@ struct SchedulesView: View {
                 FLEmptyState(
                     systemImage: "calendar.badge.clock",
                     title: "No schedules",
-                    detail: "Add one and LockIn starts focus on its own — say, weekdays from 9:00 to 12:00 — and keeps the blocks rolling until the window closes."
+                    detail: "Add one and Quietwhile starts focus on its own — say, weekdays from 9:00 to 12:00 — and keeps the blocks rolling until the window closes."
                 )
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else {
@@ -77,11 +77,11 @@ struct SchedulesView: View {
         HStack(spacing: 12) {
             Image(systemName: "power")
                 .foregroundStyle(Color.flWarning)
-            Text("Schedules only run while LockIn is open.")
+            Text("Schedules only run while Quietwhile is open.")
                 .font(FLTypography.caption)
                 .foregroundStyle(Color.flInk)
             Spacer()
-            Button("Open LockIn at login") {
+            Button("Open Quietwhile at login") {
                 controller.setLaunchAtLogin(true)
             }
             .buttonStyle(FLLinkButtonStyle())

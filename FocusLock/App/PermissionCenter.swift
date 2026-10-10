@@ -9,7 +9,7 @@ enum PermissionState: Equatable {
     case denied
 }
 
-/// The two things macOS asks the user about on LockIn's behalf: notifications,
+/// The two things macOS asks the user about on Quietwhile's behalf: notifications,
 /// and reading the current tab of each browser. Nothing here prompts by
 /// itself. A system dialog only ever follows a button in a screen that has
 /// said what the permission is for.

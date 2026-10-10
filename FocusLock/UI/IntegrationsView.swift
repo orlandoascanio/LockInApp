@@ -85,7 +85,7 @@ private struct IntegrationsContent: View {
                     Button("Remove") {
                         let answer = ConfirmationAlert.ask(
                             title: "Remove the Slack token?",
-                            message: "LockIn will stop setting your Slack status. To reconnect you would have to paste the token again.",
+                            message: "Quietwhile will stop setting your Slack status. To reconnect you would have to paste the token again.",
                             confirm: "Remove Token",
                             keep: "Cancel"
                         )
@@ -134,10 +134,10 @@ private struct IntegrationsContent: View {
 
             DisclosureGroup("How to get an Application ID") {
                 Text("""
-                1. Go to discord.com/developers/applications › New Application, and name it “LockIn” — that name is what your profile shows.
+                1. Go to discord.com/developers/applications › New Application, and name it “Quietwhile” — that name is what your profile shows.
                 2. Copy the Application ID from General Information and paste it here.
-                3. Optional: Rich Presence › Art Assets, upload an image named “lockin” to show it beside the status.
-                LockIn can't change your custom status text: Discord only allows that with your account token, which breaks its rules.
+                3. Optional: Rich Presence › Art Assets, upload an image named “quietwhile” to show it beside the status.
+                Quietwhile can't change your custom status text: Discord only allows that with your account token, which breaks its rules.
                 """)
                 .font(FLTypography.caption)
                 .foregroundStyle(Color.flInkSoft)
@@ -189,7 +189,7 @@ private struct IntegrationsContent: View {
                     Button("Remove") {
                         let answer = ConfirmationAlert.ask(
                             title: "Remove the Discord webhook?",
-                            message: "LockIn will stop posting to your channel. To reconnect you would have to paste the webhook again.",
+                            message: "Quietwhile will stop posting to your channel. To reconnect you would have to paste the webhook again.",
                             confirm: "Remove Webhook",
                             keep: "Cancel"
                         )
@@ -211,11 +211,11 @@ private struct IntegrationsContent: View {
 
     private var shortcutsSection: some View {
         section("Shortcuts and Focus modes") {
-            Text("LockIn adds Start Focus, Stop Focus, Skip to Next Phase, and Get Focus Status to the Shortcuts app and Spotlight.")
+            Text("Quietwhile adds Start Focus, Stop Focus, Skip to Next Phase, and Get Focus Status to the Shortcuts app and Spotlight.")
                 .font(FLTypography.body)
                 .foregroundStyle(Color.flInk)
                 .fixedSize(horizontal: false, vertical: true)
-            Text("To start a block with a macOS Focus: System Settings › Focus › pick a Focus › Focus Filters › Add Filter › LockIn, and turn on “Start a focus block”.")
+            Text("To start a block with a macOS Focus: System Settings › Focus › pick a Focus › Focus Filters › Add Filter › Quietwhile, and turn on “Start a focus block”.")
                 .font(FLTypography.caption)
                 .foregroundStyle(Color.flInkSoft)
                 .fixedSize(horizontal: false, vertical: true)

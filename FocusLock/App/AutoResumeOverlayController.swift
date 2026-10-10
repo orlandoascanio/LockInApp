@@ -47,7 +47,7 @@ final class AutoResumeOverlayController {
         windows.first?.makeKey()
 
         // The screen may be on another Space or behind a full-screen app, so
-        // bounce the Dock icon too — this is the one moment LockIn interrupts.
+        // bounce the Dock icon too — this is the one moment Quietwhile interrupts.
         NSApp.requestUserAttention(.criticalRequest)
         NSSound(named: "Submarine")?.play()
         FocusLockLog.debug("autopilot takeover shown")

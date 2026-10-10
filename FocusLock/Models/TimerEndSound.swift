@@ -1,6 +1,6 @@
 import Foundation
 
-/// The chime LockIn plays itself when a focus block or a break runs out.
+/// The chime Quietwhile plays itself when a focus block or a break runs out.
 ///
 /// It plays from the app rather than through a notification, so it still
 /// sounds when notifications are off or macOS Focus is silencing them, which

@@ -28,7 +28,7 @@ struct StudioShowcase: View {
             SectionTitle(
                 index: "02",
                 title: "Studio — the focus command centre",
-                body_: "Promotes LockIn from a menu-bar utility to a real window. A persistent sidebar gives every area a permanent address, so Settings and History stop being modal detours. The dashboard answers \"how is my day going\" before you even start a session: live timer, today's blocks, weekly rhythm and the interruptions you resisted.",
+                body_: "Promotes Quietwhile from a menu-bar utility to a real window. A persistent sidebar gives every area a permanent address, so Settings and History stop being modal detours. The dashboard answers \"how is my day going\" before you even start a session: live timer, today's blocks, weekly rhythm and the interruptions you resisted.",
                 accent: StudioPalette.accent
             )
 
@@ -78,7 +78,7 @@ struct StudioWindow: View {
                     .frame(width: 30, height: 30)
                     .overlay(Image(systemName: "lock.fill").font(.system(size: 13, weight: .bold)).foregroundStyle(.white))
                 VStack(alignment: .leading, spacing: 0) {
-                    Text("LockIn").font(.system(size: 14, weight: .semibold)).foregroundStyle(.white)
+                    Text("Quietwhile").font(.system(size: 14, weight: .semibold)).foregroundStyle(.white)
                     Text("Focus studio").font(.system(size: 10.5)).foregroundStyle(.white.opacity(0.5))
                 }
             }

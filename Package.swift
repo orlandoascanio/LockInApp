@@ -3,11 +3,11 @@
 import PackageDescription
 
 // The core logic and its tests build here (`swift test`). The app itself, its
-// widget, and its App Intents build through LockIn.xcodeproj, which XcodeGen
+// widget, and its App Intents build through Quietwhile.xcodeproj, which XcodeGen
 // generates from project.yml — SwiftPM cannot produce widget extensions or
 // App Intents metadata.
 let package = Package(
-    name: "LockIn",
+    name: "Quietwhile",
     defaultLocalization: "en",
     platforms: [
         .macOS(.v14)

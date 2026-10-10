@@ -7,7 +7,7 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
-APP_NAME="LockIn"
+APP_NAME="Quietwhile"
 SOURCE_APP="$ROOT_DIR/build/$APP_NAME.app"
 DESTINATION="/Applications/$APP_NAME.app"
 
@@ -32,9 +32,21 @@ fi
 rm -rf "$DESTINATION"
 cp -R "$SOURCE_APP" "$DESTINATION"
 
+# The app was called LockIn before. A copy left under that name has the same
+# bundle id, so macOS could open it instead of this one.
+LEGACY="/Applications/LockIn.app"
+if [[ -d "$LEGACY" ]]; then
+    if pgrep -f "$LEGACY/Contents/MacOS/" >/dev/null 2>&1; then
+        echo "The old LockIn.app is still running — quit it, then delete $LEGACY." >&2
+    else
+        rm -rf "$LEGACY"
+        echo "Removed the old $LEGACY."
+    fi
+fi
+
 VERSION="$(/usr/libexec/PlistBuddy -c "Print CFBundleShortVersionString" "$DESTINATION/Contents/Info.plist")"
 BUILD="$(/usr/libexec/PlistBuddy -c "Print CFBundleVersion" "$DESTINATION/Contents/Info.plist")"
-COMMIT="$(/usr/libexec/PlistBuddy -c "Print LockInSourceCommit" "$DESTINATION/Contents/Info.plist" 2>/dev/null || echo unknown)"
+COMMIT="$(/usr/libexec/PlistBuddy -c "Print QuietwhileSourceCommit" "$DESTINATION/Contents/Info.plist" 2>/dev/null || echo unknown)"
 echo "Installed $DESTINATION ($VERSION build $BUILD, $COMMIT)"
 
 if [[ "$WAS_RUNNING" == true ]]; then

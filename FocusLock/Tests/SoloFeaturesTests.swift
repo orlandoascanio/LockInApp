@@ -291,7 +291,7 @@ final class RunRecapTests: XCTestCase {
         XCTAssertEqual(recap.categories.map(\.name), ["Coding", "Writing"])
         XCTAssertEqual(recap.goalsDone, 1)
         XCTAssertEqual(recap.text, """
-        LockIn recap · 3 blocks · 2h 5m focused
+        Quietwhile recap · 3 blocks · 2h 5m focused
         Coding 1h 40m · Writing 25m
         ✓ Ship v1
         – Post

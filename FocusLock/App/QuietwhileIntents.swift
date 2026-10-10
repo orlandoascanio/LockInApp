@@ -6,7 +6,7 @@ import Foundation
 
 struct StartFocusIntent: AppIntent {
     static let title: LocalizedStringResource = "Start Focus"
-    static let description = IntentDescription("Starts a LockIn focus block.")
+    static let description = IntentDescription("Starts a Quietwhile focus block.")
 
     @Parameter(title: "Minutes", description: "Leave empty to use your usual length.",
                inclusiveRange: (1, 1_440))
@@ -23,8 +23,8 @@ struct StartFocusIntent: AppIntent {
 
     @MainActor
     func perform() async throws -> some IntentResult & ProvidesDialog {
-        guard let controller = await LockInCommandCenter.shared.readyController() else {
-            throw LockInIntentError.notReady
+        guard let controller = await QuietwhileCommandCenter.shared.readyController() else {
+            throw QuietwhileIntentError.notReady
         }
         guard !controller.isSessionActive else {
             return .result(dialog: "A session is already running.")
@@ -37,12 +37,12 @@ struct StartFocusIntent: AppIntent {
 
 struct StopFocusIntent: AppIntent {
     static let title: LocalizedStringResource = "Stop Focus"
-    static let description = IntentDescription("Ends the current LockIn session. Strict blocks can't be stopped.")
+    static let description = IntentDescription("Ends the current Quietwhile session. Strict blocks can't be stopped.")
 
     @MainActor
     func perform() async throws -> some IntentResult & ProvidesDialog {
-        guard let controller = await LockInCommandCenter.shared.readyController() else {
-            throw LockInIntentError.notReady
+        guard let controller = await QuietwhileCommandCenter.shared.readyController() else {
+            throw QuietwhileIntentError.notReady
         }
         guard controller.isSessionActive || controller.snapshot.phase == .breakEnded else {
             return .result(dialog: "Nothing is running.")
@@ -61,8 +61,8 @@ struct SkipPhaseIntent: AppIntent {
 
     @MainActor
     func perform() async throws -> some IntentResult & ProvidesDialog {
-        guard let controller = await LockInCommandCenter.shared.readyController() else {
-            throw LockInIntentError.notReady
+        guard let controller = await QuietwhileCommandCenter.shared.readyController() else {
+            throw QuietwhileIntentError.notReady
         }
         guard !controller.isStrictLocked else {
             return .result(dialog: "This is a strict block, so it can't be skipped.")
@@ -79,12 +79,12 @@ struct SkipPhaseIntent: AppIntent {
 
 struct FocusStatusIntent: AppIntent {
     static let title: LocalizedStringResource = "Get Focus Status"
-    static let description = IntentDescription("Tells you what LockIn is doing and how long is left.")
+    static let description = IntentDescription("Tells you what Quietwhile is doing and how long is left.")
 
     @MainActor
     func perform() async throws -> some IntentResult & ReturnsValue<String> & ProvidesDialog {
-        guard let controller = await LockInCommandCenter.shared.readyController() else {
-            throw LockInIntentError.notReady
+        guard let controller = await QuietwhileCommandCenter.shared.readyController() else {
+            throw QuietwhileIntentError.notReady
         }
         let snapshot = controller.snapshot
         let status: String
@@ -102,19 +102,19 @@ struct FocusStatusIntent: AppIntent {
     }
 }
 
-enum LockInIntentError: Error, CustomLocalizedStringResourceConvertible {
+enum QuietwhileIntentError: Error, CustomLocalizedStringResourceConvertible {
     case notReady
 
     var localizedStringResource: LocalizedStringResource {
-        "LockIn didn't finish opening. Try again in a moment."
+        "Quietwhile didn't finish opening. Try again in a moment."
     }
 }
 
-struct LockInShortcuts: AppShortcutsProvider {
+struct QuietwhileShortcuts: AppShortcutsProvider {
     static var appShortcuts: [AppShortcut] {
         AppShortcut(
             intent: StartFocusIntent(),
-            phrases: ["Start focus in \(.applicationName)", "Lock in with \(.applicationName)"],
+            phrases: ["Start focus in \(.applicationName)", "Focus with \(.applicationName)"],
             shortTitle: "Start Focus",
             systemImageName: "lock.fill"
         )
@@ -141,13 +141,15 @@ struct LockInShortcuts: AppShortcutsProvider {
 
 // MARK: - Focus filter
 
-/// Ties LockIn to a macOS Focus. When the Focus turns on, macOS runs this with
+/// Ties Quietwhile to a macOS Focus. When the Focus turns on, macOS runs this with
 /// the options you picked; when it turns off, it runs it again with every
 /// option at its default — so "Start a block" defaults to off, and a run with
 /// it off means the Focus has ended.
+// Keeps its LockIn-era type name: macOS stores Focus filters by it, so
+// renaming it would silently drop the filter people already set up.
 struct LockInFocusFilter: SetFocusFilterIntent {
-    static let title: LocalizedStringResource = "LockIn"
-    static let description = IntentDescription("Start a LockIn focus block when this Focus turns on.")
+    static let title: LocalizedStringResource = "Quietwhile"
+    static let description = IntentDescription("Start a Quietwhile focus block when this Focus turns on.")
 
     @Parameter(title: "Start a focus block", default: false)
     var startBlock: Bool
@@ -174,7 +176,7 @@ struct LockInFocusFilter: SetFocusFilterIntent {
 
     @MainActor
     func perform() async throws -> some IntentResult {
-        guard let controller = await LockInCommandCenter.shared.readyController() else {
+        guard let controller = await QuietwhileCommandCenter.shared.readyController() else {
             return .result()
         }
         let defaults = UserDefaults.standard

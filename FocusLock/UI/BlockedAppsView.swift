@@ -37,7 +37,7 @@ struct BlockedAppsView: View {
                 FLEmptyState(
                     systemImage: "shield",
                     title: "Nothing guarded yet",
-                    detail: "Add the apps that pull you away, and LockIn will hold them back during focus."
+                    detail: "Add the apps that pull you away, and Quietwhile will hold them back during focus."
                 )
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else {

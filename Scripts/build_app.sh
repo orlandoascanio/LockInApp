@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
-# Build LockIn.app (with its widget) into build/LockIn.app, signed with the
+# Build Quietwhile.app (with its widget) into build/Quietwhile.app, signed with the
 # certificate you have for the project's team. For a notarized DMG, use
 # Scripts/release.sh.
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
-APP_NAME="LockIn"
+APP_NAME="Quietwhile"
 DERIVED="$ROOT_DIR/build/DerivedData"
 APP_DIR="$ROOT_DIR/build/$APP_NAME.app"
 CONFIGURATION="${CONFIGURATION:-Release}"
@@ -62,7 +62,7 @@ xcodebuild \
     -destination 'platform=macOS' \
     MARKETING_VERSION="$SHORT_VERSION" \
     CURRENT_PROJECT_VERSION="$BUILD_NUMBER" \
-    LOCKIN_SOURCE_COMMIT="$COMMIT" \
+    QUIETWHILE_SOURCE_COMMIT="$COMMIT" \
     CODE_SIGN_IDENTITY="$IDENTITY" \
     build \
     | grep -E "error:|warning: .*\.swift|BUILD (SUCCEEDED|FAILED)" || true

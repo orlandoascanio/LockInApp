@@ -5,7 +5,7 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleDisplayName</key>
-	<string>LockIn</string>
+	<string>Quietwhile</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>
@@ -13,7 +13,7 @@
 	<key>CFBundleInfoDictionaryVersion</key>
 	<string>6.0</string>
 	<key>CFBundleName</key>
-	<string>LockIn</string>
+	<string>Quietwhile</string>
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>
@@ -25,6 +25,7 @@
 			<string>com.lockin.app</string>
 			<key>CFBundleURLSchemes</key>
 			<array>
+				<string>quietwhile</string>
 				<string>lockin</string>
 			</array>
 		</dict>
@@ -35,10 +36,10 @@
 	<string>public.app-category.productivity</string>
 	<key>LSMinimumSystemVersion</key>
 	<string>$(MACOSX_DEPLOYMENT_TARGET)</string>
-	<key>LockInSourceCommit</key>
-	<string>$(LOCKIN_SOURCE_COMMIT)</string>
+	<key>QuietwhileSourceCommit</key>
+	<string>$(QUIETWHILE_SOURCE_COMMIT)</string>
 	<key>NSAppleEventsUsageDescription</key>
-	<string>LockIn reads the address of your current browser tab during focus so it can swap guarded websites out. It never reads page contents or history.</string>
+	<string>Quietwhile reads the address of your current browser tab during focus so it can swap guarded websites out. It never reads page contents or history.</string>
 	<key>NSHumanReadableCopyright</key>
 	<string>Made for fun, and for focus.</string>
 	<key>NSPrincipalClass</key>

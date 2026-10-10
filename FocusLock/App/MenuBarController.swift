@@ -65,7 +65,7 @@ final class MenuBarController: NSObject, ObservableObject {
     /// The emergency exit in progress, if any.
     @Published private(set) var strictEscape: StrictEscape?
 
-    /// The browser that refused LockIn permission to read its tabs.
+    /// The browser that refused Quietwhile permission to read its tabs.
     @Published private(set) var browserPermissionProblem: SupportedBrowser?
 
     /// The schedule window open right now, whether or not it started a block.
@@ -294,7 +294,7 @@ final class MenuBarController: NSObject, ObservableObject {
             self?.recordInterception(key: Self.activityKey(for: visit.site))
             self?.notificationService.notice(
                 title: "\(visit.site.host) is guarded",
-                body: "LockIn swapped the page out in \(visit.browser.displayName)."
+                body: "Quietwhile swapped the page out in \(visit.browser.displayName)."
             )
         }
         websiteGuard.onPermissionDenied = { [weak self] browser in
@@ -327,7 +327,7 @@ final class MenuBarController: NSObject, ObservableObject {
             self?.updatePinnedHUD(enabled: false)
             self?.notificationService.notice(
                 title: "HUD unpinned",
-                body: "Pin it again from LockIn in the menu bar, or in Settings.",
+                body: "Pin it again from Quietwhile in the menu bar, or in Settings.",
                 sound: false
             )
         }
@@ -418,7 +418,7 @@ final class MenuBarController: NSObject, ObservableObject {
 
         hasSetup = true
         reopenObserver = NotificationCenter.default.addObserver(
-            forName: .lockInShowMainWindow,
+            forName: .quietwhileShowMainWindow,
             object: nil,
             queue: .main
         ) { [weak self] _ in
@@ -437,7 +437,7 @@ final class MenuBarController: NSObject, ObservableObject {
             }
         }
 
-        LockInCommandCenter.shared.controller = self
+        QuietwhileCommandCenter.shared.controller = self
         applyAppearance()
         setupMainMenu()
         setupStatusItem()
@@ -481,7 +481,7 @@ final class MenuBarController: NSObject, ObservableObject {
         // Logging out, restarting and shutting down are never held up.
         guard !isSystemQuit else { return true }
         guard !isStrictLocked else {
-            refuseStrict("LockIn can't quit during a strict block. It ends at \(phaseEndLabel), or use the emergency exit.")
+            refuseStrict("Quietwhile can't quit during a strict block. It ends at \(phaseEndLabel), or use the emergency exit.")
             return false
         }
         guard isSessionActive, config.confirmBeforeEnding else { return true }
@@ -856,7 +856,7 @@ final class MenuBarController: NSObject, ObservableObject {
         }
         launchAtLogin = SMAppService.mainApp.status == .enabled
         if SMAppService.mainApp.status == .requiresApproval {
-            settingsMessage = "Approve LockIn in System Settings › General › Login Items."
+            settingsMessage = "Approve Quietwhile in System Settings › General › Login Items."
         }
     }
 
@@ -1194,6 +1194,8 @@ final class MenuBarController: NSObject, ObservableObject {
         mainWindow = presentWindow(
             existingWindow: mainWindow,
             title: AppIdentity.name,
+            // The LockIn-era key, so the window opens where you left it.
+            frameAutosaveName: "LockIn",
             size: NSSize(width: 920, height: 660),
             rootView: MainWindowView().environmentObject(self)
         )
@@ -1347,7 +1349,7 @@ final class MenuBarController: NSObject, ObservableObject {
     }
 
     /// The HUD is only on screen while a session is running and the preference
-    /// is on, so an idle LockIn leaves no residue over your work.
+    /// is on, so an idle Quietwhile leaves no residue over your work.
     private func syncPinnedHUD() {
         guard config.pinnedHUDEnabled, isSessionActive else {
             pinnedHUD.dismiss()
@@ -1564,7 +1566,7 @@ final class MenuBarController: NSObject, ObservableObject {
             if unreadableBrowsersNoticed.insert(browser).inserted {
                 notificationService.notice(
                     title: "Websites aren’t guarded in \(browser.displayName) yet",
-                    body: "Open LockIn › Blocked to allow it."
+                    body: "Open Quietwhile › Blocked to allow it."
                 )
             }
         case nil:
@@ -1753,9 +1755,9 @@ final class MenuBarController: NSObject, ObservableObject {
         var defaultName: String {
             switch self {
             case .csv:
-                return "lockin-history.csv"
+                return "quietwhile-history.csv"
             case .json:
-                return "lockin-history.json"
+                return "quietwhile-history.json"
             }
         }
 
@@ -1797,6 +1799,7 @@ final class MenuBarController: NSObject, ObservableObject {
     private func presentWindow<Content: View>(
         existingWindow: NSWindow?,
         title: String,
+        frameAutosaveName: String,
         size: NSSize,
         rootView: Content,
         activating: Bool = true
@@ -1825,7 +1828,7 @@ final class MenuBarController: NSObject, ObservableObject {
 
         window.contentView = NSHostingView(rootView: rootView)
         window.center()
-        window.setFrameAutosaveName(title)
+        window.setFrameAutosaveName(frameAutosaveName)
         show(window, activating: activating)
         // AppKit hands first responder to the first text field it finds — the
         // goal field — which opens the window with the goal selected, one

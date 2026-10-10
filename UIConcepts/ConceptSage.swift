@@ -317,7 +317,7 @@ struct SageGuard: View {
         ZStack {
             VStack(spacing: 0) {
                 HStack {
-                    Text("LOCKIN")
+                    Text("QUIETWHILE")
                         .font(.system(size: 9.5, weight: .semibold))
                         .tracking(2.2)
                         .foregroundStyle(SagePalette.inkSoft)

@@ -2,7 +2,7 @@ import AppKit
 import FocusLockCore
 import SwiftUI
 
-/// The welcome guide: what LockIn does, what to guard, how long to work, and
+/// The welcome guide: what Quietwhile does, what to guard, how long to work, and
 /// a first block. Every choice is saved the moment it is made, through the
 /// same controller calls the rest of the app uses, so skipping at any point
 /// loses nothing.
@@ -298,7 +298,7 @@ struct OnboardingView: View {
         VStack(spacing: FLSpacing.lg) {
             heading(
                 "And which websites?",
-                "During focus, LockIn swaps a guarded site for its own “Not now.” page. No browser extension needed."
+                "During focus, Quietwhile swaps a guarded site for its own “Not now.” page. No browser extension needed."
             )
 
             LazyVGrid(columns: [GridItem(.adaptive(minimum: 170), spacing: FLSpacing.sm)], spacing: FLSpacing.sm) {
@@ -390,7 +390,7 @@ struct OnboardingView: View {
                             .font(FLTypography.headline)
                             .foregroundStyle(Color.flInk)
 
-                        Text("Schedules can only start a block while LockIn is running.")
+                        Text("Schedules can only start a block while Quietwhile is running.")
                             .font(FLTypography.caption)
                             .foregroundStyle(Color.flInkSoft)
                     }
@@ -466,7 +466,7 @@ struct OnboardingView: View {
         VStack(spacing: FLSpacing.lg) {
             heading(
                 "Two things macOS will ask about",
-                "Here is what each one is for. Allow them now, or leave them for later: LockIn works either way, and nothing is asked behind your back."
+                "Here is what each one is for. Allow them now, or leave them for later: Quietwhile works either way, and nothing is asked behind your back."
             )
 
             PermissionsPanel(
@@ -485,7 +485,7 @@ struct OnboardingView: View {
             VStack(alignment: .leading, spacing: FLSpacing.md) {
                 point(
                     "menubar.rectangle",
-                    "LockIn lives in the menu bar",
+                    "Quietwhile lives in the menu bar",
                     "The countdown stays up there, and one click opens the controls."
                 )
                 if let shortcut = startShortcut {

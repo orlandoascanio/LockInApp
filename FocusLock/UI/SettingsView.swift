@@ -64,7 +64,7 @@ struct SettingsView: View {
                 .font(FLTypography.display)
                 .foregroundStyle(Color.flInk)
 
-            Text("Durations, guarding, strict mode, shortcuts, and how LockIn shows itself.")
+            Text("Durations, guarding, strict mode, shortcuts, and how Quietwhile shows itself.")
                 .font(FLTypography.caption)
                 .foregroundStyle(Color.flInkSoft)
 
@@ -201,7 +201,7 @@ struct SettingsView: View {
                 onSelect: { controller.updateAutoResumeCountdown(seconds: $0) }
             )
 
-            Text("Idle \(controller.config.autoResume.graceMinutes) minutes after a break and LockIn takes the screen, counts down \(countdownLabel), then starts the next block. You can always start now, push it back, or end the cycle.")
+            Text("Idle \(controller.config.autoResume.graceMinutes) minutes after a break and Quietwhile takes the screen, counts down \(countdownLabel), then starts the next block. You can always start now, push it back, or end the cycle.")
                 .font(.system(size: 11))
                 .foregroundStyle(Color.flInkSoft.opacity(0.8))
                 .fixedSize(horizontal: false, vertical: true)
@@ -343,7 +343,7 @@ struct SettingsView: View {
             VStack(alignment: .leading, spacing: 14) {
                 toggleRow(
                     title: "Run every block strict",
-                    detail: "During focus you can't end or skip the block, allow a guarded app, remove anything from the Blocked list, or quit LockIn. If LockIn is force-quit, it reopens and carries on. Breaks stay yours.",
+                    detail: "During focus you can't end or skip the block, allow a guarded app, remove anything from the Blocked list, or quit Quietwhile. If Quietwhile is force-quit, it reopens and carries on. Breaks stay yours.",
                     isOn: Binding(
                         get: { controller.config.strict.enabled },
                         set: { controller.updateStrictMode(enabled: $0) }
@@ -431,7 +431,7 @@ struct SettingsView: View {
             VStack(alignment: .leading, spacing: 12) {
                 toggleRow(
                     title: "Global shortcuts",
-                    detail: "Work from any app, even when LockIn is in the background. Strict blocks ignore stop and skip.",
+                    detail: "Work from any app, even when Quietwhile is in the background. Strict blocks ignore stop and skip.",
                     isOn: Binding(
                         get: { controller.config.hotkeys.enabled },
                         set: { value in controller.updateHotkeys { $0.enabled = value } }
@@ -451,7 +451,7 @@ struct SettingsView: View {
         section("General") {
             VStack(alignment: .leading, spacing: 14) {
                 toggleRow(
-                    title: "Open LockIn at login",
+                    title: "Open Quietwhile at login",
                     detail: "Needed for schedules to start on their own.",
                     isOn: Binding(
                         get: { controller.launchAtLogin },
@@ -530,7 +530,7 @@ private struct UpdatesRow: View {
                     Text("Check for updates automatically")
                         .font(FLTypography.body)
                         .foregroundStyle(Color.flInk)
-                    Text("New versions are signed; LockIn checks them before installing.")
+                    Text("New versions are signed; Quietwhile checks them before installing.")
                         .font(FLTypography.caption)
                         .foregroundStyle(Color.flInkSoft)
                 }

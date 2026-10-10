@@ -27,7 +27,7 @@ public final class SlackClient {
             case "missing_scope":
                 return "The token is missing a scope. Add users.profile:write and dnd:write, then reinstall the Slack app."
             case "ratelimited":
-                return "Slack is rate limiting LockIn. It will try again on the next block."
+                return "Slack is rate limiting Quietwhile. It will try again on the next block."
             default:
                 return "Slack said: \(code)"
             }

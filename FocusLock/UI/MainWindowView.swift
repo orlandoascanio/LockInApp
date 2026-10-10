@@ -550,7 +550,7 @@ struct FocusPageView: View {
         }
     }
 
-    /// Without the browser's OK, LockIn can't see its tabs, so guarded sites
+    /// Without the browser's OK, Quietwhile can't see its tabs, so guarded sites
     /// open freely. That must not hide on the Blocked page.
     private func unguardedBrowserWarning(_ browser: SupportedBrowser) -> some View {
         HStack(spacing: 10) {

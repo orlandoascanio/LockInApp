@@ -119,7 +119,7 @@ public final class AppBlocker {
         AppIdentity.legacyBundleIdentifier
     ]
 
-    public static let protectedNames: Set<String> = [
+    public static let protectedNames = Set([
         "Finder",
         "Dock",
         "System Settings",
@@ -127,9 +127,8 @@ public final class AppBlocker {
         "Terminal",
         "loginwindow",
         "WindowServer",
-        AppIdentity.name,
-        AppIdentity.legacyName
-    ]
+        AppIdentity.name
+    ] + AppIdentity.legacyNames)
 
     public weak var delegate: AppBlockerDelegate?
 
