@@ -77,7 +77,6 @@ final class MenuBarController: NSObject, ObservableObject {
     @Published private(set) var hotkeyFailures: Set<HotkeyAction> = []
     @Published var launchAtLogin: Bool = SMAppService.mainApp.status == .enabled
 
-    let integrations: IntegrationCoordinator
     let permissions = PermissionCenter()
 
     private let stateStore: StateStore
@@ -258,7 +257,6 @@ final class MenuBarController: NSObject, ObservableObject {
         self.config = config
         self.isOnboarding = !config.onboardingCompleted
         self.history = historyStore.loadHistory()
-        self.integrations = IntegrationCoordinator()
         self.timerEngine = TimerEngine(
             stateStore: stateStore,
             historyStore: historyStore,
@@ -448,7 +446,6 @@ final class MenuBarController: NSObject, ObservableObject {
         startTicking()
         syncBlocker()
         syncWatchdog()
-        integrations.sessionChanged(snapshot, config: config)
         showMainWindowAfterLaunch()
     }
 
@@ -500,7 +497,6 @@ final class MenuBarController: NSObject, ObservableObject {
         websiteGuard.stop()
         pinnedHUD.dismiss()
         hotkeys.unregisterAll()
-        integrations.appWillTerminate()
         if !snapshot.isStrict {
             timerEngine.recordAbandonmentIfNeeded()
         }
@@ -1012,12 +1008,6 @@ final class MenuBarController: NSObject, ObservableObject {
         saveConfig()
     }
 
-    func updateIntegrations(_ update: (inout IntegrationSettings) -> Void) {
-        update(&config.integrations)
-        saveConfig()
-        integrations.sessionChanged(snapshot, config: config)
-    }
-
     /// Per-app behaviour override. `nil` puts the app back on the global
     /// default from Settings.
     func setBlockedApp(_ app: BlockedApp, behavior: BlockerMode?) {
@@ -1291,7 +1281,6 @@ final class MenuBarController: NSObject, ObservableObject {
         // tick would be wasteful.
         if previousPhase != newSnapshot.phase {
             reloadHistory()
-            integrations.sessionChanged(newSnapshot, config: config)
             syncWatchdog()
             if newSnapshot.phase == .completed {
                 finishRun()
@@ -1309,15 +1298,13 @@ final class MenuBarController: NSObject, ObservableObject {
         }
     }
 
-    /// A run is over: work out what it added up to and hand it to anything
-    /// that wants to post it.
+    /// A run is over: work out what it added up to, for the recap card.
     private func finishRun() {
         guard let runStartedAt else { return }
         self.runStartedAt = nil
         let recap = RunRecap.make(from: history, since: runStartedAt)
         guard !recap.isEmpty else { return }
         lastRecap = recap
-        integrations.runFinished(recap, config: config)
     }
 
     // MARK: - Widget

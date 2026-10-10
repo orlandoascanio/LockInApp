@@ -51,7 +51,7 @@ public struct RunRecap: Equatable {
         "\(blocks) block\(blocks == 1 ? "" : "s") · \(Self.duration(focusMinutes)) focused"
     }
 
-    /// Plain text, for the clipboard and for a Discord message.
+    /// Plain text, for the clipboard.
     public var text: String {
         var lines = ["Quietwhile recap · \(headline)"]
         if !categories.isEmpty {

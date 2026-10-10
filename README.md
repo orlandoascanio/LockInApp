@@ -22,7 +22,7 @@
 
 Quietwhile lives in the menu bar and runs focus and break blocks. When you open a guarded app during focus, **Guard Screen** hides it and shows a full-screen "Not now." The app keeps running in the background, so a Discord call can carry on. 
 
-No account, no internet, no cloud. Slack and Discord are opt-in and talk only to Slack and Discord.
+No account, no internet, no cloud.
 
 > **Status:** early build. There is no signed download yet; build it from source below.
 
@@ -38,7 +38,6 @@ No account, no internet, no cloud. Slack and Discord are opt-in and talk only to
 - **Autopilot**: if a finished break goes unanswered, Quietwhile takes the screen back, counts down, and starts the next block.
 - **Widget** for the desktop and Notification Center.
 - **Shortcuts actions and a Focus filter**.
-- **Slack status and Discord** presence and recaps.
 - **Light and dark appearance**, following macOS or your own choice.
 - **History and analytics**, a floating HUD, and **Sparkle auto-updates** in release builds.
 
@@ -93,14 +92,6 @@ Quietwhile adds **Start Focus** (with optional minutes and strict), **Stop Focus
 
 To tie Quietwhile to a macOS Focus, go to **System Settings › Focus**, pick a Focus, then **Focus Filters › Add Filter › Quietwhile**. Turn on **Start a focus block**, and optionally **Use strict mode** and **End the block when this Focus turns off**.
 
-## Slack and Discord
-
-Set these up on the **Integrations** page. Secrets are stored in your Keychain, never in `config.json`.
-
-- **Slack**: sets your status to "Focusing · back at 10:45" and pauses notifications for exactly the length of the block. Both are cleared when the block ends, but only if Quietwhile set them. Needs a user token from a Slack app you create with the `users.profile:write` and `dnd:write` scopes. The page walks you through it.
-- **Discord status**: Rich Presence shows "Focusing · 18 min left" on your profile while the Discord desktop app is running. Needs the Application ID of a Discord app you create, named whatever you want your profile to show. Quietwhile can't change your *custom* status text, because Discord only allows that with your account token, which is against its rules.
-- **Discord recap**: when a run of blocks ends, Quietwhile posts blocks, focus time, categories, and goals to a channel webhook. Mentions are disabled, so a goal containing `@everyone` stays plain text.
-
 ## Requirements
 
 - macOS 14 or newer
@@ -109,7 +100,7 @@ Set these up on the **Integrations** page. Secrets are stored in your Keychain, 
 
 ## Build and run
 
-Run the core tests (timer, persistence, blocking rules, schedules, strict mode, website matching, integrations):
+Run the core tests (timer, persistence, blocking rules, schedules, strict mode, website matching):
 
 ```bash
 swift test
@@ -181,7 +172,7 @@ FocusLock/
 ├── App/             AppKit shell, controller, hotkeys, intents, watchdog, updater
 ├── UI/              SwiftUI pages
 ├── Widget/          WidgetKit extension
-├── Core/            Timer, storage, blocking, website guard, Slack, Discord
+├── Core/            Timer, storage, blocking, website guard
 ├── Models/          Config, sessions, schedules, strict mode, suggestions
 ├── Supporting/      Info.plist and entitlements (generated from project.yml)
 └── Tests/

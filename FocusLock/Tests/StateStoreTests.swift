@@ -136,3 +136,27 @@ final class StateStoreTests: XCTestCase {
         XCTAssertNil(store.loadSessionState())
     }
 }
+
+final class RemovedSettingsTests: XCTestCase {
+    /// Configs from before Slack and Discord were removed still carry their
+    /// section; it is ignored, and nothing around it is lost.
+    func testConfigWithTheOldIntegrationsSectionStillLoads() throws {
+        let json = Data("""
+        {
+          "focusMinutes": 50,
+          "breakMinutes": 5,
+          "blockedSites": [{"id": "D52284E9-9E32-471C-9314-14D81AAD4E68", "pattern": "youtube.com", "isEnabled": true}],
+          "integrations": {"slackEnabled": true, "discordPresenceEnabled": true, "discordClientID": "123"},
+          "timerEndSound": "hero"
+        }
+        """.utf8)
+
+        let config = try JSONDecoder().decode(AppConfig.self, from: json)
+
+        XCTAssertEqual(config.focusMinutes, 50)
+        XCTAssertEqual(config.blockedSites.map(\.pattern), ["youtube.com"])
+        XCTAssertEqual(config.timerEndSound, .hero)
+        let saved = String(decoding: try JSONEncoder().encode(config), as: UTF8.self)
+        XCTAssertFalse(saved.contains("integrations"))
+    }
+}

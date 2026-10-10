@@ -7,7 +7,6 @@ enum MainPage: String, CaseIterable, Identifiable {
     case schedules
     case history
     case analytics
-    case integrations
     case settings
 
     var id: String { rawValue }
@@ -24,8 +23,6 @@ enum MainPage: String, CaseIterable, Identifiable {
             return "History"
         case .analytics:
             return "Analytics"
-        case .integrations:
-            return "Integrations"
         case .settings:
             return "Settings"
         }
@@ -43,8 +40,6 @@ enum MainPage: String, CaseIterable, Identifiable {
             return "clock.arrow.circlepath"
         case .analytics:
             return "chart.bar.xaxis"
-        case .integrations:
-            return "link"
         case .settings:
             return "gearshape"
         }
@@ -89,8 +84,6 @@ struct MainWindowView: View {
                     SessionHistoryView()
                 case .analytics:
                     AnalyticsView()
-                case .integrations:
-                    IntegrationsView()
                 case .settings:
                     SettingsView()
                 }

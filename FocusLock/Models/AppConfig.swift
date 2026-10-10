@@ -72,7 +72,6 @@ public struct AppConfig: Codable, Equatable {
     public var schedules: [FocusSchedule]
     public var breakSuggestions: BreakSuggestionSettings
     public var hotkeys: HotkeySettings
-    public var integrations: IntegrationSettings
     public var appearance: AppearancePreference
 
     /// False only on a brand-new install, until the welcome guide is finished
@@ -104,7 +103,6 @@ public struct AppConfig: Codable, Equatable {
         schedules: [FocusSchedule] = [],
         breakSuggestions: BreakSuggestionSettings = BreakSuggestionSettings(),
         hotkeys: HotkeySettings = HotkeySettings(),
-        integrations: IntegrationSettings = IntegrationSettings(),
         appearance: AppearancePreference = .system,
         onboardingCompleted: Bool = false,
         confirmBeforeEnding: Bool = true,
@@ -125,7 +123,6 @@ public struct AppConfig: Codable, Equatable {
         self.schedules = schedules
         self.breakSuggestions = breakSuggestions
         self.hotkeys = hotkeys
-        self.integrations = integrations
         self.appearance = appearance
         self.onboardingCompleted = onboardingCompleted
         self.confirmBeforeEnding = confirmBeforeEnding
@@ -153,7 +150,6 @@ public struct AppConfig: Codable, Equatable {
         case schedules
         case breakSuggestions
         case hotkeys
-        case integrations
         case appearance
         case onboardingCompleted
         case confirmBeforeEnding
@@ -198,8 +194,6 @@ public struct AppConfig: Codable, Equatable {
         breakSuggestions = (try? container.decodeIfPresent(BreakSuggestionSettings.self, forKey: .breakSuggestions))
             ?? BreakSuggestionSettings()
         hotkeys = (try? container.decodeIfPresent(HotkeySettings.self, forKey: .hotkeys)) ?? HotkeySettings()
-        integrations = (try? container.decodeIfPresent(IntegrationSettings.self, forKey: .integrations))
-            ?? IntegrationSettings()
         appearance = (try? container.decodeIfPresent(AppearancePreference.self, forKey: .appearance)) ?? .system
         // A config written before the welcome guide existed belongs to someone
         // already using the app, who should not be walked through it.
@@ -227,7 +221,6 @@ public struct AppConfig: Codable, Equatable {
         try container.encode(schedules, forKey: .schedules)
         try container.encode(breakSuggestions, forKey: .breakSuggestions)
         try container.encode(hotkeys, forKey: .hotkeys)
-        try container.encode(integrations, forKey: .integrations)
         try container.encode(appearance, forKey: .appearance)
         try container.encode(onboardingCompleted, forKey: .onboardingCompleted)
         try container.encode(confirmBeforeEnding, forKey: .confirmBeforeEnding)
