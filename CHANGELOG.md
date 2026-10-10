@@ -30,6 +30,8 @@ What changed in each Quietwhile release (called LockIn up to 0.3.3). Versions co
   - Daily charts show the same dotted daily-goal line as the Focus page, and charts by week or month keep the average line.
   - Each bar shows its time when there is room.
 
+- Settings › General no longer repeats the focus and break durations, which are set on the Focus page, and the Appearance section loses its extra line of text.
+
 ### Removed
 
 - The Integrations page, with Slack status, Discord status and Discord recaps. They took too much setup for what they gave back. Quietwhile no longer sends anything to other services; only the update check goes online. Your other settings are kept, and the recap card after a run still lets you copy the recap.

@@ -22,8 +22,7 @@ struct SettingsView: View {
                     FLRule()
                     switch tab {
                     case .general:
-                        durationsSection
-                        FLRule()
+                        // Durations live on the Focus page, next to Start.
                         timerSoundSection
                         FLRule()
                         appearanceSection
@@ -64,7 +63,7 @@ struct SettingsView: View {
                 .font(FLTypography.display)
                 .foregroundStyle(Color.flInk)
 
-            Text("Durations, guarding, strict mode, shortcuts, and how Quietwhile shows itself.")
+            Text("Sounds, guarding, strict mode, breaks, shortcuts, and how Quietwhile shows itself.")
                 .font(FLTypography.caption)
                 .foregroundStyle(Color.flInkSoft)
 
@@ -83,52 +82,19 @@ struct SettingsView: View {
 
     private var appearanceSection: some View {
         section("Appearance") {
-            VStack(alignment: .leading, spacing: 12) {
-                FLSegmentedControl(
-                    options: AppearancePreference.allCases,
-                    selection: Binding(
-                        get: { controller.config.appearance },
-                        set: { controller.updateAppearance($0) }
-                    ),
-                    title: \.displayName,
-                    accessibilityLabel: "Appearance"
-                )
-
-                Text("Dark keeps the same moss palette on charcoal, for late sessions. The guard screen and HUD follow along.")
-                    .font(FLTypography.caption)
-                    .foregroundStyle(Color.flInkSoft)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
+            FLSegmentedControl(
+                options: AppearancePreference.allCases,
+                selection: Binding(
+                    get: { controller.config.appearance },
+                    set: { controller.updateAppearance($0) }
+                ),
+                title: \.displayName,
+                accessibilityLabel: "Appearance"
+            )
         }
     }
 
     // MARK: Sections
-
-    private var durationsSection: some View {
-        section("Durations") {
-            HStack(spacing: FLSpacing.xl) {
-                FLDurationField(
-                    label: "Focus",
-                    minutes: Binding(
-                        get: { controller.config.focusMinutes },
-                        set: { controller.updateFocusMinutes($0) }
-                    ),
-                    range: AppConfig.focusMinutesRange
-                )
-
-                FLDurationField(
-                    label: "Break",
-                    minutes: Binding(
-                        get: { controller.config.breakMinutes },
-                        set: { controller.updateBreakMinutes($0) }
-                    ),
-                    range: 0...60
-                )
-
-                Spacer()
-            }
-        }
-    }
 
     private var behaviourSection: some View {
         section("Default guarding behaviour") {
