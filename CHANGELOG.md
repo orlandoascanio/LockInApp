@@ -2,7 +2,7 @@
 
 What changed in each Quietwhile release (called LockIn up to 0.3.3). Versions come from the git tag the release is built from (`vX.Y.Z`).
 
-## 0.3.4 (unreleased)
+## 0.3.4 (2026-10-10)
 
 - LockIn is now called Quietwhile. Updating keeps your settings, history, schedules, permissions, widgets, Shortcuts and Focus filters. Your data is copied to `~/Library/Application Support/Quietwhile/` on first launch; the old `LockIn` folder is left untouched.
 - Quietwhile plays a chime when a focus block or a break runs out. It plays from the app itself, so you still hear it with notifications off, with Do Not Disturb or another Focus mode on, or while you are in a full-screen app. Pick the sound, or turn it off, in Settings › General › When time is up (Glass by default).
