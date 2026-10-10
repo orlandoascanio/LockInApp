@@ -30,6 +30,13 @@ What changed in each Quietwhile release (called LockIn up to 0.3.3). Versions co
   - Daily charts show the same dotted daily-goal line as the Focus page, and charts by week or month keep the average line.
   - Each bar shows its time when there is room.
 
+- During a break, the HUD shows the break suggestion (such as "Stretch") instead of your goal.
+- Break suggestions you do, not just read:
+  - Each one is guided on the Focus page: a breathing circle that grows and shrinks for four rounds of box breathing, a 20-second ring for your eyes with a soft chime at the end, three timed stretches with progress dots, a posture checklist, a glass that fills when you've had your water, and a "Back in 4:30" countdown for a walk.
+  - New: push-ups and squats, paced rep by rep. If you had every suggestion on, they're on for you too.
+  - "Did it" counts it ("You stretched 4 times this week", "3 glasses today"), and so does finishing a guide. "Another one" swaps it for something you haven't seen this break.
+  - Suggestions fit the break: breathing or your eyes for a short one, a walk for a long one, and something that gets you moving after three blocks in a row. The same one never comes twice in a row.
+  - In Settings › Breaks, each suggestion shows its icon, with a checkmark when it's on, and you can preview any of them.
 - Settings › General no longer repeats the focus and break durations, which are set on the Focus page, and the Appearance section loses its extra line of text.
 
 ### Removed

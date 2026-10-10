@@ -7,8 +7,32 @@ public enum BreakSuggestionKind: String, Codable, CaseIterable, Identifiable {
     case walk
     case breathe
     case posture
+    case pushups
+    case squats
 
     public var id: String { rawValue }
+
+    /// The six there were before push-ups and squats. Someone who had all of
+    /// them on gets the new ones too.
+    static let original: Set<BreakSuggestionKind> = [.eyes, .water, .stretch, .walk, .breathe, .posture]
+
+    /// Gets you out of the chair, for the end of a long run of blocks.
+    public var isMovement: Bool {
+        [.walk, .stretch, .pushups, .squats].contains(self)
+    }
+
+    public var systemImage: String {
+        switch self {
+        case .eyes: return "eye"
+        case .water: return "drop"
+        case .stretch: return "figure.flexibility"
+        case .walk: return "figure.walk"
+        case .breathe: return "wind"
+        case .posture: return "figure.stand"
+        case .pushups: return "figure.core.training"
+        case .squats: return "figure.strengthtraining.functional"
+        }
+    }
 
     public var title: String {
         switch self {
@@ -18,6 +42,8 @@ public enum BreakSuggestionKind: String, Codable, CaseIterable, Identifiable {
         case .walk: return "Walk"
         case .breathe: return "Breathe"
         case .posture: return "Posture"
+        case .pushups: return "Push-ups"
+        case .squats: return "Squats"
         }
     }
 
@@ -59,7 +85,11 @@ public struct BreakSuggestionSettings: Codable, Equatable {
         enabled = try container.decodeIfPresent(Bool.self, forKey: .enabled) ?? fallback.enabled
         // Kinds from a newer build are dropped rather than failing the section.
         let names = try container.decodeIfPresent([String].self, forKey: .kinds)
-        kinds = names.map { Set($0.compactMap(BreakSuggestionKind.init(rawValue:))) } ?? fallback.kinds
+        var decoded = names.map { Set($0.compactMap(BreakSuggestionKind.init(rawValue:))) } ?? fallback.kinds
+        if decoded.isSuperset(of: BreakSuggestionKind.original) {
+            decoded.formUnion(BreakSuggestionKind.allCases)
+        }
+        kinds = decoded
         eyeReminderDuringFocus = try container.decodeIfPresent(Bool.self, forKey: .eyeReminderDuringFocus)
             ?? fallback.eyeReminderDuringFocus
     }
@@ -83,32 +113,92 @@ public enum BreakSuggestions {
         systemImage: "eye"
     )
 
-    /// Deterministic for a given block, so the notification, the main window,
-    /// and the HUD all show the same suggestion. Rotates through the enabled
-    /// kinds as the run goes on, and prefers a walk once a break is long
-    /// enough to take one.
+    /// Breaks this long or shorter lean towards something done in your chair.
+    public static let shortBreakMinutes = 5
+    /// Breaks this long or longer lean towards a walk.
+    public static let longBreakMinutes = 10
+    /// After this many blocks in a row, breaks lean towards moving.
+    public static let longRunBlocks = 3
+
+    /// What a break is like, for choosing what to do with it.
+    public struct Context: Equatable {
+        /// The block this break follows, counted from the start of the run.
+        public var cycle: Int
+        public var breakMinutes: Int
+        /// Last break's suggestion, so the same one never comes twice running.
+        public var previous: BreakSuggestionKind?
+        /// Suggestions already passed over this break with "Another one".
+        public var passedOver: Set<BreakSuggestionKind>
+
+        public init(
+            cycle: Int,
+            breakMinutes: Int,
+            previous: BreakSuggestionKind? = nil,
+            passedOver: Set<BreakSuggestionKind> = []
+        ) {
+            self.cycle = max(1, cycle)
+            self.breakMinutes = breakMinutes
+            self.previous = previous
+            self.passedOver = passedOver
+        }
+    }
+
+    /// Picks something to do with a break:
+    /// - a long run of blocks asks for moving (a walk or a stretch);
+    /// - a long break leans towards a walk;
+    /// - a short one towards breathing or resting your eyes;
+    /// - last break's suggestion is never repeated, and neither is one passed
+    ///   over this break, while anything else is left.
+    /// Deterministic for the same context, so it can be recomputed and tested.
+    public static func suggestion(for context: Context, settings: BreakSuggestionSettings) -> BreakSuggestion? {
+        guard settings.enabled else { return nil }
+        let enabled = BreakSuggestionKind.allCases.filter {
+            settings.kinds.contains($0) && context.breakMinutes >= $0.minimumBreakMinutes
+        }
+        guard !enabled.isEmpty else { return nil }
+
+        var candidates = enabled.filter { !context.passedOver.contains($0) }
+        if candidates.isEmpty {
+            // Everything has been passed over: start again, minus the last one.
+            candidates = enabled
+        }
+        if let previous = context.previous, candidates.count > 1 {
+            candidates.removeAll { $0 == previous }
+        }
+
+        let preferred = candidates.filter { preferredKinds(for: context).contains($0) }
+        let pool = preferred.isEmpty ? candidates : preferred
+        let kind = pool[(context.cycle - 1 + context.passedOver.count) % pool.count]
+        return suggestion(of: kind, cycle: context.cycle)
+    }
+
+    /// The suggestion for a kind, worded for this block, so a kind that comes
+    /// up often doesn't always read the same.
+    public static func suggestion(of kind: BreakSuggestionKind, cycle: Int) -> BreakSuggestion? {
+        guard let variants = catalog[kind], !variants.isEmpty else { return nil }
+        return variants[(max(1, cycle) - 1) % variants.count]
+    }
+
+    /// Kept for callers that only know the block and the break length.
     public static func suggestion(
         forCycle cycle: Int,
         breakMinutes: Int,
         settings: BreakSuggestionSettings
     ) -> BreakSuggestion? {
-        guard settings.enabled else { return nil }
-        let kinds = BreakSuggestionKind.allCases.filter {
-            settings.kinds.contains($0) && breakMinutes >= $0.minimumBreakMinutes
-        }
-        guard !kinds.isEmpty else { return nil }
+        suggestion(for: Context(cycle: cycle, breakMinutes: breakMinutes), settings: settings)
+    }
 
-        let index = max(0, cycle - 1)
-        let kind: BreakSuggestionKind
-        if breakMinutes >= 10, kinds.contains(.walk), index % 2 == 1 {
-            kind = .walk
-        } else {
-            kind = kinds[index % kinds.count]
+    private static func preferredKinds(for context: Context) -> Set<BreakSuggestionKind> {
+        if context.cycle >= longRunBlocks {
+            return Set(BreakSuggestionKind.allCases.filter(\.isMovement))
         }
-
-        let variants = catalog[kind] ?? []
-        guard !variants.isEmpty else { return nil }
-        return variants[(index / kinds.count) % variants.count]
+        if context.breakMinutes >= longBreakMinutes {
+            return [.walk]
+        }
+        if context.breakMinutes <= shortBreakMinutes {
+            return [.breathe, .eyes]
+        }
+        return []
     }
 
     static let catalog: [BreakSuggestionKind: [BreakSuggestion]] = [
@@ -156,6 +246,16 @@ public enum BreakSuggestions {
             BreakSuggestion(kind: .posture, title: "Reset your posture",
                             detail: "Feet flat, shoulders down and back, top of the screen at eye level.",
                             systemImage: "figure.stand")
+        ],
+        .pushups: [
+            BreakSuggestion(kind: .pushups, title: "10 push-ups",
+                            detail: "Hands under your shoulders, body in one line. On your knees or against the desk counts.",
+                            systemImage: "figure.core.training")
+        ],
+        .squats: [
+            BreakSuggestion(kind: .squats, title: "15 squats",
+                            detail: "Feet shoulder-width apart, sit back as if into a chair, stand tall again.",
+                            systemImage: "figure.strengthtraining.functional")
         ]
     ]
 }

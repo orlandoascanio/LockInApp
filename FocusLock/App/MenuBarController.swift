@@ -91,6 +91,9 @@ final class MenuBarController: NSObject, ObservableObject {
     private let blocker: AppBlocker
     private let timerEngine: TimerEngine
     private let activityStore = BlockActivityStore()
+    let breakActivity = BreakActivityStore()
+    /// This break's suggestion, chosen once when it starts.
+    @Published private(set) var breakPick: BreakActivityStore.Pick?
     private let websiteGuard = WebsiteGuard()
     private let hotkeys = HotkeyManager()
     private let watchdog = StrictWatchdog()
@@ -221,12 +224,65 @@ final class MenuBarController: NSObject, ObservableObject {
 
     /// What to do with this break, while one is running or just over.
     var breakSuggestion: BreakSuggestion? {
-        guard snapshot.phase == .break || snapshot.phase == .breakEnded else { return nil }
-        return BreakSuggestions.suggestion(
-            forCycle: snapshot.currentCycle,
+        guard
+            snapshot.phase == .break || snapshot.phase == .breakEnded,
+            let pick = breakPick,
+            pick.breakKey == currentBreakKey
+        else {
+            return nil
+        }
+        return BreakSuggestions.suggestion(of: pick.kind, cycle: snapshot.currentCycle)
+    }
+
+    private var currentBreakKey: String {
+        Self.breakKey(sessionStartedAt: snapshot.sessionStartedAt, cycle: snapshot.currentCycle)
+    }
+
+    private static func breakKey(sessionStartedAt: Date?, cycle: Int) -> String {
+        BreakActivityStore.breakKey(sessionStartedAt: sessionStartedAt ?? .distantPast, cycle: cycle)
+    }
+
+    /// Chooses this break's suggestion the first time anything asks, so the
+    /// notification, the Focus page and the HUD all show the same one, and
+    /// the next break can avoid repeating it.
+    @discardableResult
+    private func ensureBreakPick(sessionStartedAt: Date?, cycle: Int, breakMinutes: Int) -> BreakSuggestion? {
+        let key = Self.breakKey(sessionStartedAt: sessionStartedAt, cycle: cycle)
+        if let pick = breakActivity.pick, pick.breakKey == key {
+            if breakPick != pick { breakPick = pick }
+            return BreakSuggestions.suggestion(of: pick.kind, cycle: cycle)
+        }
+        let context = BreakSuggestions.Context(cycle: cycle, breakMinutes: breakMinutes, previous: breakActivity.pick?.kind)
+        guard let suggestion = BreakSuggestions.suggestion(for: context, settings: config.breakSuggestions) else {
+            return nil
+        }
+        let pick = BreakActivityStore.Pick(breakKey: key, kind: suggestion.kind)
+        breakActivity.savePick(pick)
+        breakPick = pick
+        return suggestion
+    }
+
+    /// "Another one": swap this break's suggestion for one not seen yet.
+    func anotherBreakSuggestion() {
+        guard let pick = breakPick, pick.breakKey == currentBreakKey else { return }
+        let passedOver = pick.passedOver + [pick.kind]
+        let context = BreakSuggestions.Context(
+            cycle: snapshot.currentCycle,
             breakMinutes: snapshot.breakMinutes,
-            settings: config.breakSuggestions
+            previous: pick.kind,
+            passedOver: Set(passedOver)
         )
+        guard let next = BreakSuggestions.suggestion(for: context, settings: config.breakSuggestions) else { return }
+        let swapped = BreakActivityStore.Pick(breakKey: pick.breakKey, kind: next.kind, passedOver: passedOver)
+        breakActivity.savePick(swapped)
+        breakPick = swapped
+    }
+
+    /// "Did it", or a guide that ran to its end. Counted once per break.
+    func markBreakSuggestionDone() {
+        guard let pick = breakPick, pick.breakKey == currentBreakKey, !pick.done else { return }
+        breakActivity.markDone()
+        breakPick = breakActivity.pick
     }
 
     var nextScheduleOccurrence: ScheduleOccurrence? {
@@ -273,8 +329,12 @@ final class MenuBarController: NSObject, ObservableObject {
         super.init()
 
         notificationService.breakSuggestion = { [weak self] cycle, minutes in
-            guard let settings = self?.config.breakSuggestions else { return nil }
-            return BreakSuggestions.suggestion(forCycle: cycle, breakMinutes: minutes, settings: settings)
+            guard let self else { return nil }
+            return self.ensureBreakPick(
+                sessionStartedAt: self.timerEngine.snapshot.sessionStartedAt,
+                cycle: cycle,
+                breakMinutes: minutes
+            )
         }
         notificationService.appPlaysTimerEndSound = { [weak self] in
             self?.config.timerEndSound != .off
@@ -1305,6 +1365,15 @@ final class MenuBarController: NSObject, ObservableObject {
             }
         }
 
+        if newSnapshot.phase == .break {
+            // Also covers a relaunch in the middle of a break.
+            ensureBreakPick(
+                sessionStartedAt: newSnapshot.sessionStartedAt,
+                cycle: newSnapshot.currentCycle,
+                breakMinutes: newSnapshot.breakMinutes
+            )
+        }
+
         updateStatusItem()
         syncBlocker()
         syncPinnedHUD()
@@ -1382,7 +1451,11 @@ final class MenuBarController: NSObject, ObservableObject {
         }
     }
 
+    /// Your goal during focus; during a break, what to do with it.
     private var hudGoal: String? {
+        if snapshot.phase == .break, let suggestion = breakSuggestion {
+            return suggestion.title
+        }
         let goal = snapshot.task?.goal ?? ""
         return goal.isEmpty ? nil : goal
     }

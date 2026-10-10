@@ -144,28 +144,79 @@ final class StrictModeTests: XCTestCase {
 }
 
 final class BreakSuggestionTests: XCTestCase {
-    func testRotatesThroughEnabledKindsAndSkipsWalksOnShortBreaks() {
-        var settings = BreakSuggestionSettings()
-        let kinds = (1...12).compactMap {
-            BreakSuggestions.suggestion(forCycle: $0, breakMinutes: 5, settings: settings)?.kind
-        }
-        XCTAssertEqual(Set(kinds).count, BreakSuggestionKind.allCases.count)
+    private typealias Context = BreakSuggestions.Context
 
-        let short = (1...12).compactMap {
-            BreakSuggestions.suggestion(forCycle: $0, breakMinutes: 3, settings: settings)?.kind
-        }
-        XCTAssertFalse(short.contains(.walk))
+    private func kind(_ context: Context, _ settings: BreakSuggestionSettings = BreakSuggestionSettings()) -> BreakSuggestionKind? {
+        BreakSuggestions.suggestion(for: context, settings: settings)?.kind
+    }
 
-        settings.kinds = [.water]
-        XCTAssertEqual(BreakSuggestions.suggestion(forCycle: 7, breakMinutes: 5, settings: settings)?.kind, .water)
+    func testShortBreaksLeanTowardsBreathingOrEyes() {
+        for cycle in 1...2 {
+            for minutes in [2, 5] {
+                XCTAssertTrue([.breathe, .eyes].contains(kind(Context(cycle: cycle, breakMinutes: minutes))))
+            }
+        }
     }
 
     func testLongBreaksLeanTowardsAWalk() {
-        let settings = BreakSuggestionSettings()
-        let walks = (1...10).filter {
-            BreakSuggestions.suggestion(forCycle: $0, breakMinutes: 15, settings: settings)?.kind == .walk
+        XCTAssertEqual(kind(Context(cycle: 1, breakMinutes: 10)), .walk)
+        XCTAssertEqual(kind(Context(cycle: 2, breakMinutes: 15)), .walk)
+    }
+
+    func testALongRunOfBlocksAsksForMoving() {
+        for cycle in BreakSuggestions.longRunBlocks...8 {
+            for minutes in [3, 5, 7, 15] {
+                let picked = kind(Context(cycle: cycle, breakMinutes: minutes))
+                XCTAssertTrue(picked?.isMovement == true, "cycle \(cycle), \(minutes) min gave \(String(describing: picked))")
+            }
         }
-        XCTAssertGreaterThanOrEqual(walks.count, 5)
+        // A walk needs a break long enough to take one.
+        XCTAssertNotEqual(kind(Context(cycle: 4, breakMinutes: 3)), .walk)
+    }
+
+    func testNeverTheSameTwiceRunning() {
+        let settings = BreakSuggestionSettings()
+        for cycle in 1...12 {
+            for minutes in [2, 5, 7, 10, 20] {
+                var previous: BreakSuggestionKind?
+                for _ in 0..<6 {
+                    let next = kind(Context(cycle: cycle, breakMinutes: minutes, previous: previous), settings)
+                    XCTAssertNotNil(next)
+                    XCTAssertNotEqual(next, previous)
+                    previous = next
+                }
+            }
+        }
+    }
+
+    func testAnotherOneCyclesThroughWhatIsLeft() {
+        var passedOver: Set<BreakSuggestionKind> = []
+        var seen: [BreakSuggestionKind] = []
+        for _ in 0..<BreakSuggestionKind.allCases.count {
+            let next = kind(Context(cycle: 1, breakMinutes: 7, passedOver: passedOver))!
+            XCTAssertFalse(seen.contains(next))
+            seen.append(next)
+            passedOver.insert(next)
+        }
+        XCTAssertEqual(Set(seen), Set(BreakSuggestionKind.allCases))
+        // Once everything has been passed over, it starts again.
+        XCTAssertNotNil(kind(Context(cycle: 1, breakMinutes: 7, passedOver: passedOver)))
+    }
+
+    func testOnlyOneKindStillRepeats() {
+        var settings = BreakSuggestionSettings()
+        settings.kinds = [.water]
+        XCTAssertEqual(kind(Context(cycle: 3, breakMinutes: 5, previous: .water, passedOver: [.water]), settings), .water)
+    }
+
+    func testEveryoneWithAllSixOnGetsPushUpsAndSquats() throws {
+        let allSix = #"{"enabled":true,"kinds":["breathe","eyes","posture","stretch","walk","water"]}"#
+        let upgraded = try JSONDecoder().decode(BreakSuggestionSettings.self, from: Data(allSix.utf8))
+        XCTAssertTrue(upgraded.kinds.isSuperset(of: [.pushups, .squats]))
+
+        let chosen = #"{"enabled":true,"kinds":["water","walk"]}"#
+        let kept = try JSONDecoder().decode(BreakSuggestionSettings.self, from: Data(chosen.utf8))
+        XCTAssertEqual(kept.kinds, [.water, .walk])
     }
 
     func testOffOrEmptyGivesNothing() {
@@ -429,5 +480,45 @@ final class WebsiteGuardTests: XCTestCase {
         XCTAssertTrue(SupportedBrowser.safari.redirectScript(to: #"a"b"#).contains(#""a\"b""#))
         XCTAssertTrue(SupportedBrowser.chrome.readScript.contains("active tab of front window"))
         XCTAssertTrue(SupportedBrowser.safari.readScript.contains("current tab of front window"))
+    }
+}
+
+final class BreakActivityStoreTests: XCTestCase {
+    private func directory() throws -> URL {
+        let url = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
+        return url
+    }
+
+    func testPickSurvivesARelaunchAndCountsOncePerBreak() throws {
+        let base = try directory()
+        let store = BreakActivityStore(baseDirectory: base)
+        let key = BreakActivityStore.breakKey(sessionStartedAt: Date(timeIntervalSince1970: 1_000), cycle: 2)
+        store.savePick(.init(breakKey: key, kind: .stretch))
+
+        XCTAssertTrue(store.markDone(at: Date(timeIntervalSince1970: 2_000)))
+        XCTAssertFalse(store.markDone(at: Date(timeIntervalSince1970: 2_010)))
+
+        let reopened = BreakActivityStore(baseDirectory: base)
+        XCTAssertEqual(reopened.pick?.kind, .stretch)
+        XCTAssertEqual(reopened.pick?.done, true)
+        XCTAssertEqual(reopened.count(of: .stretch, from: .distantPast), 1)
+    }
+
+    func testCountsTodayAndThisWeek() throws {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(secondsFromGMT: 0)!
+        let store = BreakActivityStore(baseDirectory: try directory())
+        let iso = ISO8601DateFormatter()
+        // Sunday 19 July to Saturday 25 July 2026.
+        for (index, day) in ["2026-07-20T10:00:00Z", "2026-07-21T09:00:00Z", "2026-07-21T15:00:00Z", "2026-07-12T10:00:00Z"].enumerated() {
+            store.savePick(.init(breakKey: "k\(index)", kind: .water))
+            store.markDone(at: iso.date(from: day)!)
+        }
+        let now = iso.date(from: "2026-07-21T18:00:00Z")!
+
+        XCTAssertEqual(store.countToday(of: .water, now: now, calendar: calendar), 2)
+        XCTAssertEqual(store.countThisWeek(of: .water, now: now, calendar: calendar), 3)
+        XCTAssertEqual(store.countThisWeek(of: .squats, now: now, calendar: calendar), 0)
     }
 }

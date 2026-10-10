@@ -232,19 +232,14 @@ struct BreakPanel: View {
             if let suggestion = controller.breakSuggestion {
                 VStack(alignment: .leading, spacing: 8) {
                     FLMicroLabel(text: "Try this")
-                    HStack(spacing: 10) {
-                        Image(systemName: suggestion.systemImage)
-                            .font(.system(size: 20))
-                            .foregroundStyle(Color.flAccentDeep)
-                            .frame(width: 28)
-                        Text(suggestion.title)
-                            .font(FLTypography.title)
-                            .foregroundStyle(Color.flInk)
-                    }
-                    Text(suggestion.detail)
-                        .font(FLTypography.body)
-                        .foregroundStyle(Color.flInkSoft)
-                        .fixedSize(horizontal: false, vertical: true)
+                    BreakGuideView(
+                        suggestion: suggestion,
+                        breakEndsAt: controller.snapshot.phase == .break ? controller.snapshot.phaseEndsAt : nil,
+                        isDone: controller.breakPick?.done == true,
+                        tally: tally(for: suggestion.kind),
+                        onDone: { controller.markBreakSuggestionDone() },
+                        onAnother: { withAnimation(FLAnimation.standard) { controller.anotherBreakSuggestion() } }
+                    )
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
@@ -257,6 +252,16 @@ struct BreakPanel: View {
         }
         .padding(.horizontal, 26)
         .padding(.vertical, 20)
+    }
+
+    private func tally(for kind: BreakSuggestionKind) -> String? {
+        // Read again whenever the pick changes, which is when a count can.
+        _ = controller.breakPick
+        return BreakGuideView.tally(
+            for: kind,
+            today: controller.breakActivity.countToday(of: kind),
+            week: controller.breakActivity.countThisWeek(of: kind)
+        )
     }
 }
 

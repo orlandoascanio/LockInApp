@@ -12,6 +12,8 @@ struct SettingsView: View {
     }
 
     @State private var tab: Tab = .general
+    /// The break suggestion being previewed, if any.
+    @State private var previewKind: BreakSuggestionKind?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -340,20 +342,23 @@ struct SettingsView: View {
             VStack(alignment: .leading, spacing: 14) {
                 toggleRow(
                     title: "Suggest something to do on each break",
-                    detail: "Shown in the break notification, on the Focus page, and in the floating HUD.",
+                    detail: "Picked to fit the break: something calm for a short one, a walk for a long one, and moving after a long run. Shown in the break notification, on the Focus page, and in the floating HUD.",
                     isOn: Binding(
                         get: { controller.config.breakSuggestions.enabled },
                         set: { value in controller.updateBreakSuggestions { $0.enabled = value } }
                     )
                 )
 
-                HStack(spacing: 8) {
+                FlowLayout(spacing: 8) {
                     ForEach(BreakSuggestionKind.allCases) { kind in
                         suggestionChip(kind)
                     }
                 }
+                .frame(maxWidth: 560, alignment: .leading)
                 .disabled(!controller.config.breakSuggestions.enabled)
                 .opacity(controller.config.breakSuggestions.enabled ? 1 : 0.5)
+
+                suggestionPreview
 
                 toggleRow(
                     title: "20-20-20 reminder during long blocks",
@@ -364,6 +369,50 @@ struct SettingsView: View {
                     )
                 )
             }
+        }
+    }
+
+    @ViewBuilder
+    private var suggestionPreview: some View {
+        HStack(spacing: 10) {
+            Text("Preview")
+                .font(FLTypography.caption)
+                .foregroundStyle(Color.flInkSoft)
+            Menu {
+                ForEach(BreakSuggestionKind.allCases) { kind in
+                    Button {
+                        withAnimation(FLAnimation.standard) { previewKind = kind }
+                    } label: {
+                        Label(kind.title, systemImage: kind.systemImage)
+                    }
+                }
+            } label: {
+                Text(previewKind?.title ?? "Choose one…")
+            }
+            .menuStyle(.borderlessButton)
+            .fixedSize()
+
+            if previewKind != nil {
+                Button("Close") {
+                    withAnimation(FLAnimation.standard) { previewKind = nil }
+                }
+                .buttonStyle(FLLinkButtonStyle())
+            }
+        }
+
+        if let kind = previewKind, let suggestion = BreakSuggestions.suggestion(of: kind, cycle: 1) {
+            BreakGuideView(suggestion: suggestion, isPreview: true)
+                .padding(18)
+                .frame(maxWidth: 560, alignment: .leading)
+                .background(
+                    RoundedRectangle(cornerRadius: FLRadius.lg, style: .continuous)
+                        .fill(Color.flCanvasWarm)
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: FLRadius.lg, style: .continuous)
+                        .strokeBorder(Color.flHairline, lineWidth: 1)
+                )
+                .transition(.opacity)
         }
     }
 
@@ -378,15 +427,26 @@ struct SettingsView: View {
                 }
             }
         } label: {
-            Text(kind.title)
-                .font(.system(size: 12, weight: isOn ? .semibold : .regular))
-                .foregroundStyle(isOn ? Color.flAccentDeep : Color.flInkSoft)
-                .padding(.horizontal, 12)
-                .frame(height: 26)
-                .background(Capsule().fill(isOn ? Color.flAccentSoft.opacity(0.6) : .clear))
-                .overlay(Capsule().strokeBorder(isOn ? Color.flAccentDeep.opacity(0.35) : Color.flHairline, lineWidth: 1))
-                .contentShape(Capsule())
+            HStack(spacing: 6) {
+                Image(systemName: isOn ? "checkmark" : kind.systemImage)
+                    .font(.system(size: 11, weight: isOn ? .bold : .regular))
+                    .frame(width: 14)
+                Text(kind.title)
+                    .font(.system(size: 12, weight: isOn ? .semibold : .regular))
+            }
+            .foregroundStyle(isOn ? Color.flAccentDeep : Color.flInkSoft)
+            .padding(.horizontal, 12)
+            .frame(height: 28)
+            .background(Capsule().fill(isOn ? Color.flAccentSoft.opacity(0.6) : .clear))
+            .overlay(
+                Capsule().strokeBorder(
+                    isOn ? Color.flAccentDeep.opacity(0.35) : Color.flHairline,
+                    style: StrokeStyle(lineWidth: 1, dash: isOn ? [] : [3, 2])
+                )
+            )
+            .contentShape(Capsule())
         }
+        .help(isOn ? "On. Click to stop suggesting \(kind.title.lowercased())." : "Off. Click to suggest \(kind.title.lowercased()).")
         .buttonStyle(.plain)
         .accessibilityLabel(kind.title)
         .accessibilityAddTraits(isOn ? [.isSelected] : [])
@@ -518,5 +578,52 @@ private struct UpdatesRow: View {
                 .font(FLTypography.caption)
                 .foregroundStyle(Color.flInkSoft)
         }
+    }
+}
+
+/// Lays chips out in rows, wrapping to the next row when one is full.
+private struct FlowLayout: Layout {
+    var spacing: CGFloat = 8
+
+    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
+        let rows = arrange(subviews, width: proposal.width ?? .infinity)
+        let height = rows.last.map { $0.y + $0.height } ?? 0
+        let width = rows.map(\.width).max() ?? 0
+        return CGSize(width: width, height: height)
+    }
+
+    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
+        for row in arrange(subviews, width: bounds.width) {
+            var x = bounds.minX
+            for index in row.indices {
+                let size = subviews[index].sizeThatFits(.unspecified)
+                subviews[index].place(at: CGPoint(x: x, y: bounds.minY + row.y), proposal: ProposedViewSize(size))
+                x += size.width + spacing
+            }
+        }
+    }
+
+    private struct Row {
+        var indices: [Int] = []
+        var y: CGFloat = 0
+        var width: CGFloat = 0
+        var height: CGFloat = 0
+    }
+
+    private func arrange(_ subviews: Subviews, width: CGFloat) -> [Row] {
+        var rows = [Row()]
+        for index in subviews.indices {
+            let size = subviews[index].sizeThatFits(.unspecified)
+            let needed = rows[rows.count - 1].indices.isEmpty ? size.width : rows[rows.count - 1].width + spacing + size.width
+            if needed > width, !rows[rows.count - 1].indices.isEmpty {
+                let last = rows[rows.count - 1]
+                rows.append(Row(y: last.y + last.height + spacing))
+            }
+            let current = rows.count - 1
+            rows[current].width = rows[current].indices.isEmpty ? size.width : rows[current].width + spacing + size.width
+            rows[current].height = max(rows[current].height, size.height)
+            rows[current].indices.append(index)
+        }
+        return rows
     }
 }
