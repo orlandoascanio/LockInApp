@@ -41,7 +41,12 @@ final class MenuBarController: NSObject, ObservableObject {
     @Published var snapshot: TimerSnapshot
     @Published var history: [SessionHistoryEntry]
     @Published var preset: FocusPreset = .fiftyTen
-    @Published var settingsMessage: String?
+    /// A short confirmation or error under Settings and Blocked. It clears
+    /// itself, so "Added gmail.com." doesn't sit there for the rest of the day.
+    @Published var settingsMessage: String? {
+        didSet { scheduleSettingsMessageClear() }
+    }
+    private var settingsMessageClearTask: Task<Void, Never>?
     @Published var exportMessage: String?
     @Published var focusMessage: String?
 
@@ -655,6 +660,19 @@ final class MenuBarController: NSObject, ObservableObject {
         )
         if answer.confirmed {
             removeSchedule(schedule)
+        }
+    }
+
+    /// Confirmations go after a few seconds; longer messages, which are
+    /// usually errors or instructions, stay long enough to read.
+    private func scheduleSettingsMessageClear() {
+        settingsMessageClearTask?.cancel()
+        guard let message = settingsMessage else { return }
+        let seconds: Double = message.count > 40 ? 10 : 4
+        settingsMessageClearTask = Task { @MainActor [weak self] in
+            try? await Task.sleep(for: .seconds(seconds))
+            guard !Task.isCancelled, let self, self.settingsMessage == message else { return }
+            self.settingsMessage = nil
         }
     }
 

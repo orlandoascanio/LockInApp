@@ -36,6 +36,7 @@ What changed in each Quietwhile release (called LockIn up to 0.3.3). Versions co
 
 ### Fixes
 
+- Messages like "Added gmail.com." under Settings and Blocked now go away after a few seconds instead of staying until you leave the page.
 - The floating HUD can be moved again. Dragging it did nothing before.
 - Guarding gmail.com now also guards mail.google.com, where Gmail actually opens. Before, a gmail.com rule never matched anything. twitter.com and x.com now cover each other the same way.
 - When a browser hasn't given Quietwhile its OK, the Focus page now says that websites aren't guarded there, with a link straight to the Websites tab to allow it. Before, the only signs were one notification and a badge on the Blocked page, so guarded sites could open freely without you noticing.
