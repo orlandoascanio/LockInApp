@@ -2,7 +2,7 @@
 
 What changed in each Quietwhile release (called LockIn up to 0.3.3). Versions come from the git tag the release is built from (`vX.Y.Z`).
 
-## Unreleased
+## 0.3.5 (2026-10-11)
 
 - A new main window. The sidebar is gone: the pages are tabs across the top, Settings is the gear in the corner, and the top right shows where you stand (the time left, or when you last focused). ⌘1–⌘5 switch pages; the Quietwhile Window item moves to ⌘0.
 - Each page has its own colour, from a set of earth pigments: green for Focus, terracotta for Blocked, ochre for Schedules, umber for History, blue-grey for Analytics and plain paper for Settings. A break turns the Focus page slate.
