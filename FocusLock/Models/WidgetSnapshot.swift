@@ -69,7 +69,12 @@ public enum SharedContainer {
     public static let commandNotificationPrefix = "com.lockin.app.command."
 
     public static var directory: URL? {
-        FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: appGroupIdentifier)
+        // Scratch runs should not overwrite the installed app's widget either.
+        let environment = ProcessInfo.processInfo.environment
+        if let path = environment["QUIETWHILE_DATA_DIR"] ?? environment["LOCKIN_DATA_DIR"], !path.isEmpty {
+            return URL(fileURLWithPath: path, isDirectory: true).appendingPathComponent("widget", isDirectory: true)
+        }
+        return FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: appGroupIdentifier)
     }
 
     public static var snapshotURL: URL? {
