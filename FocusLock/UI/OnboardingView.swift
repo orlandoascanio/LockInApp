@@ -2,114 +2,139 @@ import AppKit
 import FocusLockCore
 import SwiftUI
 
-/// The welcome guide: what Quietwhile does, what to guard, how long to work, and
-/// a first block. Every choice is saved the moment it is made, through the
-/// same controller calls the rest of the app uses, so skipping at any point
-/// loses nothing.
 struct OnboardingView: View {
     @EnvironmentObject private var controller: MenuBarController
 
-    @State private var step: Step = .welcome
+    var body: some View {
+        OnboardingFlow(controller: controller, permissions: controller.permissions)
+    }
+}
+
+/// Every selection uses the same controller calls as the rest of the app.
+/// The scrollable content keeps the footer reachable with a long app list.
+private struct OnboardingFlow: View {
+    @ObservedObject var controller: MenuBarController
+    @ObservedObject var permissions: PermissionCenter
+    @State private var step: Step = .distractions
     @State private var suggestions = AppSuggestionList(likely: [], frequent: [])
     @State private var hasScannedApps = false
+    @State private var showsSites = false
     @State private var siteInput = ""
     @State private var siteError: String?
 
     enum Step: Int, CaseIterable {
-        case welcome
-        case apps
-        case sites
-        case rhythm
-        case permissions
-        case ready
+        case distractions, prepare, ready
+
+        var title: String {
+            switch self {
+            case .distractions: return "Choose"
+            case .prepare: return "Prepare"
+            case .ready: return "Start"
+            }
+        }
+    }
+
+    private var hasSelection: Bool {
+        !controller.activeBlockedApps.isEmpty || !controller.activeBlockedSites.isEmpty
+    }
+
+    private var selectedBrowser: SupportedBrowser? {
+        controller.onboardingProgress.preferredBrowserBundleID.flatMap(SupportedBrowser.init(rawValue:))
+    }
+
+    private var allowedBrowsers: [SupportedBrowser] {
+        permissions.installedBrowsers.filter { permissions.state(for: $0) == .granted }
     }
 
     var body: some View {
         VStack(spacing: 0) {
-            progress
-                .padding(.top, 44)
+            progress.padding(.top, 36).padding(.bottom, 20)
 
-            Spacer(minLength: FLSpacing.lg)
-
-            Group {
-                switch step {
-                case .welcome: welcome
-                case .apps: apps
-                case .sites: sites
-                case .rhythm: rhythm
-                case .permissions: permissions
-                case .ready: ready
+            ScrollView {
+                VStack(spacing: FLSpacing.lg) {
+                    switch step {
+                    case .distractions: distractions
+                    case .prepare: prepare
+                    case .ready: ready
+                    }
                 }
-            }
-            .frame(maxWidth: 560)
-            .id(step)
-            .transition(.opacity)
-
-            Spacer(minLength: FLSpacing.lg)
-
-            footer
+                .frame(maxWidth: 560)
+                .frame(maxWidth: .infinity)
                 .padding(.horizontal, FLSpacing.xl)
-                .padding(.bottom, FLSpacing.lg)
+                .padding(.vertical, FLSpacing.lg)
+                .id(step)
+                .transition(.opacity)
+            }
+
+            FLRule()
+            footer.padding(.horizontal, FLSpacing.xl).padding(.vertical, FLSpacing.lg)
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Color.flCanvas)
         .task {
-            // Reading a few dozen app bundles is quick, but not main-thread quick.
-            let found = await Task.detached(priority: .userInitiated) {
+            showsSites = !controller.activeBlockedSites.isEmpty
+            permissions.refresh()
+            if selectedBrowser == nil,
+               let url = URL(string: "https://example.com"),
+               let app = NSWorkspace.shared.urlForApplication(toOpen: url),
+               let bundleID = Bundle(url: app)?.bundleIdentifier,
+               let browser = SupportedBrowser(rawValue: bundleID) {
+                controller.chooseOnboardingBrowser(browser)
+            }
+            suggestions = await Task.detached(priority: .userInitiated) {
                 AppUsageScanner.suggestions()
             }.value
-            suggestions = found
             hasScannedApps = true
         }
     }
 
-    // MARK: - Chrome
-
     private var progress: some View {
-        HStack(spacing: 6) {
+        HStack(spacing: 28) {
             ForEach(Step.allCases, id: \.rawValue) { item in
-                Capsule()
-                    .fill(item.rawValue <= step.rawValue ? Color.flAccentDeep : Color.flHairline)
-                    .frame(width: item == step ? 22 : 8, height: 4)
+                HStack(spacing: 7) {
+                    Text("\(item.rawValue + 1)")
+                        .font(.system(size: 11, weight: .semibold))
+                        .frame(width: 22, height: 22)
+                        .background(item == step ? Color.flAccentSoft : Color.flField, in: Circle())
+                    Text(item.title).font(FLTypography.caption)
+                }
+                .foregroundStyle(item.rawValue <= step.rawValue ? Color.flAccentDeep : Color.flInkSoft)
             }
         }
-        .animation(FLAnimation.standard, value: step)
-        .accessibilityElement()
-        .accessibilityLabel("Step \(step.rawValue + 1) of \(Step.allCases.count)")
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("Step \(step.rawValue + 1) of 3: \(step.title)")
     }
 
     private var footer: some View {
         HStack(spacing: FLSpacing.sm) {
-            if step != .welcome {
+            if step != .distractions {
                 Button("Back") { go(to: step.rawValue - 1) }
                     .buttonStyle(FLActionButtonStyle(variant: .quiet))
             }
-
             Spacer()
-
             if step == .ready {
                 Button("Look around first") { controller.finishOnboarding(startingFocus: false) }
                     .buttonStyle(FLActionButtonStyle(variant: .secondary))
-
-                Button("Start my first block") { controller.finishOnboarding(startingFocus: true) }
-                    .buttonStyle(FLActionButtonStyle(variant: .primary))
-                    .keyboardShortcut(.defaultAction)
+                Button("Start \(controller.config.focusMinutes)-minute \(controller.nextBlockIsStrict ? "strict focus" : "focus")") {
+                    controller.finishOnboarding(startingFocus: true)
+                }
+                .buttonStyle(FLActionButtonStyle(variant: .primary))
+                .keyboardShortcut(controller.nextBlockIsStrict ? nil : .defaultAction)
             } else {
-                Button("Skip setup") { controller.finishOnboarding(startingFocus: false) }
+                Button("Skip setup") { controller.dismissOnboarding() }
                     .buttonStyle(FLActionButtonStyle(variant: .quiet))
-
-                Button(step == .welcome ? "Set it up" : "Continue") { go(to: step.rawValue + 1) }
-                    .buttonStyle(FLActionButtonStyle(variant: .primary))
-                    .keyboardShortcut(.defaultAction)
+                Button(step == .distractions && !hasSelection ? "Use timer only" : "Continue") {
+                    if step == .distractions && !hasSelection { controller.chooseTimerOnly() }
+                    go(to: step.rawValue + 1)
+                }
+                .buttonStyle(FLActionButtonStyle(variant: .primary))
+                .keyboardShortcut(.defaultAction)
             }
         }
     }
 
     private func go(to index: Int) {
         guard let next = Step(rawValue: index) else { return }
-        withAnimation(FLAnimation.standard) {
-            step = next
-        }
+        withAnimation(FLAnimation.standard) { step = next }
     }
 
     private func heading(_ title: String, _ detail: String) -> some View {
@@ -117,80 +142,173 @@ struct OnboardingView: View {
             Text(title)
                 .font(.system(size: 30, weight: .regular, design: .serif))
                 .foregroundStyle(Color.flInk)
-                .multilineTextAlignment(.center)
-                .fixedSize(horizontal: false, vertical: true)
-
             Text(detail)
                 .font(.system(size: 14))
                 .foregroundStyle(Color.flInkSoft)
-                .multilineTextAlignment(.center)
                 .lineSpacing(3)
-                .fixedSize(horizontal: false, vertical: true)
                 .frame(maxWidth: 460)
         }
+        .multilineTextAlignment(.center)
+        .fixedSize(horizontal: false, vertical: true)
     }
 
-    // MARK: - Welcome
-
-    private var welcome: some View {
-        VStack(spacing: FLSpacing.xl) {
-            VStack(spacing: FLSpacing.md) {
-                Image(nsImage: NSApp.applicationIconImage)
-                    .resizable()
-                    .interpolation(.high)
-                    .frame(width: 88, height: 88)
-                    .accessibilityHidden(true)
-
-                heading(
-                    "Welcome to \(AppIdentity.name)",
-                    "A focus timer that stops the reflex to open an app “just for a second”, without closing the app."
-                )
+    private var distractions: some View {
+        VStack(spacing: FLSpacing.lg) {
+            Image(nsImage: NSApp.applicationIconImage)
+                .resizable().interpolation(.high).frame(width: 52, height: 52)
+                .accessibilityHidden(true)
+            heading("Welcome to \(AppIdentity.name)",
+                    "Choose an app or website that pulls you away. Quietwhile guards your choices during focus.")
+            apps
+            FLRule()
+            DisclosureGroup("Add websites", isExpanded: $showsSites) {
+                sites.padding(.top, FLSpacing.md)
             }
-
-            VStack(alignment: .leading, spacing: FLSpacing.md) {
-                point(
-                    "shield",
-                    "Pick what pulls you in",
-                    "Apps like Discord, and sites like youtube.com."
-                )
-                point(
-                    "timer",
-                    "Start a focus block",
-                    "From this window, the menu bar, a shortcut, or a schedule."
-                )
-                point(
-                    "hand.raised",
-                    "Reach for one and see “Not now.”",
-                    "The app is hidden, not quit, so a call keeps going. Breaks are unguarded."
-                )
-            }
-            .frame(maxWidth: 420, alignment: .leading)
+            .font(FLTypography.headline)
+            .tint(Color.flAccentDeep)
         }
     }
 
-    private func point(_ symbol: String, _ title: String, _ detail: String) -> some View {
+    private var prepare: some View {
+        VStack(spacing: FLSpacing.lg) {
+            heading("Prepare your block", "Choose how long to focus. You can change the duration before any block.")
+            HStack(spacing: FLSpacing.xl) {
+                FLDurationField(label: "Focus", minutes: Binding(
+                    get: { controller.config.focusMinutes }, set: controller.updateFocusMinutes
+                ), range: AppConfig.focusMinutesRange)
+                FLDurationField(label: "Break", minutes: Binding(
+                    get: { controller.config.breakMinutes }, set: controller.updateBreakMinutes
+                ), range: 0...60)
+            }
+            .padding(FLSpacing.lg)
+            .frame(maxWidth: .infinity)
+            .background(Color.flField, in: RoundedRectangle(cornerRadius: FLRadius.lg))
+
+            if !controller.activeBlockedSites.isEmpty {
+                browserAccess
+            } else if !controller.activeBlockedApps.isEmpty {
+                Text("App guarding is ready without a macOS permission prompt.")
+                    .font(FLTypography.caption).foregroundStyle(Color.flInkSoft)
+            }
+        }
+    }
+
+    private var browserAccess: some View {
+        VStack(alignment: .leading, spacing: FLSpacing.md) {
+            Label("Website protection", systemImage: "globe")
+                .font(FLTypography.headline).foregroundStyle(Color.flInk)
+            Text("During focus, Quietwhile reads the current tab’s address and replaces guarded sites with its own page. It never reads page contents or browsing history.")
+                .font(FLTypography.body).foregroundStyle(Color.flInkSoft)
+                .fixedSize(horizontal: false, vertical: true)
+            if permissions.installedBrowsers.isEmpty {
+                Text("No supported browser is installed. Your selected sites will stay saved, but cannot be guarded yet.")
+                    .font(FLTypography.caption).foregroundStyle(Color.flClayInk)
+            } else {
+                Picker("Browser you’ll use", selection: Binding<SupportedBrowser?>(
+                    get: { selectedBrowser },
+                    set: { if let browser = $0 { controller.chooseOnboardingBrowser(browser) } }
+                )) {
+                    Text("Choose a browser").tag(SupportedBrowser?.none)
+                    ForEach(permissions.installedBrowsers) { browser in
+                        Text(browser.displayName).tag(Optional(browser))
+                    }
+                }
+                if let browser = selectedBrowser {
+                    browserControl(browser)
+                } else {
+                    Text("Choose a supported browser to allow website protection. Firefox is not supported.")
+                        .font(FLTypography.caption).foregroundStyle(Color.flInkSoft)
+                }
+            }
+            Text("You can continue with the timer and any selected apps. Websites need browser access to be guarded.")
+                .font(FLTypography.caption).foregroundStyle(Color.flInkSoft)
+        }
+        .padding(FLSpacing.lg)
+        .background(Color.flField, in: RoundedRectangle(cornerRadius: FLRadius.lg))
+    }
+
+    @ViewBuilder
+    private func browserControl(_ browser: SupportedBrowser) -> some View {
+        if permissions.pendingBrowser != nil {
+            Text("Waiting for your answer…").font(FLTypography.caption)
+        } else {
+            switch permissions.state(for: browser) {
+            case .granted:
+                Label("Websites can be guarded in \(browser.displayName)", systemImage: "checkmark.circle.fill")
+                    .font(FLTypography.caption).foregroundStyle(Color.flAccentDeep)
+            case .notAsked:
+                Button("Allow \(browser.displayName)…") { permissions.requestBrowser(browser) }
+                    .buttonStyle(FLActionButtonStyle(variant: .secondary, minHeight: 34))
+            case .denied:
+                Text("Websites aren’t guarded in \(browser.displayName) yet.")
+                    .font(FLTypography.caption).foregroundStyle(Color.flClayInk)
+                Button("Open Automation Settings") { permissions.openAutomationSettings() }
+                    .buttonStyle(FLLinkButtonStyle())
+            }
+        }
+    }
+
+    private var ready: some View {
+        VStack(spacing: FLSpacing.lg) {
+            heading("Ready to focus", controller.config.breakMinutes > 0
+                    ? "\(controller.config.focusMinutes) \(controller.config.focusMinutes == 1 ? "minute" : "minutes") of focus, followed by a \(controller.config.breakMinutes)-minute break."
+                    : "\(controller.config.focusMinutes) \(controller.config.focusMinutes == 1 ? "minute" : "minutes") of focus.")
+            VStack(alignment: .leading, spacing: FLSpacing.md) {
+                let availableApps = controller.activeBlockedApps.filter {
+                    NSWorkspace.shared.urlForApplication(withBundleIdentifier: $0.bundleId) != nil
+                }
+                if !availableApps.isEmpty {
+                    summaryRow("Apps ready to guard", availableApps.map(\.name).joined(separator: ", "), symbol: "shield")
+                    if availableApps.contains(where: { $0.effectiveBehavior(default: controller.config.blockerMode) == .quitApp }) {
+                        summaryRow("Quit App enabled", "Some selected apps are set to quit when opened during focus. Change their behavior under Blocked.", symbol: "exclamationmark.circle", warning: true)
+                    } else {
+                        Text("These apps stay running in the background, so a call can continue.")
+                            .font(FLTypography.caption).foregroundStyle(Color.flInkSoft)
+                    }
+                }
+                let unavailable = controller.activeBlockedApps.count - availableApps.count
+                if unavailable > 0 {
+                    summaryRow("Apps unavailable", "\(unavailable) selected \(unavailable == 1 ? "app could" : "apps could") not be found on this Mac.", symbol: "exclamationmark.circle", warning: true)
+                }
+                if !controller.activeBlockedSites.isEmpty {
+                    summaryRow("Websites selected", controller.activeBlockedSites.map(\.pattern).joined(separator: ", "), symbol: "globe")
+                    if !allowedBrowsers.isEmpty {
+                        summaryRow("Website protection available", "Only in \(allowedBrowsers.map(\.displayName).joined(separator: ", ")). Other browsers need their own access.", symbol: "checkmark.circle")
+                    }
+                    if let browser = selectedBrowser, permissions.state(for: browser) != .granted {
+                        summaryRow("Browser access pending", "Websites won’t be guarded in \(browser.displayName) until you allow access.", symbol: "exclamationmark.circle", warning: true)
+                    } else if allowedBrowsers.isEmpty {
+                        summaryRow("Website protection pending", "Allow a supported browser in the previous step to guard these sites.", symbol: "exclamationmark.circle", warning: true)
+                    }
+                }
+                if !controller.protectionAvailability.isAvailable {
+                    summaryRow("Timer available", "This block will run with the timer. You can add protection under Blocked.", symbol: "timer")
+                }
+                if controller.nextBlockIsStrict {
+                    summaryRow("Strict block", "Ending early and quitting will be unavailable until focus ends. You’ll confirm before starting.", symbol: "lock", warning: true)
+                }
+            }
+            .padding(FLSpacing.lg)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(Color.flField, in: RoundedRectangle(cornerRadius: FLRadius.lg))
+            Text("The countdown also appears in the menu bar. Breaks are unguarded.")
+                .font(FLTypography.caption).foregroundStyle(Color.flInkSoft)
+        }
+    }
+
+    private func summaryRow(_ title: String, _ detail: String, symbol: String, warning: Bool = false) -> some View {
         HStack(alignment: .top, spacing: FLSpacing.md) {
             Image(systemName: symbol)
-                .font(.system(size: 15))
-                .foregroundStyle(Color.flAccentDeep)
-                .frame(width: 34, height: 34)
-                .background(Color.flAccentSoft, in: Circle())
+                .foregroundStyle(warning ? Color.flClayInk : Color.flAccentDeep)
+                .frame(width: 24)
                 .accessibilityHidden(true)
-
-            VStack(alignment: .leading, spacing: 3) {
-                Text(title)
-                    .font(FLTypography.headline)
-                    .foregroundStyle(Color.flInk)
-
-                Text(detail)
-                    .font(FLTypography.body)
-                    .foregroundStyle(Color.flInkSoft)
+            VStack(alignment: .leading, spacing: 4) {
+                Text(title).font(FLTypography.headline).foregroundStyle(Color.flInk)
+                Text(detail).font(FLTypography.body).foregroundStyle(Color.flInkSoft)
                     .fixedSize(horizontal: false, vertical: true)
             }
         }
     }
-
-    // MARK: - Apps
 
     /// Apps already on the guarded list that the suggestions do not cover
     /// (added through the picker), so every guarded app shows as a chip.
@@ -201,10 +319,9 @@ struct OnboardingView: View {
 
     private var apps: some View {
         VStack(spacing: FLSpacing.md) {
-            heading(
-                "Which apps pull you in?",
-                "Suggested from what you actually open on this Mac, most used first. That information stays here. Change the list any time under Blocked."
-            )
+            Text("Suggestions from this Mac. Your usage stays here.")
+                .font(FLTypography.caption)
+                .foregroundStyle(Color.flInkSoft)
 
             if !hasScannedApps {
                 Text("Looking at what you use…")
@@ -243,7 +360,7 @@ struct OnboardingView: View {
             Button("Choose another app…") { controller.addBlockedAppFromPanel() }
                 .buttonStyle(FLLinkButtonStyle())
 
-            selectionCount(controller.config.blockedApps.count, singular: "app", plural: "apps")
+            selectionCount(controller.activeBlockedApps.count, singular: "app", plural: "apps")
         }
     }
 
@@ -257,13 +374,15 @@ struct OnboardingView: View {
         let guarded = controller.config.blockedApps.first { $0.bundleId == bundleId }
 
         return Button {
-            if let guarded {
+            if let guarded, guarded.isEnabled {
                 controller.removeBlockedApp(guarded)
+            } else if let guarded {
+                controller.setBlockedApp(guarded, enabled: true)
             } else if let url {
                 controller.addBlockedApp(at: url)
             }
         } label: {
-            chipLabel(isSelected: guarded != nil) {
+            chipLabel(isSelected: guarded?.isEnabled == true) {
                 FLAppIcon(bundleId: bundleId, size: 24)
                 VStack(alignment: .leading, spacing: 1) {
                     Text(name)
@@ -277,10 +396,8 @@ struct OnboardingView: View {
         }
         .buttonStyle(.plain)
         .accessibilityLabel(evidence.map { "\(name), \($0)" } ?? name)
-        .accessibilityAddTraits(guarded != nil ? [.isSelected] : [])
+        .accessibilityAddTraits(guarded?.isEnabled == true ? [.isSelected] : [])
     }
-
-    // MARK: - Sites
 
     private static let suggestedSites = [
         "youtube.com", "x.com", "instagram.com", "reddit.com",
@@ -296,10 +413,9 @@ struct OnboardingView: View {
 
     private var sites: some View {
         VStack(spacing: FLSpacing.lg) {
-            heading(
-                "And which websites?",
-                "During focus, Quietwhile swaps a guarded site for its own “Not now.” page. No browser extension needed."
-            )
+            Text("Choose a site to replace with Quietwhile’s “Not now.” page during focus.")
+                .font(FLTypography.caption)
+                .foregroundStyle(Color.flInkSoft)
 
             LazyVGrid(columns: [GridItem(.adaptive(minimum: 170), spacing: FLSpacing.sm)], spacing: FLSpacing.sm) {
                 ForEach(siteChoices, id: \.self) { pattern in
@@ -325,7 +441,7 @@ struct OnboardingView: View {
                 }
             }
 
-            Text("Works in Safari, Chrome, Arc, Brave, Edge, Vivaldi and Opera. Each browser needs your OK once; a later step explains it.")
+            Text("Website guarding needs access to your browser. You can allow it in the next step. Firefox is not supported.")
                 .font(FLTypography.caption)
                 .foregroundStyle(Color.flInkSoft)
                 .multilineTextAlignment(.center)
@@ -339,19 +455,21 @@ struct OnboardingView: View {
         let guarded = controller.config.blockedSites.first { $0.pattern == pattern }
 
         return Button {
-            if let guarded {
+            if let guarded, guarded.isEnabled {
                 controller.removeBlockedSite(guarded)
+            } else if let guarded {
+                controller.setBlockedSite(guarded, enabled: true)
             } else {
                 controller.addBlockedSite(pattern)
             }
         } label: {
-            chipLabel(isSelected: guarded != nil) {
+            chipLabel(isSelected: guarded?.isEnabled == true) {
                 Text(pattern)
             }
         }
         .buttonStyle(.plain)
         .accessibilityLabel(pattern)
-        .accessibilityAddTraits(guarded != nil ? [.isSelected] : [])
+        .accessibilityAddTraits(guarded?.isEnabled == true ? [.isSelected] : [])
     }
 
     private func addTypedSite() {
@@ -363,169 +481,6 @@ struct OnboardingView: View {
         } else {
             siteError = controller.settingsMessage
         }
-    }
-
-    // MARK: - Rhythm
-
-    private var rhythm: some View {
-        VStack(spacing: FLSpacing.lg) {
-            heading(
-                "Pick a rhythm",
-                "How long you focus, then how long you rest. Any other length is one click away on the Focus page."
-            )
-
-            HStack(spacing: FLSpacing.md) {
-                rhythmCard(.twentyFiveFive, title: "25 / 5", name: "Short sprints",
-                           detail: "Easy to start. Good for reading, admin, and getting unstuck.")
-                rhythmCard(.fiftyTen, title: "50 / 10", name: "Deep work",
-                           detail: "Long enough to get somewhere. Good for writing and code.")
-            }
-
-            VStack(spacing: 0) {
-                FLRule()
-
-                HStack(spacing: FLSpacing.md) {
-                    VStack(alignment: .leading, spacing: 3) {
-                        Text("Open \(AppIdentity.name) at login")
-                            .font(FLTypography.headline)
-                            .foregroundStyle(Color.flInk)
-
-                        Text("Schedules can only start a block while Quietwhile is running.")
-                            .font(FLTypography.caption)
-                            .foregroundStyle(Color.flInkSoft)
-                    }
-
-                    Spacer()
-
-                    Toggle("", isOn: Binding(
-                        get: { controller.launchAtLogin },
-                        set: { controller.setLaunchAtLogin($0) }
-                    ))
-                    .toggleStyle(.switch)
-                    .tint(Color.flAccentDeep)
-                    .labelsHidden()
-                    .accessibilityLabel("Open \(AppIdentity.name) at login")
-                }
-                .padding(.vertical, FLSpacing.md)
-
-                FLRule()
-            }
-            .frame(maxWidth: 480)
-        }
-    }
-
-    private func rhythmCard(_ preset: FocusPreset, title: String, name: String, detail: String) -> some View {
-        let isSelected = controller.preset == preset
-
-        return Button {
-            controller.selectPreset(preset)
-        } label: {
-            VStack(alignment: .leading, spacing: 6) {
-                HStack {
-                    Text(title)
-                        .font(FLTypography.timer(30))
-                        .foregroundStyle(Color.flInk)
-
-                    Spacer()
-
-                    Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
-                        .font(.system(size: 16))
-                        .foregroundStyle(isSelected ? Color.flAccentDeep : Color.flHairline)
-                }
-
-                Text(name)
-                    .font(FLTypography.headline)
-                    .foregroundStyle(Color.flInk)
-
-                Text(detail)
-                    .font(FLTypography.caption)
-                    .foregroundStyle(Color.flInkSoft)
-                    .multilineTextAlignment(.leading)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-            .padding(FLSpacing.md)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .background(
-                isSelected ? Color.flAccentSoft.opacity(0.55) : Color.flField,
-                in: RoundedRectangle(cornerRadius: FLRadius.lg, style: .continuous)
-            )
-            .overlay(
-                RoundedRectangle(cornerRadius: FLRadius.lg, style: .continuous)
-                    .strokeBorder(isSelected ? Color.flAccentDeep : Color.flHairline, lineWidth: isSelected ? 1.5 : 1)
-            )
-            .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
-        .accessibilityLabel("\(name), \(title)")
-        .accessibilityAddTraits(isSelected ? [.isSelected] : [])
-    }
-
-    // MARK: - Permissions
-
-    private var permissions: some View {
-        VStack(spacing: FLSpacing.lg) {
-            heading(
-                "Two things macOS will ask about",
-                "Here is what each one is for. Allow them now, or leave them for later: Quietwhile works either way, and nothing is asked behind your back."
-            )
-
-            PermissionsPanel(
-                permissions: controller.permissions,
-                guardsWebsites: !controller.config.blockedSites.isEmpty
-            )
-        }
-    }
-
-    // MARK: - Ready
-
-    private var ready: some View {
-        VStack(spacing: FLSpacing.lg) {
-            heading("You’re set", summary)
-
-            VStack(alignment: .leading, spacing: FLSpacing.md) {
-                point(
-                    "menubar.rectangle",
-                    "Quietwhile lives in the menu bar",
-                    "The countdown stays up there, and one click opens the controls."
-                )
-                if let shortcut = startShortcut {
-                    point(
-                        "keyboard",
-                        "\(shortcut) starts a block from anywhere",
-                        "Change or switch off the shortcuts in Settings."
-                    )
-                }
-                point(
-                    "lock",
-                    "There is more when you want it",
-                    "Strict mode, schedules, a desktop widget, and history are in the sidebar."
-                )
-            }
-            .frame(maxWidth: 440, alignment: .leading)
-        }
-    }
-
-    private var summary: String {
-        let appCount = controller.config.blockedApps.count
-        let siteCount = controller.config.blockedSites.count
-        let rhythm = "\(controller.config.focusMinutes) minutes of focus, then a \(controller.config.breakMinutes)-minute break."
-
-        guard appCount + siteCount > 0 else {
-            return "Nothing is guarded yet, so a block is just a timer. Add apps and sites under Blocked whenever you like. \(rhythm)"
-        }
-
-        var parts: [String] = []
-        if appCount > 0 { parts.append("\(appCount) \(appCount == 1 ? "app" : "apps")") }
-        if siteCount > 0 { parts.append("\(siteCount) \(siteCount == 1 ? "site" : "sites")") }
-        return "Guarding \(parts.joined(separator: " and ")). \(rhythm)"
-    }
-
-    /// Only the untouched default is named: it is the one combination whose
-    /// key this view can spell without a keyboard-layout lookup.
-    private var startShortcut: String? {
-        let hotkeys = controller.config.hotkeys
-        guard hotkeys.enabled, let combo = hotkeys.start, combo == HotkeySettings().start else { return nil }
-        return combo.modifierSymbols + "S"
     }
 
     // MARK: - Shared pieces
