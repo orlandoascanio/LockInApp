@@ -74,8 +74,8 @@ public struct AppConfig: Codable, Equatable {
     public var hotkeys: HotkeySettings
     public var appearance: AppearancePreference
 
-    /// False only on a brand-new install, until the welcome guide is finished
-    /// or skipped.
+    /// Whether the guide has been closed. Kept for installed-copy compatibility;
+    /// dismissal, completion and activation are separate in OnboardingProgress.
     public var onboardingCompleted: Bool
 
     /// Ask "are you sure?" before ending a session, skipping a focus block,
@@ -89,8 +89,8 @@ public struct AppConfig: Codable, Equatable {
     public var dailyFocusGoalMinutes: Int
 
     public init(
-        focusMinutes: Int = 50,
-        breakMinutes: Int = 10,
+        focusMinutes: Int = 25,
+        breakMinutes: Int = 5,
         blockerMode: BlockerMode = .guardScreen,
         breakEndBehavior: BreakEndBehavior = .ask,
         autoResume: AutoResumePlanner = .default,
