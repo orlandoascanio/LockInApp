@@ -73,23 +73,35 @@ struct AnalyticsView: View {
 
     private var dashboard: some View {
         ScrollView {
-            VStack(spacing: FLSpacing.md) {
+            // Bands on the page separated by hairlines, as on Focus, rather
+            // than a grid of boxed panels.
+            VStack(spacing: 0) {
                 metrics
+                FLRule()
                 focusTrend
+                FLRule()
 
-                HStack(alignment: .top, spacing: FLSpacing.md) {
+                HStack(alignment: .top, spacing: 0) {
                     weekdayPattern
+                        .padding(.trailing, 22)
+                    Rectangle()
+                        .fill(Color.flHairline)
+                        .frame(width: 1)
                     outcomes
+                        .padding(.leading, 22)
                 }
+                .fixedSize(horizontal: false, vertical: true)
+
+                FLRule()
 
                 Label(
                     "Focused time includes completed sessions. Cancelled and abandoned attempts remain in Outcomes.",
                     systemImage: "info.circle"
                 )
-                .font(.system(size: 10.5))
+                .font(FLTypography.caption)
                 .foregroundStyle(Color.flInkSoft)
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(.horizontal, 2)
+                .padding(.top, 14)
             }
             .padding(.horizontal, 26)
             .padding(.bottom, 26)
@@ -97,7 +109,7 @@ struct AnalyticsView: View {
     }
 
     private var metrics: some View {
-        HStack(spacing: 0) {
+        HStack(spacing: 16) {
             metric(
                 value: formatted(minutes: analytics.totalFocusMinutes),
                 label: "focused",
@@ -115,9 +127,9 @@ struct AnalyticsView: View {
             metricDivider
 
             metric(
-                value: formatted(minutes: analytics.averageFocusMinutesPerActiveDay),
+                value: formatted(minutes: dailyAverage),
                 label: "daily average",
-                detail: "on active days"
+                detail: "over \(daysInRange) day\(daysInRange == 1 ? "" : "s")"
             )
 
             metricDivider
@@ -128,8 +140,7 @@ struct AnalyticsView: View {
                 detail: "\(analytics.outcomes.total) total attempts"
             )
         }
-        .padding(.vertical, 17)
-        .analyticsPanel()
+        .padding(.bottom, 20)
     }
 
     private func metric(value: String, label: String, detail: String) -> some View {
@@ -147,12 +158,11 @@ struct AnalyticsView: View {
                 .lineLimit(1)
 
             Text(detail)
-                .font(.system(size: 10))
+                .font(.system(size: 11))
                 .foregroundStyle(Color.flInkSoft)
                 .lineLimit(1)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(.horizontal, 16)
         .accessibilityElement(children: .combine)
     }
 
@@ -222,10 +232,11 @@ struct AnalyticsView: View {
             }
             .chartYScale(domain: 0...chartMaximum)
             .chartXAxis {
-                AxisMarks(values: xAxisValues) { value in
-                    // Centred in its day, week or month: under the bar, not
-                    // at the boundary before it.
-                    AxisValueLabel(centered: true) {
+                AxisMarks(values: xAxisDates) { value in
+                    // Each mark sits at the middle of its own bar's period,
+                    // and the label hangs centred under it. Centring in the
+                    // span to the next mark put "Oct 7" under Oct 9.
+                    AxisValueLabel(anchor: .top) {
                         if let date = value.as(Date.self) {
                             Text(axisLabel(for: date))
                                 .font(.system(size: 9.5, weight: isCurrentPeriod(date) ? .semibold : .regular))
@@ -268,8 +279,7 @@ struct AnalyticsView: View {
                 Spacer(minLength: 0)
             }
         }
-        .padding(18)
-        .analyticsPanel()
+        .padding(.vertical, 22)
     }
 
     private func chartFootnote(label: String, value: String) -> some View {
@@ -300,9 +310,8 @@ struct AnalyticsView: View {
                 }
             }
         }
-        .padding(18)
+        .padding(.vertical, 22)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .analyticsPanel()
     }
 
     private func weekdayRow(_ day: WeekdayFocusSummary) -> some View {
@@ -370,9 +379,8 @@ struct AnalyticsView: View {
                 insight(label: "Focused days", value: "\(analytics.activeDays)")
             }
         }
-        .padding(18)
+        .padding(.vertical, 22)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .analyticsPanel()
     }
 
     private func outcomeRow(title: String, count: Int, tint: Color) -> some View {
@@ -438,6 +446,22 @@ struct AnalyticsView: View {
         }
     }
 
+    /// Calendar days in the range, today included: the same rule the Focus
+    /// page's "Avg … a day" uses, so the two never disagree.
+    private var daysInRange: Int {
+        let calendar = Calendar.current
+        let days = calendar.dateComponents(
+            [.day],
+            from: calendar.startOfDay(for: analytics.startDate),
+            to: calendar.startOfDay(for: analytics.endDate)
+        ).day ?? 0
+        return max(1, days + 1)
+    }
+
+    private var dailyAverage: Int {
+        analytics.totalFocusMinutes / daysInRange
+    }
+
     private var chartCalendarComponent: Calendar.Component {
         switch analytics.granularity {
         case .day:
@@ -484,14 +508,22 @@ struct AnalyticsView: View {
 
     /// Every day for a week; otherwise every few periods, so labels never
     /// crowd.
-    private var xAxisValues: AxisMarkValues {
+    /// Every nth bar, counted back from the newest so today is always
+    /// labelled, each at the middle of its period.
+    private var xAxisDates: [Date] {
+        let points = analytics.timeline
+        let every: Int
         switch analytics.granularity {
-        case .day:
-            return .stride(by: .day, count: period == .sevenDays ? 1 : 5)
-        case .week:
-            return .stride(by: .weekOfYear, count: max(1, analytics.timeline.count / 6))
-        case .month:
-            return .stride(by: .month, count: max(1, analytics.timeline.count / 6))
+        case .day: every = period == .sevenDays ? 1 : 5
+        case .week, .month: every = max(1, points.count / 6)
+        }
+        let calendar = Calendar.current
+        return points.enumerated().compactMap { index, point in
+            guard (points.count - 1 - index) % every == 0 else { return nil }
+            guard let next = calendar.date(byAdding: chartCalendarComponent, value: 1, to: point.startDate) else {
+                return point.startDate
+            }
+            return point.startDate.addingTimeInterval(next.timeIntervalSince(point.startDate) / 2)
         }
     }
 
@@ -644,19 +676,6 @@ private extension SessionAnalyticsPeriod {
         case .allTime:
             return "all time"
         }
-    }
-}
-
-private extension View {
-    func analyticsPanel() -> some View {
-        background(
-            RoundedRectangle(cornerRadius: FLRadius.lg, style: .continuous)
-                .fill(Color.flCanvasWarm.opacity(0.42))
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: FLRadius.lg, style: .continuous)
-                .strokeBorder(Color.flHairline.opacity(0.7), lineWidth: 1)
-        )
     }
 }
 

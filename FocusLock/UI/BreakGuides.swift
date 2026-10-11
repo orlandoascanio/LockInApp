@@ -17,12 +17,21 @@ struct BreakGuideView: View {
     var onDone: () -> Void = {}
     var onAnother: (() -> Void)?
 
+    /// Whether the guide's own Start has been pressed. Until then "Did it"
+    /// would be a claim about something that hasn't happened.
+    @State private var hasStarted = false
+
+    /// Guides with nothing to start: you just do them.
+    private var isUntimed: Bool {
+        [.water, .walk, .posture].contains(suggestion.kind)
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
             HStack(spacing: 10) {
                 Image(systemName: suggestion.systemImage)
                     .font(.system(size: 20))
-                    .foregroundStyle(Color.flAccentDeep)
+                    .foregroundStyle(Color.flRestInk)
                     .frame(width: 28)
                 Text(suggestion.title)
                     .font(FLTypography.title)
@@ -37,6 +46,8 @@ struct BreakGuideView: View {
             guide
                 .id(suggestion.kind)
                 .frame(maxWidth: .infinity, alignment: .leading)
+                .environment(\.guideDidStart) { hasStarted = true }
+                .onChange(of: suggestion.kind) { _, _ in hasStarted = false }
 
             if !isPreview {
                 footer
@@ -68,26 +79,30 @@ struct BreakGuideView: View {
 
     private var footer: some View {
         VStack(alignment: .leading, spacing: 8) {
+            // One thing to do first (the guide's own Start); "Did it" once
+            // there is something to have done, and a quiet way to swap.
             HStack(spacing: 10) {
-                Button {
-                    onDone()
-                } label: {
-                    Label(isDone ? "Done" : (suggestion.kind == .water ? "Done" : "Did it"),
-                          systemImage: isDone ? "checkmark.circle.fill" : "checkmark")
+                if isDone || hasStarted || isUntimed {
+                    Button {
+                        onDone()
+                    } label: {
+                        Label(isDone ? "Done" : (suggestion.kind == .water ? "Done" : "Did it"),
+                              systemImage: isDone ? "checkmark.circle.fill" : "checkmark")
+                    }
+                    .buttonStyle(FLActionButtonStyle(variant: .secondary, minHeight: 32, tint: .flRestInk))
+                    .disabled(isDone)
                 }
-                .buttonStyle(FLActionButtonStyle(variant: isDone ? .secondary : .primary, minHeight: 32))
-                .disabled(isDone)
 
                 if let onAnother, !isDone {
-                    Button("Another one", action: onAnother)
-                        .buttonStyle(FLActionButtonStyle(variant: .secondary, minHeight: 32))
+                    Button("Something else", action: onAnother)
+                        .buttonStyle(FLActionButtonStyle(variant: .quiet, minHeight: 32))
                 }
             }
 
             if let tally {
                 Text(tally)
                     .font(FLTypography.caption)
-                    .foregroundStyle(Color.flAccentDeep)
+                    .foregroundStyle(Color.flRestInk)
                     .transition(.opacity)
             }
         }
@@ -135,12 +150,29 @@ private struct GuideClock {
 private struct StartButton: View {
     let title: String
     let action: () -> Void
+    @Environment(\.guideDidStart) private var guideDidStart
 
     var body: some View {
-        Button(action: action) {
+        Button {
+            action()
+            guideDidStart()
+        } label: {
             Label(title, systemImage: "play.fill")
         }
-        .buttonStyle(FLActionButtonStyle(variant: .secondary, minHeight: 30))
+        .buttonStyle(FLActionButtonStyle(variant: .secondary, minHeight: 30, tint: .flRestInk))
+    }
+}
+
+private struct GuideDidStartKey: EnvironmentKey {
+    static let defaultValue: () -> Void = {}
+}
+
+extension EnvironmentValues {
+    /// Told when a guide's Start is pressed, so the frame around it can offer
+    /// "Did it".
+    fileprivate var guideDidStart: () -> Void {
+        get { self[GuideDidStartKey.self] }
+        set { self[GuideDidStartKey.self] = newValue }
     }
 }
 
@@ -173,11 +205,21 @@ private struct BreathingGuide: View {
             let elapsed = min(clock.elapsed(at: context.date), Self.total)
             HStack(spacing: 22) {
                 ZStack {
-                    Circle()
-                        .fill(Color.flAccent.opacity(0.18))
-                    Circle()
-                        .fill(Color.flAccent.opacity(0.55))
-                        .scaleEffect(reduceMotion ? 0.8 : scale(at: elapsed))
+                    if clock.startedAt == nil {
+                        // Before starting: the box drawn as a ring with its
+                        // count, not a grey blob waiting for meaning.
+                        Circle()
+                            .strokeBorder(Color.flRest.opacity(0.55), lineWidth: 2)
+                        Text("4·4·4·4")
+                            .font(.system(size: 13, design: .serif))
+                            .foregroundStyle(Color.flRestInk)
+                    } else {
+                        Circle()
+                            .fill(Color.flRest.opacity(0.18))
+                        Circle()
+                            .fill(Color.flRest.opacity(0.55))
+                            .scaleEffect(reduceMotion ? 0.8 : scale(at: elapsed))
+                    }
                     if clock.startedAt != nil, !finished {
                         Text("\(Int(Self.side - elapsed.truncatingRemainder(dividingBy: Self.side)))")
                             .font(FLTypography.timer(22))
@@ -206,7 +248,7 @@ private struct BreathingGuide: View {
         if finished {
             Text("Nicely done.")
                 .font(FLTypography.headline)
-                .foregroundStyle(Color.flAccentDeep)
+                .foregroundStyle(Color.flRestInk)
         } else if clock.startedAt != nil {
             let step = Int(elapsed / Self.side) % 4
             let round = min(Int(elapsed / (Self.side * 4)) + 1, Self.rounds)
@@ -214,6 +256,10 @@ private struct BreathingGuide: View {
                 Text(Self.steps[step] + "…")
                     .font(FLTypography.headline)
                     .foregroundStyle(Color.flInk)
+                    // The circle is silent; say each step for VoiceOver.
+                    .onChange(of: step) { _, newStep in
+                        AccessibilityNotification.Announcement(Self.steps[newStep]).post()
+                    }
                 Text("Round \(round) of \(Self.rounds)")
                     .font(FLTypography.caption)
                     .foregroundStyle(Color.flInkSoft)
@@ -266,7 +312,7 @@ private struct EyesGuide: View {
                     if finished {
                         Image(systemName: "checkmark")
                             .font(.system(size: 22, weight: .semibold))
-                            .foregroundStyle(Color.flAccentDeep)
+                            .foregroundStyle(Color.flRestInk)
                     } else {
                         Text(clock.startedAt == nil ? "20" : "\(Int(ceil(Self.length - elapsed)))")
                             .font(FLTypography.timer(24))
@@ -280,7 +326,7 @@ private struct EyesGuide: View {
                 if finished {
                     Text("Blink slowly a few times.")
                         .font(FLTypography.headline)
-                        .foregroundStyle(Color.flAccentDeep)
+                        .foregroundStyle(Color.flRestInk)
                 } else if clock.startedAt != nil {
                     Text("Look at something far away…")
                         .font(FLTypography.headline)
@@ -316,6 +362,7 @@ private struct EyesGuide: View {
 /// Three moves, 20 seconds each, with the figure for each one.
 private struct StretchGuide: View {
     let onFinish: () -> Void
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private struct Move {
         let title: String
@@ -343,8 +390,8 @@ private struct StretchGuide: View {
             HStack(spacing: 18) {
                 Image(systemName: move.systemImage)
                     .font(.system(size: 40))
-                    .foregroundStyle(Color.flAccentDeep)
-                    .symbolEffect(.pulse, options: .repeating, isActive: running)
+                    .foregroundStyle(Color.flRestInk)
+                    .symbolEffect(.pulse, options: .repeating, isActive: running && !reduceMotion)
                     .frame(width: 64, height: 64)
 
                 VStack(alignment: .leading, spacing: 6) {
@@ -353,7 +400,7 @@ private struct StretchGuide: View {
                     } else if finished {
                         Text("All three done.")
                             .font(FLTypography.headline)
-                            .foregroundStyle(Color.flAccentDeep)
+                            .foregroundStyle(Color.flRestInk)
                     } else {
                         HStack(spacing: 8) {
                             Text(move.title)
@@ -388,8 +435,8 @@ private struct StretchGuide: View {
     }
 
     private func dotColor(_ dot: Int, current: Int) -> Color {
-        if finished || dot < current { return .flAccentDeep }
-        if dot == current && clock.startedAt != nil { return .flAccent }
+        if finished || dot < current { return .flRestInk }
+        if dot == current && clock.startedAt != nil { return .flRest }
         return .flHairline
     }
 
@@ -430,7 +477,7 @@ private struct RepsGuide: View {
             HStack(spacing: 18) {
                 Image(systemName: systemImage)
                     .font(.system(size: 40))
-                    .foregroundStyle(Color.flAccentDeep)
+                    .foregroundStyle(Color.flRestInk)
                     .offset(y: reduceMotion || clock.startedAt == nil || finished ? 0 : dip * 8)
                     .scaleEffect(y: reduceMotion || clock.startedAt == nil || finished ? 1 : 1 - dip * 0.12, anchor: .bottom)
                     .frame(width: 64, height: 64)
@@ -441,7 +488,7 @@ private struct RepsGuide: View {
                     } else if finished {
                         Text("\(reps) done. Strong.")
                             .font(FLTypography.headline)
-                            .foregroundStyle(Color.flAccentDeep)
+                            .foregroundStyle(Color.flRestInk)
                     } else {
                         HStack(alignment: .firstTextBaseline, spacing: 4) {
                             Text("\(rep)")
@@ -502,7 +549,7 @@ private struct PostureGuide: View {
                     HStack(spacing: 10) {
                         Image(systemName: ticked.contains(index) ? "checkmark.circle.fill" : "circle")
                             .font(.system(size: 16))
-                            .foregroundStyle(ticked.contains(index) ? Color.flAccentDeep : Color.flInkSoft)
+                            .foregroundStyle(ticked.contains(index) ? Color.flRestInk : Color.flInkSoft)
                         Text(Self.items[index])
                             .font(FLTypography.body)
                             .foregroundStyle(Color.flInk)
@@ -521,6 +568,7 @@ private struct PostureGuide: View {
 /// A glass that fills when the water is drunk.
 private struct WaterGuide: View {
     let isFull: Bool
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         HStack(spacing: 18) {
@@ -537,11 +585,11 @@ private struct WaterGuide: View {
                 }
                 .overlay(GlassShape().stroke(Color.flRest, lineWidth: 2))
                 .frame(width: 44, height: 60)
-                .animation(.spring(response: 0.9, dampingFraction: 0.75), value: isFull)
+                .animation(reduceMotion ? .easeOut(duration: 0.2) : .spring(response: 0.9, dampingFraction: 0.75), value: isFull)
 
             Text(isFull ? "Glass down. Your head will thank you." : "Have a full glass, then tap Done.")
                 .font(FLTypography.headline)
-                .foregroundStyle(isFull ? Color.flAccentDeep : Color.flInk)
+                .foregroundStyle(isFull ? Color.flRestInk : Color.flInk)
             Spacer(minLength: 0)
         }
         .frame(height: 64)
@@ -575,7 +623,7 @@ private struct WalkGuide: View {
             HStack(spacing: 18) {
                 Image(systemName: "figure.walk")
                     .font(.system(size: 40))
-                    .foregroundStyle(Color.flAccentDeep)
+                    .foregroundStyle(Color.flRestInk)
                     .offset(y: reduceMotion ? 0 : CGFloat(abs(sin(stride * 3.2))) * -4)
                     .frame(width: 64, height: 64)
 

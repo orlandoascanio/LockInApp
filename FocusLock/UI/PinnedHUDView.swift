@@ -17,11 +17,13 @@ enum HUDTone: Equatable {
         }
     }
 
+    /// Words and digits: the deeper shade of each, which stays readable as
+    /// text where the fill colour would not.
     var digits: Color {
         switch self {
         case .focus: return .flInk
-        case .rest: return .flRest
-        case .finalMinute: return .flWarning
+        case .rest: return .flRestInk
+        case .finalMinute: return .flWarningInk
         }
     }
 }
@@ -125,7 +127,7 @@ struct PinnedHUDView: View {
                 .allowsHitTesting(false)
 
             VStack(alignment: .leading, spacing: 2) {
-                FLMicroLabel(text: model.phaseLabel, tint: model.tone.tint)
+                FLMicroLabel(text: model.phaseLabel, tint: model.tone == .focus ? model.tone.tint : model.tone.digits)
                     .fixedSize()
 
                 if let goal = model.goal {
@@ -143,7 +145,7 @@ struct PinnedHUDView: View {
             if model.showsControls {
                 if model.canEnd {
                     Button("End session", action: onEnd)
-                        .buttonStyle(FLLinkButtonStyle(tint: .flClay))
+                        .buttonStyle(FLLinkButtonStyle(tint: .flClayInk))
                         .fixedSize()
                 } else {
                     Image(systemName: "lock.fill")

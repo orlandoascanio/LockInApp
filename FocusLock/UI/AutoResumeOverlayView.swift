@@ -135,7 +135,7 @@ struct AutoResumeOverlayView: View {
                 .buttonStyle(FLLinkButtonStyle(tint: .flInkSoft))
 
             Button("End cycle", action: onEndCycle)
-                .buttonStyle(FLLinkButtonStyle(tint: .flClay))
+                .buttonStyle(FLLinkButtonStyle(tint: .flClayInk))
         }
     }
 

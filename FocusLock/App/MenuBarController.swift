@@ -63,6 +63,11 @@ final class MenuBarController: NSObject, ObservableObject {
     /// redraw but only change when a session ends.
     @Published private(set) var weeklyRhythm: [DailyFocus] = []
     @Published private(set) var weekSummary = WeekFocusSummary(totalMinutes: 0, lastWeekSoFarMinutes: 0, elapsedDays: 1)
+    /// The last seven days ending today, for the Focus page's chart.
+    @Published private(set) var recentRhythm: [DailyFocus] = []
+    @Published private(set) var recentSummary = RecentFocusSummary(totalMinutes: 0, previousMinutes: 0)
+    /// The most recent day with a completed block, for welcoming someone back.
+    @Published private(set) var lastActiveDay: DailyFocus?
     @Published private(set) var streak: Int = 0
     @Published private(set) var blockedTodayCounts: [String: Int] = [:]
     @Published private(set) var sessionStats: SessionStats = .empty
@@ -155,6 +160,25 @@ final class MenuBarController: NSObject, ObservableObject {
     /// guarded app, weakening the guard, and quitting are all refused.
     var isStrictLocked: Bool {
         StrictPolicy.isLocked(phase: snapshot.phase, sessionIsStrict: snapshot.isStrict)
+    }
+
+    /// The Focus page's Strict chip: this one block, overriding the Settings
+    /// default. `nil` follows the default; cleared once a block starts.
+    @Published var nextBlockStrictChoice: Bool?
+
+    /// Strict that the chip can't turn off: a strict run continuing after
+    /// its break, or a strict schedule window.
+    var nextBlockStrictIsForced: Bool {
+        if snapshot.phase == .break || snapshot.phase == .breakEnded, snapshot.isStrict {
+            return true
+        }
+        return activeScheduleOccurrence?.schedule.strict == true
+    }
+
+    /// Whether the block that Start would begin right now runs strict.
+    /// Mirrors the choice `startFocus` makes.
+    var nextBlockIsStrict: Bool {
+        nextBlockStrictIsForced || (nextBlockStrictChoice ?? config.strict.enabled)
     }
 
     /// Apps that are actually guarded right now — entries toggled off stay in
@@ -423,6 +447,9 @@ final class MenuBarController: NSObject, ObservableObject {
         sessionStats = historyStore.stats()
         weeklyRhythm = historyStore.weeklyRhythm()
         weekSummary = historyStore.weekSummary()
+        recentRhythm = historyStore.recentRhythm()
+        recentSummary = historyStore.recentSummary()
+        lastActiveDay = historyStore.lastActiveDay()
         streak = historyStore.focusStreak()
         blockedTodayCounts = activityStore.countsToday()
         publishWidgetSnapshot()
@@ -643,7 +670,11 @@ final class MenuBarController: NSObject, ObservableObject {
         }
         let runIsStrict = continuing && snapshot.isStrict
         let isStrict = strict
-            ?? (runIsStrict || config.strict.enabled || (occurrence ?? activeScheduleOccurrence)?.schedule.strict == true)
+            ?? (runIsStrict
+                || (occurrence ?? activeScheduleOccurrence)?.schedule.strict == true
+                || (nextBlockStrictChoice ?? config.strict.enabled))
+        // The chip speaks for one block; the next one starts from Settings again.
+        nextBlockStrictChoice = nil
 
         breakEndedOverlay.dismiss()
         autoResumeOverlay.dismiss()
@@ -667,6 +698,37 @@ final class MenuBarController: NSObject, ObservableObject {
     }
 
     // MARK: - Asking first
+
+    /// Start, from places that can't show what a strict block costs before
+    /// you press: the menu, its ⌘N, the global shortcut, the menu bar. A
+    /// strict block can't be taken back, so it asks first, with Cancel as the
+    /// answer to a stray Return. Anything else just starts.
+    func requestStartFocus() {
+        guard !nextBlockIsStrict || confirmStrictStart() else { return }
+        guard !isSessionActive || snapshot.phase == .breakEnded else { return }
+        startFocus()
+    }
+
+    /// Asks before a strict block begins from a route that couldn't show its
+    /// cost first. Cancel is the answer to a stray Return.
+    private func confirmStrictStart() -> Bool {
+        let ends = Date().addingTimeInterval(TimeInterval(config.focusMinutes * 60))
+        let wait = config.strict.escapeWaitSeconds
+        let waitLabel = wait >= 60 ? "\(wait / 60) min\(wait % 60 == 0 ? "" : " \(wait % 60) s")" : "\(wait) s"
+        return ConfirmationAlert.ask(
+            title: "Start a strict block?",
+            message: "It can’t be ended, skipped or quit until \(Self.clockLabel(ends)). The emergency exit asks you to type a sentence, then waits \(waitLabel).",
+            confirm: "Start Strict Block",
+            keep: "Cancel"
+        ).confirmed && nextBlockIsStrict
+    }
+
+    private static func clockLabel(_ date: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.dateStyle = .none
+        formatter.timeStyle = .short
+        return formatter.string(from: date)
+    }
 
     /// What someone meant when they pressed End, from anywhere a person can
     /// press it. Shortcuts and the Focus filter call `stopSession` directly:
@@ -695,6 +757,14 @@ final class MenuBarController: NSObject, ObservableObject {
     }
 
     func requestSkipPhase() {
+        // From a break, skipping starts the next block; a strict one asks
+        // first, the same as every other way of starting one.
+        if snapshot.phase == .break || snapshot.phase == .breakEnded {
+            let phase = snapshot.phase
+            guard !nextBlockIsStrict || confirmStrictStart(), snapshot.phase == phase else { return }
+            skipPhase()
+            return
+        }
         // Only cutting a focus block short gives something up.
         guard snapshot.phase == .focus, !isStrictLocked, config.confirmBeforeEnding else {
             skipPhase()
@@ -804,7 +874,7 @@ final class MenuBarController: NSObject, ObservableObject {
         switch action {
         case .start:
             if !isSessionActive {
-                startFocus()
+                requestStartFocus()
             }
         case .stop:
             if isSessionActive || snapshot.phase == .breakEnded {
@@ -1119,7 +1189,7 @@ final class MenuBarController: NSObject, ObservableObject {
     func addBlockedAppFromPanel() {
         FocusLockLog.debug("app picker opened")
         let panel = NSOpenPanel()
-        panel.title = "Choose an app to block"
+        panel.title = "Choose an app to guard"
         panel.message = "Select an application from your Mac."
         panel.prompt = "Add"
         panel.directoryURL = URL(fileURLWithPath: "/Applications")
@@ -2028,11 +2098,11 @@ extension MenuBarController: NSMenuItemValidation {
         start.target = self
         menu.addItem(start)
 
-        let skip = NSMenuItem(title: "Skip to Next Phase", action: #selector(menuSkip(_:)), keyEquivalent: "")
+        let skip = NSMenuItem(title: "Skip to Break", action: #selector(menuSkip(_:)), keyEquivalent: "")
         skip.target = self
         menu.addItem(skip)
 
-        let stop = NSMenuItem(title: "Stop Session", action: #selector(menuStopSession(_:)), keyEquivalent: ".")
+        let stop = NSMenuItem(title: "End Session", action: #selector(menuStopSession(_:)), keyEquivalent: ".")
         stop.target = self
         menu.addItem(stop)
         return item
@@ -2072,10 +2142,19 @@ extension MenuBarController: NSMenuItemValidation {
         let mainWindow = NSMenuItem(
             title: "\(Self.appName) Window",
             action: #selector(menuOpenMainWindow(_:)),
-            keyEquivalent: "1"
+            keyEquivalent: "0"
         )
         mainWindow.target = self
         menu.addItem(mainWindow)
+        menu.addItem(.separator())
+
+        // ⌘1–⌘5 for the pages in the tab bar, in its order.
+        for (index, page) in MainPage.tabs.enumerated() {
+            let item = NSMenuItem(title: page.title, action: #selector(menuShowPage(_:)), keyEquivalent: "\(index + 1)")
+            item.tag = index
+            item.target = self
+            menu.addItem(item)
+        }
         menu.addItem(.separator())
 
         menu.addItem(withTitle: "Minimize", action: #selector(NSWindow.performMiniaturize(_:)), keyEquivalent: "m")
@@ -2108,11 +2187,20 @@ extension MenuBarController: NSMenuItemValidation {
     func validateMenuItem(_ menuItem: NSMenuItem) -> Bool {
         switch menuItem.action {
         case #selector(menuStartFocus(_:)):
+            // Says what it starts, as the window's button does.
+            menuItem.title = nextBlockIsStrict ? "Start Strict Block…" : "Start Focus"
             return !isSessionActive
         case #selector(menuStopSession(_:)):
-            return isSessionActive && !isStrictLocked
-        case #selector(menuSkip(_:)):
+            // After a break ends there is still a cycle to end, as the
+            // window's "End cycle" says.
+            menuItem.title = snapshot.phase == .breakEnded ? "End Cycle" : "End Session"
             return (isSessionActive || snapshot.phase == .breakEnded) && !isStrictLocked
+        case #selector(menuSkip(_:)):
+            // The window's words for the same two actions.
+            menuItem.title = snapshot.phase == .focus ? "Skip to Break" : "Start Next Block"
+            return (isSessionActive || snapshot.phase == .breakEnded) && !isStrictLocked
+        case #selector(menuShowPage(_:)):
+            return !isOnboarding
         case #selector(menuExportCSV(_:)), #selector(menuExportJSON(_:)):
             return !history.isEmpty
         case #selector(menuShowOnboarding(_:)):
@@ -2122,11 +2210,16 @@ extension MenuBarController: NSMenuItemValidation {
         }
     }
 
-    @objc private func menuStartFocus(_ sender: Any?) { startFocus() }
+    @objc private func menuStartFocus(_ sender: Any?) { requestStartFocus() }
     @objc private func menuStopSession(_ sender: Any?) { requestStopSession() }
     @objc private func menuSkip(_ sender: Any?) { requestSkipPhase() }
     @objc private func menuOpenSettings(_ sender: Any?) { openSettings() }
     @objc private func menuOpenMainWindow(_ sender: Any?) { openMainWindow() }
+    @objc private func menuShowPage(_ sender: NSMenuItem) {
+        guard MainPage.tabs.indices.contains(sender.tag) else { return }
+        page = MainPage.tabs[sender.tag]
+        openMainWindow()
+    }
     @objc private func menuOpenHistory(_ sender: Any?) { openHistory() }
     @objc private func menuOpenAnalytics(_ sender: Any?) { openAnalytics() }
     @objc private func menuExportCSV(_ sender: Any?) { exportCSVFromPanel() }

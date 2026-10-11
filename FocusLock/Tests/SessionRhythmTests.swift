@@ -190,6 +190,46 @@ final class SessionRhythmTests: XCTestCase {
         XCTAssertEqual(summary.detail, "+40m vs last week")
     }
 
+    func testRecentRhythmEndsTodayAndCarriesLastWeeksDays() throws {
+        let store = SessionHistoryStore(baseDirectory: try temporaryDirectory())
+        let calendar = calendarUTC()
+        // Friday, then Sunday: a calendar week starting Sunday would be empty.
+        try append(store, at: "2026-10-09T09:00:00Z", focusMinutes: 50)
+        let days = store.recentRhythm(referenceDate: date("2026-10-11T12:00:00Z"), calendar: calendar)
+
+        XCTAssertEqual(days.count, 7)
+        XCTAssertEqual(days.last?.isToday, true)
+        XCTAssertFalse(days.contains { $0.isFuture })
+        XCTAssertEqual(days.map(\.minutes), [0, 0, 0, 0, 50, 0, 0])
+    }
+
+    func testRecentSummaryComparesWithTheSevenDaysBefore() throws {
+        let store = SessionHistoryStore(baseDirectory: try temporaryDirectory())
+        let calendar = calendarUTC()
+        try append(store, at: "2026-10-09T09:00:00Z", focusMinutes: 50)
+        try append(store, at: "2026-10-02T09:00:00Z", focusMinutes: 25)
+        try append(store, at: "2026-09-20T09:00:00Z", focusMinutes: 90)
+        let summary = store.recentSummary(referenceDate: date("2026-10-11T12:00:00Z"), calendar: calendar)
+
+        XCTAssertEqual(summary.totalMinutes, 50)
+        XCTAssertEqual(summary.previousMinutes, 25)
+        XCTAssertEqual(summary.detail, "+25m vs the week before")
+    }
+
+    func testLastActiveDayIsTheMostRecentDayWithACompletedBlock() throws {
+        let store = SessionHistoryStore(baseDirectory: try temporaryDirectory())
+        let calendar = calendarUTC()
+        try append(store, at: "2026-10-09T05:00:00Z", focusMinutes: 50)
+        try append(store, at: "2026-10-09T07:00:00Z", focusMinutes: 25)
+        try append(store, at: "2026-10-10T07:00:00Z", focusMinutes: 25, status: .cancelled)
+        let day = store.lastActiveDay(referenceDate: date("2026-10-11T12:00:00Z"), calendar: calendar)
+
+        XCTAssertEqual(day?.minutes, 75)
+        XCTAssertEqual(day?.sessions, 2)
+        XCTAssertEqual(day?.isToday, false)
+        XCTAssertNil(SessionHistoryStore(baseDirectory: try temporaryDirectory()).lastActiveDay())
+    }
+
     func testWeekSummaryWording() {
         XCTAssertEqual(WeekFocusSummary(totalMinutes: 75, lastWeekSoFarMinutes: 0, elapsedDays: 6).detail, "Avg 12m a day")
         XCTAssertEqual(WeekFocusSummary(totalMinutes: 0, lastWeekSoFarMinutes: 0, elapsedDays: 2).detail, "Nothing yet this week")

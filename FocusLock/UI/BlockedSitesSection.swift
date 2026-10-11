@@ -115,7 +115,7 @@ struct BlockedSitesSection: View {
     private func deniedBanner(for browser: SupportedBrowser) -> some View {
         HStack(alignment: .top, spacing: 12) {
             Image(systemName: "exclamationmark.triangle.fill")
-                .foregroundStyle(Color.flClay)
+                .foregroundStyle(Color.flClayInk)
             VStack(alignment: .leading, spacing: 6) {
                 Text("Quietwhile isn't allowed to read \(browser.displayName)'s tabs")
                     .font(FLTypography.headline)
@@ -140,9 +140,9 @@ struct BlockedSitesSection: View {
     }
 
     private var browserNote: some View {
-        Text("Works in Safari, Chrome, Arc, Brave, Edge, Vivaldi, Opera, and Chromium — macOS asks once per browser for permission. Firefox can't be read this way; ResistGate covers it.")
+        Text("Works in Safari, Chrome, Arc, Brave, Edge, Vivaldi, Opera, and Chromium — macOS asks once per browser for permission. Firefox can’t be guarded.")
             .font(.system(size: 11))
-            .foregroundStyle(Color.flInkSoft.opacity(0.85))
+            .foregroundStyle(Color.flInkSoft)
             .fixedSize(horizontal: false, vertical: true)
             .padding(.horizontal, 26)
             .padding(.vertical, 12)
@@ -153,6 +153,9 @@ private struct BlockedSiteRow: View {
     @EnvironmentObject private var controller: MenuBarController
     let site: BlockedSite
     @State private var isHovering = false
+    /// Keyboard focus on Remove shows it, so a focus ring never lands on
+    /// something invisible.
+    @FocusState private var removeFocused: Bool
 
     var body: some View {
         HStack(spacing: 0) {
@@ -179,18 +182,21 @@ private struct BlockedSiteRow: View {
             Spacer(minLength: 0)
 
             HStack(spacing: 12) {
-                if isHovering {
-                    Button {
-                        controller.removeBlockedSite(site)
-                    } label: {
-                        Image(systemName: "minus.circle")
-                            .font(.system(size: 13))
-                            .foregroundStyle(Color.flClay)
-                    }
-                    .buttonStyle(.plain)
-                    .help("Remove \(site.pattern)")
-                    .accessibilityLabel("Remove \(site.pattern)")
+                // Present for the keyboard and VoiceOver; drawn on hover.
+                Button {
+                    controller.removeBlockedSite(site)
+                } label: {
+                    Image(systemName: "minus.circle")
+                        .font(.system(size: 13))
+                        .foregroundStyle(Color.flClayInk)
                 }
+                .buttonStyle(.plain)
+                // Not 0: a fully transparent view drops out of the accessibility tree.
+                .opacity(isHovering || removeFocused ? 1 : 0.001)
+                .allowsHitTesting(isHovering || removeFocused)
+                .focused($removeFocused)
+                .help("Remove \(site.pattern)")
+                .accessibilityLabel("Remove \(site.pattern)")
 
                 Toggle("", isOn: Binding(
                     get: { site.isEnabled },
@@ -204,11 +210,14 @@ private struct BlockedSiteRow: View {
         }
         .padding(.horizontal, 26)
         .frame(height: 48)
-        .background(isHovering ? Color.flCanvasWarm.opacity(0.6) : .clear)
+        .background(isHovering ? Color.flSunken : .clear)
         .onHover { hovering in
             withAnimation(FLAnimation.quick) {
                 isHovering = hovering
             }
+        }
+        .accessibilityAction(named: "Remove \(site.pattern)") {
+            controller.removeBlockedSite(site)
         }
         .contextMenu {
             Button("Remove \(site.pattern)", role: .destructive) {

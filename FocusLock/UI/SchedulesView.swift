@@ -29,7 +29,7 @@ struct SchedulesView: View {
                         FLRule()
                         Text("Inside a window, each break rolls straight into the next block. Stopping a session skips the rest of that window; the next one starts as normal. A block still running when the window closes gets to finish.")
                             .font(.system(size: 11))
-                            .foregroundStyle(Color.flInkSoft.opacity(0.85))
+                            .foregroundStyle(Color.flInkSoft)
                             .fixedSize(horizontal: false, vertical: true)
                             .padding(.horizontal, 26)
                             .padding(.vertical, 14)
@@ -76,7 +76,7 @@ struct SchedulesView: View {
     private var loginHint: some View {
         HStack(spacing: 12) {
             Image(systemName: "power")
-                .foregroundStyle(Color.flWarning)
+                .foregroundStyle(Color.flWarningInk)
             Text("Schedules only run while Quietwhile is open.")
                 .font(FLTypography.caption)
                 .foregroundStyle(Color.flInk)
@@ -121,7 +121,7 @@ private struct ScheduleRow: View {
                     controller.requestRemoveSchedule(schedule)
                 } label: {
                     Image(systemName: "trash")
-                        .foregroundStyle(Color.flClay)
+                        .foregroundStyle(Color.flClayInk)
                 }
                 .buttonStyle(.plain)
                 .help("Delete \(schedule.name)")
@@ -188,7 +188,7 @@ private struct ScheduleRow: View {
                 .font(.system(size: 12, weight: isOn ? .semibold : .regular))
                 .foregroundStyle(isOn ? Color.flCanvas : Color.flInkSoft)
                 .frame(width: 44, height: 26)
-                .background(Capsule().fill(isOn ? Color.flAccentDeep : Color.flCanvasWarm))
+                .background(Capsule().fill(isOn ? Color.flAccentDeep : Color.flSunken))
                 .overlay(Capsule().strokeBorder(isOn ? .clear : Color.flHairline, lineWidth: 1))
                 .contentShape(Capsule())
         }

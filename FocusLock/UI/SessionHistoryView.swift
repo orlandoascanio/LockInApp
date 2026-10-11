@@ -96,16 +96,47 @@ struct SessionHistoryView: View {
 
     private var summaryRow: some View {
         HStack(spacing: FLSpacing.xl) {
-            summaryItem(formatted(minutes: stats.focusMinutesToday), "focused today")
-            summaryItem("\(stats.sessionsCompletedToday)", "sessions today")
-            summaryItem(formatted(minutes: stats.focusMinutesThisWeek), "this week")
+            // Nothing yet today: lead with the last day there was something,
+            // so coming back opens on what you did rather than four zeros.
+            if let last = resumeDay {
+                let day = Self.weekday(last.date)
+                summaryItem(formatted(minutes: last.minutes), "focused \(day)")
+                summaryItem("\(last.sessions)", last.sessions == 1 ? "session \(day)" : "sessions \(day)")
+            } else {
+                summaryItem(formatted(minutes: stats.focusMinutesToday), "focused today")
+                summaryItem("\(stats.sessionsCompletedToday)", "sessions today")
+            }
             if selectedCategory.isEmpty {
-                summaryItem("\(controller.streak)", "day streak")
+                summaryItem(formatted(minutes: controller.recentSummary.totalMinutes), "last 7 days")
+                if controller.streak > 0 {
+                    summaryItem("\(controller.streak)", "day streak")
+                }
+            } else {
+                summaryItem(formatted(minutes: stats.focusMinutesThisWeek), "this week")
             }
             Spacer()
         }
         .padding(.horizontal, 26)
         .padding(.bottom, 22)
+    }
+
+    /// The last day with focus, when today has none and no category is
+    /// narrowing the view.
+    private var resumeDay: DailyFocus? {
+        guard selectedCategory.isEmpty, stats.focusMinutesToday == 0,
+              let last = controller.lastActiveDay, !last.isToday else { return nil }
+        return last
+    }
+
+    /// "Fri" within the week, "Sep 28" before it.
+    private static func weekday(_ date: Date) -> String {
+        let calendar = Calendar.current
+        let days = calendar.dateComponents(
+            [.day], from: calendar.startOfDay(for: date), to: calendar.startOfDay(for: Date())
+        ).day ?? 0
+        let formatter = DateFormatter()
+        formatter.setLocalizedDateFormatFromTemplate(days < 7 ? "EEE" : "MMM d")
+        return formatter.string(from: date)
     }
 
     private func summaryItem(_ value: String, _ label: String) -> some View {
@@ -136,12 +167,14 @@ struct SessionHistoryView: View {
                 .frame(width: HistoryTableLayout.guardedWidth, alignment: .trailing)
         }
         .padding(.horizontal, 26)
-        .padding(.vertical, 11)
-        .background(Color.flCanvasWarm.opacity(0.46))
+        .padding(.top, 4)
+        .padding(.bottom, 10)
+        // Micro-caps and a hairline, as on Blocked: a header, not a band.
         .overlay(alignment: .bottom) {
             Rectangle()
-                .fill(Color.flHairline.opacity(0.72))
+                .fill(Color.flHairline)
                 .frame(height: 1)
+                .padding(.horizontal, 26)
         }
     }
 
@@ -251,7 +284,7 @@ private struct HistoryRow: View {
         .padding(.horizontal, 26)
         .padding(.vertical, 12)
         .frame(minHeight: 46)
-        .background(isHovered ? Color.flCanvasWarm.opacity(0.38) : .clear)
+        .background(isHovered ? Color.flSunken : .clear)
         .contentShape(Rectangle())
         .onHover { isHovered = $0 }
         .accessibilityElement(children: .combine)

@@ -133,6 +133,30 @@ public struct WeekFocusSummary: Equatable {
     }
 }
 
+/// The last seven days against the seven before them.
+public struct RecentFocusSummary: Equatable {
+    public var totalMinutes: Int
+    public var previousMinutes: Int
+
+    public init(totalMinutes: Int, previousMinutes: Int) {
+        self.totalMinutes = max(0, totalMinutes)
+        self.previousMinutes = max(0, previousMinutes)
+    }
+
+    /// "+40m vs the week before", or the daily average when there is nothing
+    /// to compare against.
+    public var detail: String {
+        guard previousMinutes > 0 else {
+            let average = totalMinutes / 7
+            return average > 0 ? "Avg \(RunRecap.duration(average)) a day" : "Nothing in the last 7 days"
+        }
+        let difference = totalMinutes - previousMinutes
+        if difference == 0 { return "Same as the week before" }
+        let sign = difference > 0 ? "+" : "−"
+        return "\(sign)\(RunRecap.duration(abs(difference))) vs the week before"
+    }
+}
+
 public struct SessionStats: Equatable {
     public var sessionsCompletedToday: Int
     public var focusMinutesToday: Int

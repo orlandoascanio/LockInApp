@@ -51,7 +51,7 @@ struct ShortcutRecorder: View {
             if controller.hotkeyFailures.contains(action) {
                 Text("Another app already uses this")
                     .font(FLTypography.caption)
-                    .foregroundStyle(Color.flClay)
+                    .foregroundStyle(Color.flClayInk)
             } else if let hint {
                 Text(hint)
                     .font(FLTypography.caption)

@@ -119,7 +119,7 @@ struct SettingsView: View {
 
                 Text("Individual apps can override this from the Blocked list.")
                     .font(.system(size: 11))
-                    .foregroundStyle(Color.flInkSoft.opacity(0.8))
+                    .foregroundStyle(Color.flInkSoft)
             }
         }
     }
@@ -171,7 +171,7 @@ struct SettingsView: View {
 
             Text("Idle \(controller.config.autoResume.graceMinutes) minutes after a break and Quietwhile takes the screen, counts down \(countdownLabel), then starts the next block. You can always start now, push it back, or end the cycle.")
                 .font(.system(size: 11))
-                .foregroundStyle(Color.flInkSoft.opacity(0.8))
+                .foregroundStyle(Color.flInkSoft)
                 .fixedSize(horizontal: false, vertical: true)
                 .frame(maxWidth: 560, alignment: .leading)
         }
@@ -330,7 +330,7 @@ struct SettingsView: View {
 
                 Text("The emergency exit asks you to type a sentence, then waits this long before ending the block. Schedules can make their own blocks strict too.")
                     .font(.system(size: 11))
-                    .foregroundStyle(Color.flInkSoft.opacity(0.8))
+                    .foregroundStyle(Color.flInkSoft)
                     .fixedSize(horizontal: false, vertical: true)
                     .frame(maxWidth: 560, alignment: .leading)
             }
@@ -406,7 +406,7 @@ struct SettingsView: View {
                 .frame(maxWidth: 560, alignment: .leading)
                 .background(
                     RoundedRectangle(cornerRadius: FLRadius.lg, style: .continuous)
-                        .fill(Color.flCanvasWarm)
+                        .fill(Color.flSunken)
                 )
                 .overlay(
                     RoundedRectangle(cornerRadius: FLRadius.lg, style: .continuous)
@@ -533,6 +533,7 @@ struct SettingsView: View {
                     .foregroundStyle(Color.flInkSoft)
                     .fixedSize(horizontal: false, vertical: true)
             }
+            .frame(maxWidth: 520, alignment: .leading)
 
             Spacer(minLength: FLSpacing.md)
 
@@ -542,7 +543,9 @@ struct SettingsView: View {
                 .labelsHidden()
                 .accessibilityLabel(title)
         }
-        .frame(maxWidth: 560, alignment: .leading)
+        // Switches line up on the right edge, as on Blocked and Schedules;
+        // the words keep a readable measure.
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 }
 
@@ -572,7 +575,7 @@ private struct UpdatesRow: View {
                 .labelsHidden()
                 .accessibilityLabel("Check for updates automatically")
             }
-            .frame(maxWidth: 560, alignment: .leading)
+            .frame(maxWidth: .infinity, alignment: .leading)
         } else {
             Text("Updates are off in this build. They switch on once Scripts/release/setup_sparkle.sh has added a signing key.")
                 .font(FLTypography.caption)

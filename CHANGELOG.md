@@ -2,6 +2,35 @@
 
 What changed in each Quietwhile release (called LockIn up to 0.3.3). Versions come from the git tag the release is built from (`vX.Y.Z`).
 
+## Unreleased
+
+- A new main window. The sidebar is gone: the pages are tabs across the top, Settings is the gear in the corner, and the top right shows where you stand (the time left, or when you last focused). ⌘1–⌘5 switch pages; the Quietwhile Window item moves to ⌘0.
+- Each page has its own colour, from a set of earth pigments: green for Focus, terracotta for Blocked, ochre for Schedules, umber for History, blue-grey for Analytics and plain paper for Settings. A break turns the Focus page slate.
+- The Focus page now reads the way you set up a block: its length (25 / 5, 50 / 10, or Custom with the durations right there), your goal, what it guards, then Start, with a line under it saying what pressing it means. Return while typing a goal finishes the goal instead of starting the block.
+- Before you start, the Focus page says what the block guards and that calls keep going ("Guards Discord · Guard Screen · apps keep running, calls keep going"). If an app you call people on is set to Quit App, the Focus and Blocked pages say that quitting ends its calls, and Quietwhile asks before you set it.
+- The Blocked page explains Guard Screen, Hide Only and Quit App above the list, and each app's behaviour is a visible menu.
+- Strict:
+  - A Strict switch next to the block length makes just the next block strict, or not. Settings › Blocking still sets the default.
+  - The button says "Start strict block", Return doesn't press it, and the line under it says when the block can be ended and how long the emergency exit waits.
+  - Starting a strict block from the menu, ⌘N, the global shortcut, the menu bar, or "Start next block" asks first.
+- Breaks:
+  - The suggestion sits next to the timer, in slate. There is one thing to start; "Did it" appears once you have, and "Something else" swaps it.
+  - It says what's yours again and until when ("Discord and 2 sites are yours until 3:40 PM").
+  - Start next block and End session are quiet text instead of big buttons.
+  - The check-in is one tap. A note is optional.
+- Coming back after a few days off:
+  - The top right says when you last focused instead of showing a lapsed streak.
+  - The Focus chart shows the last 7 days ending today, so it's never blank just because a new week started.
+  - History, when today has nothing yet, leads with your last day of focus instead of zeros.
+- Analytics: dates sit under their own bars, the daily average counts every day in the range (the same way the Focus page does), and the sections are no longer boxed.
+- Easier to read and use:
+  - Warnings, errors and break text are darker in light mode, so they stay readable on every page colour.
+  - Buttons you can't press yet look it.
+  - With Increase Contrast on, lines and secondary text are stronger.
+  - VoiceOver reads the tabs and segmented choices as pickers, can reach Remove on Blocked rows, and speaks each step of box breathing. Arrow keys move through segmented choices.
+  - Reduce Motion now also covers the tab bar, the page colour changes and the break guides.
+- Smaller changes: selected segments are a light chip instead of filled green; Settings switches line up on the right; cancelled blocks are no longer amber; apps that aren't installed show a plain app icon; the menu says End Session and Skip to Break like the window; and the Websites note now says plainly that Firefox can't be guarded.
+
 ## 0.3.4 (2026-10-10)
 
 - LockIn is now called Quietwhile. Updating keeps your settings, history, schedules, permissions, widgets, Shortcuts and Focus filters. Your data is copied to `~/Library/Application Support/Quietwhile/` on first launch; the old `LockIn` folder is left untouched.

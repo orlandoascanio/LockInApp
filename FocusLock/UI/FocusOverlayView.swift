@@ -114,7 +114,7 @@ struct FocusOverlayView: View {
 
             if model.allowEnd {
                 Button("End session", action: onEndSession)
-                    .buttonStyle(FLLinkButtonStyle(tint: .flClay))
+                    .buttonStyle(FLLinkButtonStyle(tint: .flClayInk))
             } else {
                 Label("Strict block", systemImage: "lock.fill")
                     .font(.system(size: 12, weight: .medium))

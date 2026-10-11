@@ -43,8 +43,8 @@ public enum HotkeyAction: String, Codable, CaseIterable, Identifiable {
     public var title: String {
         switch self {
         case .start: return "Start focus"
-        case .stop: return "Stop session"
-        case .skip: return "Skip to next phase"
+        case .stop: return "End session"
+        case .skip: return "Skip to break"
         }
     }
 }

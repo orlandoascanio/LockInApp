@@ -13,26 +13,35 @@ struct FLSegmentedControl<Option: Hashable>: View {
     var badge: (Option) -> Bool = { _ in false }
     var accessibilityLabel: String
 
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
     var body: some View {
         HStack(spacing: 0) {
             ForEach(options, id: \.self) { option in
                 let isSelected = option == selection
                 Button {
-                    withAnimation(FLAnimation.quick) {
-                        selection = option
-                    }
+                    select(option)
                 } label: {
                     HStack(spacing: 6) {
                         Text(title(option))
                         if badge(option) {
-                            Circle().fill(Color.flClay).frame(width: 6, height: 6)
+                            // Amber: "needs your answer", as on the tab bar.
+                            Circle().fill(Color.flWarningInk).frame(width: 6, height: 6)
                         }
                     }
                     .font(.system(size: 12.5, weight: isSelected ? .semibold : .regular))
-                    .foregroundStyle(isSelected ? Color.flCanvas : Color.flInkSoft)
+                    .foregroundStyle(isSelected ? Color.flTabSelectedInk : Color.flInkSoft)
                     .padding(.horizontal, 16)
                     .frame(height: 28)
-                    .background(Capsule().fill(isSelected ? Color.flAccentDeep : .clear))
+                    // The lit chip, as in the tab bar: a selection is a place
+                    // you are, so it doesn't spend the page's one moss fill.
+                    .background {
+                        if isSelected {
+                            Capsule()
+                                .fill(Color.flTabSelected)
+                                .shadow(color: .black.opacity(0.12), radius: 3, y: 1)
+                        }
+                    }
                     .contentShape(Capsule())
                 }
                 .buttonStyle(.plain)
@@ -40,11 +49,33 @@ struct FLSegmentedControl<Option: Hashable>: View {
             }
         }
         .padding(3)
-        .background(Capsule().fill(Color.flCanvasWarm))
+        .background(Capsule().fill(Color.flSunken))
         .overlay(Capsule().strokeBorder(Color.flHairline, lineWidth: 1))
         .fixedSize()
-        .accessibilityElement(children: .contain)
-        .accessibilityLabel(accessibilityLabel)
+        // Arrow keys step through the choices, as in a stock segmented control.
+        .onMoveCommand { direction in
+            guard let index = options.firstIndex(of: selection) else { return }
+            switch direction {
+            case .left where index > 0: select(options[index - 1])
+            case .right where index < options.count - 1: select(options[index + 1])
+            default: break
+            }
+        }
+        // VoiceOver hears one picker with its choices, not a row of buttons.
+        .accessibilityRepresentation {
+            Picker(accessibilityLabel, selection: $selection) {
+                ForEach(options, id: \.self) { option in
+                    Text(title(option)).tag(option)
+                }
+            }
+            .pickerStyle(.segmented)
+        }
+    }
+
+    private func select(_ option: Option) {
+        withAnimation(reduceMotion ? nil : FLAnimation.quick) {
+            selection = option
+        }
     }
 }
 
@@ -194,36 +225,5 @@ struct FLInlineButtonStyle: ButtonStyle {
             .overlay(Capsule().strokeBorder(isEnabled ? tint.opacity(0.35) : Color.flHairline, lineWidth: 1))
             .contentShape(Capsule())
             .animation(FLAnimation.quick, value: configuration.isPressed)
-    }
-}
-
-/// The sidebar's native material: desktop colour showing through, as in
-/// Finder and Mail, with a wash of the palette so it stays warm rather than
-/// turning grey.
-struct FLSidebarBackground: View {
-    var body: some View {
-        ZStack {
-            VisualEffect(material: .sidebar, blendingMode: .behindWindow)
-            Color.flCanvasWarm.opacity(0.62)
-        }
-        .ignoresSafeArea()
-    }
-
-    private struct VisualEffect: NSViewRepresentable {
-        let material: NSVisualEffectView.Material
-        let blendingMode: NSVisualEffectView.BlendingMode
-
-        func makeNSView(context: Context) -> NSVisualEffectView {
-            let view = NSVisualEffectView()
-            view.material = material
-            view.blendingMode = blendingMode
-            view.state = .followsWindowActiveState
-            return view
-        }
-
-        func updateNSView(_ view: NSVisualEffectView, context: Context) {
-            view.material = material
-            view.blendingMode = blendingMode
-        }
     }
 }

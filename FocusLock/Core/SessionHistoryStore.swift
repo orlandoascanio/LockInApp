@@ -97,17 +97,61 @@ public final class SessionHistoryStore {
     /// sessions come back at zero rather than being omitted, so the chart keeps
     /// seven evenly spaced columns.
     public func weeklyRhythm(referenceDate: Date = Date(), calendar: Calendar = .current) -> [DailyFocus] {
-        let completed = loadHistory().filter { $0.status == .completed }
-
         guard let weekStart = calendar.dateInterval(of: .weekOfYear, for: referenceDate)?.start else {
             return []
         }
+        let days = (0..<7).compactMap { calendar.date(byAdding: .day, value: $0, to: weekStart) }
+        return dailyFocus(on: days, referenceDate: referenceDate, calendar: calendar)
+    }
 
-        return (0..<7).compactMap { offset in
-            guard let day = calendar.date(byAdding: .day, value: offset, to: weekStart) else {
-                return nil
-            }
+    /// The last `count` days ending today, so a chart never opens on a blank
+    /// week just because the calendar turned over on Sunday.
+    public func recentRhythm(days count: Int = 7, referenceDate: Date = Date(), calendar: Calendar = .current) -> [DailyFocus] {
+        let today = calendar.startOfDay(for: referenceDate)
+        let days = (0..<max(1, count)).reversed().compactMap {
+            calendar.date(byAdding: .day, value: -$0, to: today)
+        }
+        return dailyFocus(on: days, referenceDate: referenceDate, calendar: calendar)
+    }
 
+    /// The last seven days ending today against the seven before them.
+    public func recentSummary(referenceDate: Date = Date(), calendar: Calendar = .current) -> RecentFocusSummary {
+        let completed = loadHistory().filter { $0.status == .completed }
+        let tomorrow = calendar.date(byAdding: .day, value: 1, to: calendar.startOfDay(for: referenceDate)) ?? referenceDate
+        guard
+            let start = calendar.date(byAdding: .day, value: -7, to: tomorrow),
+            let previousStart = calendar.date(byAdding: .day, value: -14, to: tomorrow)
+        else {
+            return RecentFocusSummary(totalMinutes: 0, previousMinutes: 0)
+        }
+
+        func minutes(from start: Date, to end: Date) -> Int {
+            completed
+                .filter { $0.startedAt >= start && $0.startedAt < end }
+                .reduce(0) { $0 + $1.focusMinutes }
+        }
+
+        return RecentFocusSummary(
+            totalMinutes: minutes(from: start, to: tomorrow),
+            previousMinutes: minutes(from: previousStart, to: start)
+        )
+    }
+
+    /// The most recent day, today included, with a completed block: what a
+    /// returning person can pick up from.
+    public func lastActiveDay(referenceDate: Date = Date(), calendar: Calendar = .current) -> DailyFocus? {
+        let latest = loadHistory()
+            .filter { $0.status == .completed && $0.startedAt <= referenceDate }
+            .map(\.startedAt)
+            .max()
+        guard let latest else { return nil }
+        return dailyFocus(on: [calendar.startOfDay(for: latest)], referenceDate: referenceDate, calendar: calendar).first
+    }
+
+    private func dailyFocus(on days: [Date], referenceDate: Date, calendar: Calendar) -> [DailyFocus] {
+        let completed = loadHistory().filter { $0.status == .completed }
+
+        return days.map { day in
             let entries = completed.filter { calendar.isDate($0.startedAt, inSameDayAs: day) }
             let minutes = entries.reduce(0) { $0 + $1.focusMinutes }
 

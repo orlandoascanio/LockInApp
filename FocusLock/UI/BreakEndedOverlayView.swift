@@ -35,7 +35,7 @@ struct BreakEndedOverlayView: View {
                     .buttonStyle(FLLinkButtonStyle(tint: .flInkSoft))
 
                 Button("End cycle", action: onEndCycle)
-                    .buttonStyle(FLLinkButtonStyle(tint: .flClay))
+                    .buttonStyle(FLLinkButtonStyle(tint: .flClayInk))
                     .keyboardShortcut(.cancelAction)
             }
             .padding(.bottom, 38)

@@ -321,7 +321,7 @@ struct OnboardingView: View {
                 if let siteError {
                     Text(siteError)
                         .font(FLTypography.caption)
-                        .foregroundStyle(Color.flClay)
+                        .foregroundStyle(Color.flClayInk)
                 }
             }
 

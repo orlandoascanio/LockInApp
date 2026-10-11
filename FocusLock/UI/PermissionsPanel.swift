@@ -105,7 +105,7 @@ struct PermissionsPanel: View {
                 HStack(spacing: FLSpacing.sm) {
                     Text("Not allowed")
                         .font(FLTypography.caption.weight(.semibold))
-                        .foregroundStyle(Color.flClay)
+                        .foregroundStyle(Color.flClayInk)
                     Button("Open Settings") { openSettings() }
                         .buttonStyle(FLLinkButtonStyle())
                 }

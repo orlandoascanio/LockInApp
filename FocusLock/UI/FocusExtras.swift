@@ -9,6 +9,8 @@ struct FocusDial: View {
     let progress: Double
     let isBreak: Bool
     let isActive: Bool
+    /// The phase in words for VoiceOver; falls back to the visible label.
+    var spokenPhase: String?
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
@@ -23,7 +25,7 @@ struct FocusDial: View {
             Circle()
                 .trim(from: 0, to: max(0.0001, min(1, progress)))
                 .stroke(
-                    isBreak ? Color.flAccent : Color.flAccentDeep,
+                    isBreak ? Color.flRest : Color.flAccentDeep,
                     style: StrokeStyle(lineWidth: lineWidth, lineCap: .round)
                 )
                 .rotationEffect(.degrees(-90))
@@ -31,7 +33,7 @@ struct FocusDial: View {
                 .animation(reduceMotion ? nil : .linear(duration: 0.5), value: progress)
 
             VStack(spacing: 6) {
-                FLMicroLabel(text: phaseLabel, tint: isActive ? .flAccentDeep : .flInkSoft)
+                FLMicroLabel(text: phaseLabel, tint: isBreak ? .flRestInk : isActive ? .flAccentDeep : .flInkSoft)
                     .lineLimit(1)
                     .minimumScaleFactor(0.8)
                     .frame(maxWidth: diameter - 60)
@@ -48,7 +50,8 @@ struct FocusDial: View {
         }
         .frame(width: diameter, height: diameter)
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel("\(phaseLabel), \(countdown) remaining")
+        // Nothing is "remaining" before a block starts.
+        .accessibilityLabel("\(spokenPhase ?? phaseLabel), \(countdown)\(isActive ? " remaining" : "")")
         .accessibilityValue(isActive ? "\(Int(progress * 100)) percent through this phase" : "")
     }
 }
@@ -149,7 +152,7 @@ struct TodayBlocks: View {
     private func dotColor(_ status: SessionHistoryStatus) -> Color {
         switch status {
         case .completed: return .flAccentDeep
-        case .cancelled: return .flWarning
+        case .cancelled: return .flInkSoft
         case .abandoned: return .flClay
         }
     }
@@ -158,9 +161,13 @@ struct TodayBlocks: View {
 /// "What is this block for?" — a goal and a category, under the timer.
 struct FocusGoalBar: View {
     @EnvironmentObject private var controller: MenuBarController
+    /// Told while you are typing here, so Return can finish the text rather
+    /// than press the page's Start.
+    var onTypingChange: (Bool) -> Void = { _ in }
     @State private var newCategory = ""
     @State private var isNamingCategory = false
     @FocusState private var categoryFieldFocused: Bool
+    @FocusState private var goalFieldFocused: Bool
 
     var body: some View {
         VStack(spacing: 8) {
@@ -169,7 +176,10 @@ struct FocusGoalBar: View {
                     get: { controller.config.task.goal },
                     set: { value in controller.updateTask { $0.goal = String(value.prefix(160)) } }
                 ))
-                .flField(width: 300)
+                .focused($goalFieldFocused)
+                .flField(width: 286, focused: goalFieldFocused)
+                // Return finishes the goal; a second Return starts the block.
+                .onSubmit { goalFieldFocused = false }
 
                 FLMenuPicker(
                     options: controller.config.task.categories,
@@ -212,6 +222,9 @@ struct FocusGoalBar: View {
                     .lineLimit(1)
             }
         }
+        .onChange(of: goalFieldFocused || categoryFieldFocused) { _, typing in
+            onTypingChange(typing)
+        }
     }
 
     private func addCategory() {
@@ -226,22 +239,14 @@ struct FocusGoalBar: View {
 /// that just finished.
 struct BreakPanel: View {
     @EnvironmentObject private var controller: MenuBarController
+    /// During a break the guide sits beside the dial instead, above the fold.
+    var showsGuide = true
 
     var body: some View {
         HStack(alignment: .top, spacing: 28) {
-            if let suggestion = controller.breakSuggestion {
-                VStack(alignment: .leading, spacing: 8) {
-                    FLMicroLabel(text: "Try this")
-                    BreakGuideView(
-                        suggestion: suggestion,
-                        breakEndsAt: controller.snapshot.phase == .break ? controller.snapshot.phaseEndsAt : nil,
-                        isDone: controller.breakPick?.done == true,
-                        tally: tally(for: suggestion.kind),
-                        onDone: { controller.markBreakSuggestionDone() },
-                        onAnother: { withAnimation(FLAnimation.standard) { controller.anotherBreakSuggestion() } }
-                    )
-                }
-                .frame(maxWidth: .infinity, alignment: .leading)
+            if showsGuide, controller.breakSuggestion != nil {
+                BreakSuggestionGuide()
+                    .frame(maxWidth: .infinity, alignment: .leading)
             }
 
             if let entry = controller.checkInEntry {
@@ -252,6 +257,32 @@ struct BreakPanel: View {
         }
         .padding(.horizontal, 26)
         .padding(.vertical, 20)
+    }
+}
+
+/// "Try this": the break's suggestion as something to do.
+struct BreakSuggestionGuide: View {
+    @EnvironmentObject private var controller: MenuBarController
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    var body: some View {
+        if let suggestion = controller.breakSuggestion {
+            VStack(alignment: .leading, spacing: 8) {
+                FLMicroLabel(text: "Try this", tint: .flRestInk)
+                BreakGuideView(
+                    suggestion: suggestion,
+                    breakEndsAt: controller.snapshot.phase == .break ? controller.snapshot.phaseEndsAt : nil,
+                    isDone: controller.breakPick?.done == true,
+                    tally: tally(for: suggestion.kind),
+                    onDone: { controller.markBreakSuggestionDone() },
+                    onAnother: {
+                        withAnimation(reduceMotion ? nil : FLAnimation.standard) {
+                            controller.anotherBreakSuggestion()
+                        }
+                    }
+                )
+            }
+        }
     }
 
     private func tally(for kind: BreakSuggestionKind) -> String? {
@@ -268,8 +299,10 @@ struct BreakPanel: View {
 private struct CheckInView: View {
     @EnvironmentObject private var controller: MenuBarController
     let entry: SessionHistoryEntry
-    @State private var outcome: CheckInOutcome = .progress
+    /// Nothing is picked until you pick it; picking saves.
+    @State private var outcome: CheckInOutcome?
     @State private var note = ""
+    @State private var isWritingNote = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -280,23 +313,41 @@ private struct CheckInView: View {
                     .foregroundStyle(Color.flInk)
                     .lineLimit(2)
             }
+            // One tap is the whole check-in; a note is optional and extra.
             FLSegmentedControl(
-                options: CheckInOutcome.allCases,
-                selection: $outcome,
-                title: \.title,
+                options: CheckInOutcome.allCases.map { Optional($0) },
+                selection: Binding(
+                    get: { outcome },
+                    set: { choice in
+                        outcome = choice
+                        if let choice {
+                            controller.saveCheckIn(outcome: choice, note: note)
+                        }
+                    }
+                ),
+                title: { $0?.title ?? "" },
                 accessibilityLabel: "How the block went"
             )
-            TextField("A note for next time (optional)", text: $note, axis: .vertical)
-                .lineLimit(1...3)
-                .flField()
-                .onChange(of: note) { _, value in note = String(value.prefix(500)) }
-            Button(entry.checkIn == nil ? "Save check-in" : "Update check-in") {
-                controller.saveCheckIn(outcome: outcome, note: note)
+
+            if isWritingNote {
+                TextField("A note for next time", text: $note, axis: .vertical)
+                    .lineLimit(1...3)
+                    .flField()
+                    .onChange(of: note) { _, value in note = String(value.prefix(500)) }
+                Button("Save note") {
+                    controller.saveCheckIn(outcome: outcome ?? .progress, note: note)
+                    isWritingNote = false
+                }
+                .buttonStyle(FLInlineButtonStyle())
+            } else {
+                Button(note.isEmpty ? "Add a note" : "Edit note") {
+                    isWritingNote = true
+                }
+                .buttonStyle(FLLinkButtonStyle())
             }
-            .buttonStyle(FLActionButtonStyle(variant: .secondary, minHeight: 30))
         }
         .onAppear {
-            outcome = entry.checkIn?.outcome ?? .progress
+            outcome = entry.checkIn?.outcome
             note = entry.checkIn?.note ?? ""
         }
     }
@@ -394,7 +445,7 @@ struct StrictEscapeSheet: View {
                 if rejected {
                     Text("That isn't the sentence. Every word counts.")
                         .font(FLTypography.caption)
-                        .foregroundStyle(Color.flClay)
+                        .foregroundStyle(Color.flClayInk)
                 }
 
                 HStack {

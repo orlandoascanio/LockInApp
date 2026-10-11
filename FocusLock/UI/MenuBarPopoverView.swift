@@ -65,11 +65,11 @@ struct MenuBarPopoverView: View {
                 Button("End") {
                     controller.requestStopSession()
                 }
-                .buttonStyle(FLLinkButtonStyle(tint: .flClay))
+                .buttonStyle(FLLinkButtonStyle(tint: .flClayInk))
                 .fixedSize()
             } else {
-                Button("Start") {
-                    controller.startFocus()
+                Button(controller.nextBlockIsStrict ? "Start strict…" : "Start") {
+                    controller.requestStartFocus()
                 }
                 .buttonStyle(FLLinkButtonStyle())
                 .fixedSize()
