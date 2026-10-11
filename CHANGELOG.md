@@ -2,6 +2,16 @@
 
 What changed in each Quietwhile release (called LockIn up to 0.3.3). Versions come from the git tag the release is built from (`vX.Y.Z`).
 
+## 0.3.6 (2026-10-11)
+
+- A shorter welcome guide: choose a distracting app or website, prepare the block, then start. Suggested apps still come from how you use your Mac. Launch at login and advanced options stay in Settings.
+- New installations start with a suggested 25-minute focus block and 5-minute break. Both durations can be edited before starting; existing settings keep their durations.
+- Choosing a website explains browser access and asks only for the browser you choose. The start summary and Focus page distinguish selected sites from available protection and show browser access that is still pending.
+- Skipping the guide leaves a first-block invitation on Focus: “Choose a distraction” or “Use timer only.” Choosing timer only in the guide is explicit too.
+- Notifications are offered during the first block, with an option to leave them for later. They are no longer part of the setup checklist. Replaying the guide still asks before starting a strict block.
+- First-use measurements stay on your Mac. Dismissing or completing the guide, starting a block, completing its full planned duration with protection available, a first interception, and returning on day seven are recorded separately. Ending early does not count as activation, and an interception is not required.
+- Preview builds using a separate data directory now keep their widget snapshot there too, so testing setup does not replace the normal widget's data.
+
 ## 0.3.5 (2026-10-11)
 
 - A new main window. The sidebar is gone: the pages are tabs across the top, Settings is the gear in the corner, and the top right shows where you stand (the time left, or when you last focused). ⌘1–⌘5 switch pages; the Quietwhile Window item moves to ⌘0.
