@@ -57,6 +57,7 @@ final class MenuBarController: NSObject, ObservableObject {
     /// The welcome guide takes over the main window while this is set: on a
     /// first launch, or when replayed from the Help menu.
     @Published private(set) var isOnboarding = false
+    @Published private(set) var onboardingProgress: OnboardingProgress
 
     /// Focus minutes per weekday for the current week, and the run of days with
     /// at least one completed session. Cached because both are read on every
@@ -90,6 +91,7 @@ final class MenuBarController: NSObject, ObservableObject {
     let permissions = PermissionCenter()
 
     private let stateStore: StateStore
+    private let onboardingStore: OnboardingStore
     private let historyStore: SessionHistoryStore
     private let exportService: ExportService
     private let notificationService: NotificationService
@@ -340,8 +342,12 @@ final class MenuBarController: NSObject, ObservableObject {
         self.exportService = exportService
         let config = stateStore.loadConfig()
         self.config = config
+        let history = historyStore.loadHistory()
+        let onboardingStore = OnboardingStore(baseDirectory: stateStore.baseDirectory)
+        self.onboardingStore = onboardingStore
+        self.onboardingProgress = onboardingStore.load(isNewInstall: !config.onboardingCompleted && history.isEmpty)
         self.isOnboarding = !config.onboardingCompleted
-        self.history = historyStore.loadHistory()
+        self.history = history
         self.timerEngine = TimerEngine(
             stateStore: stateStore,
             historyStore: historyStore,
@@ -351,6 +357,8 @@ final class MenuBarController: NSObject, ObservableObject {
         self.blocker = AppBlocker(notificationService: notificationService)
 
         super.init()
+        do { try onboardingStore.save(onboardingProgress) }
+        catch { FocusLockLog.debug("Could not save local onboarding progress: \(error.localizedDescription)") }
 
         notificationService.breakSuggestion = { [weak self] cycle, minutes in
             guard let self else { return nil }
@@ -386,6 +394,7 @@ final class MenuBarController: NSObject, ObservableObject {
         }
         websiteGuard.onPermissionDenied = { [weak self] browser in
             self?.browserPermissionProblem = browser
+            self?.permissions.refresh(browser)
         }
         permissions.onBrowserGranted = { [weak self] browser in
             guard let self else { return }
@@ -403,7 +412,7 @@ final class MenuBarController: NSObject, ObservableObject {
         configureBreakEndedHandlers()
         configureAutoResumeHandlers()
         configurePinnedHUDHandlers()
-        refreshDerivedStats()
+        reloadHistory()
     }
 
     private func configurePinnedHUDHandlers() {
@@ -426,6 +435,7 @@ final class MenuBarController: NSObject, ObservableObject {
 
     private func recordInterception(key: String) {
         blockedTodayCounts = activityStore.recordInterception(bundleId: key)
+        updateOnboardingProgress { $0.recordInterception(at: Date()) }
     }
 
     private static func activityKey(for site: BlockedSite) -> String {
@@ -437,6 +447,7 @@ final class MenuBarController: NSObject, ObservableObject {
     /// and week chart never lag behind the list.
     private func reloadHistory() {
         history = historyStore.loadHistory()
+        updateOnboardingProgress { $0.reconcile(history: history) }
         refreshDerivedStats()
     }
 
@@ -596,6 +607,62 @@ final class MenuBarController: NSObject, ObservableObject {
 
     // MARK: - Welcome guide
 
+    var protectionAvailability: ProtectionAvailability {
+        ProtectionAvailability(
+            apps: activeBlockedApps.filter {
+                NSWorkspace.shared.urlForApplication(withBundleIdentifier: $0.bundleId) != nil
+            }.count,
+            sites: activeBlockedSites.count,
+            authorisedBrowsers: permissions.installedBrowsers.filter {
+                permissions.state(for: $0) == .granted && browserPermissionProblem != $0
+            }.count
+        )
+    }
+
+    var offersFirstDistraction: Bool {
+        onboardingProgress.cohortStartedAt != nil
+            && onboardingProgress.firstBlockStartedAt == nil
+            && !onboardingProgress.timerOnlyChosen
+            && activeBlockedApps.isEmpty && activeBlockedSites.isEmpty
+            && !isSessionActive
+    }
+
+    private func updateOnboardingProgress(_ update: (inout OnboardingProgress) -> Void) {
+        var progress = onboardingProgress
+        update(&progress)
+        guard progress != onboardingProgress else { return }
+        onboardingProgress = progress
+        do { try onboardingStore.save(progress) }
+        catch { FocusLockLog.debug("Could not save local onboarding progress: \(error.localizedDescription)") }
+    }
+
+    func chooseTimerOnly() {
+        updateOnboardingProgress { $0.timerOnlyChosen = true }
+    }
+
+    func deferNotificationPrompt() {
+        updateOnboardingProgress { $0.notificationsDeferred = true }
+    }
+
+    func chooseOnboardingBrowser(_ browser: SupportedBrowser) {
+        updateOnboardingProgress { $0.preferredBrowserBundleID = browser.bundleIdentifier }
+    }
+
+    func dismissOnboarding() {
+        updateOnboardingProgress {
+            if $0.guideDismissedAt == nil { $0.guideDismissedAt = Date() }
+        }
+        closeOnboarding()
+    }
+
+    private func closeOnboarding() {
+        isOnboarding = false
+        settingsMessage = nil
+        config.onboardingCompleted = true
+        saveConfig()
+        page = .focus
+    }
+
     func showOnboarding() {
         guard !isSessionActive else { return }
         isOnboarding = true
@@ -603,13 +670,13 @@ final class MenuBarController: NSObject, ObservableObject {
     }
 
     func finishOnboarding(startingFocus: Bool) {
-        isOnboarding = false
-        settingsMessage = nil
-        if !config.onboardingCompleted {
-            config.onboardingCompleted = true
-            saveConfig()
+        // Replaying the guide can follow a strict setting. Ask before closing
+        // the summary, so Cancel keeps the user's place and choices.
+        if startingFocus && nextBlockIsStrict && !confirmStrictStart() { return }
+        updateOnboardingProgress {
+            if $0.guideCompletedAt == nil { $0.guideCompletedAt = Date() }
         }
-        page = .focus
+        closeOnboarding()
         if startingFocus {
             startFocus()
         }
@@ -682,6 +749,7 @@ final class MenuBarController: NSObject, ObservableObject {
         strictEscape = nil
         lastEyeReminderAt = nil
         saveConfig()
+        reloadHistory()
         timerEngine.startFocus(
             focusMinutes: minutes.map(AppConfig.normalizedFocusMinutes) ?? config.focusMinutes,
             breakMinutes: config.breakMinutes,
@@ -691,6 +759,12 @@ final class MenuBarController: NSObject, ObservableObject {
             // Continuing a run keeps counting; anything else starts one.
             cycle: cycle
         )
+        if let startedAt = timerEngine.snapshot.sessionStartedAt {
+            updateOnboardingProgress {
+                $0.recordStart(at: startedAt, minutes: timerEngine.snapshot.focusMinutes,
+                               protection: protectionAvailability, history: history)
+            }
+        }
         reloadHistory()
         syncBlocker()
         syncPinnedHUD()
@@ -1328,6 +1402,7 @@ final class MenuBarController: NSObject, ObservableObject {
     // MARK: - Windows
 
     func openMainWindow() {
+        updateOnboardingProgress { $0.recordVisit(at: Date()) }
         popover.performClose(nil)
         mainWindow = presentWindow(
             existingWindow: mainWindow,
@@ -1414,6 +1489,7 @@ final class MenuBarController: NSObject, ObservableObject {
     }
 
     @objc private func togglePopover(_ sender: AnyObject?) {
+        updateOnboardingProgress { $0.recordVisit(at: Date()) }
         if popover.isShown {
             popover.performClose(sender)
         } else {
@@ -1423,6 +1499,9 @@ final class MenuBarController: NSObject, ObservableObject {
 
     private func apply(_ newSnapshot: TimerSnapshot) {
         let previousPhase = snapshot.phase
+        if previousPhase == .focus {
+            updateOnboardingProgress { $0.updateProtection(protectionAvailability) }
+        }
         snapshot = newSnapshot
 
         // History only changes when the phase does; re-reading the file every
@@ -1741,6 +1820,9 @@ final class MenuBarController: NSObject, ObservableObject {
     }
 
     private func syncBlocker() {
+        if snapshot.phase == .focus {
+            updateOnboardingProgress { $0.updateProtection(protectionAvailability) }
+        }
         guard AppBlocker.shouldRun(for: snapshot.phase) else {
             if blockerRunning {
                 blocker.stop()
