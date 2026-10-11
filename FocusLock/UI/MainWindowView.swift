@@ -486,13 +486,27 @@ struct FocusPageView: View {
                     FocusGoalBar(onTypingChange: { isTypingGoal = $0 })
                 }
 
-                guardLine
+                if controller.offersFirstDistraction {
+                    FirstDistractionPrompt()
+                } else {
+                    guardLine
+                }
+
+                if !isOnBreak {
+                    WebsiteProtectionAvailabilityNote(permissions: controller.permissions)
+                }
 
                 if let browser = controller.browserPermissionProblem, !controller.config.blockedSites.isEmpty {
                     unguardedBrowserWarning(browser)
                 }
 
-                commitBlock
+                if !controller.offersFirstDistraction {
+                    commitBlock
+                }
+
+                if controller.snapshot.phase == .focus {
+                    FirstBlockNotificationPrompt(permissions: controller.permissions)
+                }
 
                 if let message = controller.focusMessage {
                     Text(message)
@@ -687,12 +701,12 @@ struct FocusPageView: View {
         if apps.count > 2 {
             names += " and \(apps.count - 2) more"
         }
-        var parts: [String] = names.isEmpty ? [] : [names]
-        if sites > 0 {
-            parts.append("\(sites) site\(sites == 1 ? "" : "s")")
-        }
         let verb = controller.snapshot.phase == .focus ? "Guarding" : "Guards"
-        return "\(verb) " + parts.joined(separator: " · ")
+        var parts: [String] = names.isEmpty ? [] : ["\(verb) \(names)"]
+        if sites > 0 {
+            parts.append("\(sites) site\(sites == 1 ? "" : "s") selected")
+        }
+        return parts.joined(separator: " · ")
     }
 
     /// "Discord and 2 sites are yours until 1:23 PM": what the break hands
