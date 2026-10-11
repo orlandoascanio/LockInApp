@@ -79,6 +79,8 @@ final class StateStoreTests: XCTestCase {
         // A first launch writes the default config, which still owes the guide.
         let fresh = StateStore(baseDirectory: try temporaryDirectory())
         XCTAssertFalse(fresh.loadConfig().onboardingCompleted)
+        XCTAssertEqual(fresh.loadConfig().focusMinutes, 25)
+        XCTAssertEqual(fresh.loadConfig().breakMinutes, 5)
 
         // A config from before the guide existed belongs to someone already
         // using the app.
@@ -93,6 +95,8 @@ final class StateStoreTests: XCTestCase {
         }
         """.utf8).write(to: existing.configURL)
         XCTAssertTrue(existing.loadConfig().onboardingCompleted)
+        XCTAssertEqual(existing.loadConfig().focusMinutes, 50)
+        XCTAssertEqual(existing.loadConfig().breakMinutes, 10)
 
         // Finishing it sticks across launches.
         var finished = fresh.loadConfig()
