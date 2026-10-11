@@ -1,0 +1,595 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-10-11T05:08:49+00:00",
+  "title": "Design System: Quietwhile",
+  "extensions": {
+    "colorMeta": {
+      "moss-deep": {
+        "role": "primary",
+        "displayName": "Deep Moss",
+        "canonical": "oklch(45.6% 0.060 155)",
+        "tonalRamp": [
+          "#030E06",
+          "#15291C",
+          "#2C4735",
+          "#456750",
+          "#668A71",
+          "#8FAD98",
+          "#B9D2C0",
+          "#E2F4E7"
+        ]
+      },
+      "moss": {
+        "role": "primary",
+        "displayName": "Moss",
+        "canonical": "oklch(59.9% 0.071 150)",
+        "tonalRamp": [
+          "#030F05",
+          "#142A19",
+          "#2B4830",
+          "#43684A",
+          "#648C6B",
+          "#8DAF93",
+          "#B8D3BC",
+          "#E1F5E4"
+        ]
+      },
+      "lichen": {
+        "role": "primary",
+        "displayName": "Lichen",
+        "canonical": "oklch(89.7% 0.021 127)",
+        "tonalRamp": [
+          "#0A0C08",
+          "#22251F",
+          "#3D4138",
+          "#5A6054",
+          "#7D8376",
+          "#A2A79C",
+          "#C8CCC3",
+          "#EDF0E9"
+        ]
+      },
+      "clay": {
+        "role": "secondary",
+        "displayName": "Clay",
+        "canonical": "oklch(62.3% 0.098 44)",
+        "tonalRamp": [
+          "#190500",
+          "#3A190A",
+          "#5F321D",
+          "#864C32",
+          "#AE6E52",
+          "#CD967F",
+          "#ECBFAC",
+          "#FFE6D8"
+        ]
+      },
+      "slate-rest": {
+        "role": "secondary",
+        "displayName": "Slate Rest",
+        "canonical": "oklch(55.4% 0.049 233)",
+        "tonalRamp": [
+          "#030D13",
+          "#152630",
+          "#2C4350",
+          "#446273",
+          "#658597",
+          "#8EA9B8",
+          "#B9CEDB",
+          "#E1F1FB"
+        ]
+      },
+      "amber": {
+        "role": "tertiary",
+        "displayName": "Amber",
+        "canonical": "oklch(65.9% 0.099 71)",
+        "tonalRamp": [
+          "#160700",
+          "#351E00",
+          "#583809",
+          "#7D541C",
+          "#A3763F",
+          "#C39D70",
+          "#E3C5A1",
+          "#FFEAD0"
+        ]
+      },
+      "sand-paper": {
+        "role": "neutral",
+        "displayName": "Sand Paper",
+        "canonical": "oklch(96.1% 0.014 93)",
+        "tonalRamp": [
+          "#0C0B08",
+          "#252420",
+          "#41403A",
+          "#605E56",
+          "#838078",
+          "#A7A49D",
+          "#CCCAC5",
+          "#F0EEEA"
+        ]
+      },
+      "warm-sand": {
+        "role": "neutral",
+        "displayName": "Warm Sand",
+        "canonical": "oklch(93.3% 0.022 95)",
+        "tonalRamp": [
+          "#0C0B07",
+          "#26241D",
+          "#424036",
+          "#615E51",
+          "#848073",
+          "#A8A599",
+          "#CDCBC1",
+          "#F0EEE7"
+        ]
+      },
+      "moss-ink": {
+        "role": "neutral",
+        "displayName": "Moss Ink",
+        "canonical": "oklch(30.3% 0.018 145)",
+        "tonalRamp": [
+          "#090C09",
+          "#212521",
+          "#3B423B",
+          "#586058",
+          "#7A837A",
+          "#9FA79F",
+          "#C6CCC6",
+          "#EBF0EB"
+        ]
+      },
+      "lit-chip": {
+        "role": "neutral",
+        "displayName": "Lit Chip",
+        "canonical": "oklch(99.4% 0.008 91)",
+        "tonalRamp": [
+          "#0C0B09",
+          "#252421",
+          "#41403C",
+          "#5F5D59",
+          "#82807B",
+          "#A6A4A0",
+          "#CBCAC7",
+          "#EFEEEC"
+        ]
+      },
+      "thinned-ink": {
+        "role": "neutral",
+        "displayName": "Thinned Ink",
+        "canonical": "translucent; see frontmatter"
+      },
+      "hairline": {
+        "role": "neutral",
+        "displayName": "Hairline",
+        "canonical": "translucent; see frontmatter"
+      },
+      "field": {
+        "role": "neutral",
+        "displayName": "Field",
+        "canonical": "translucent; see frontmatter"
+      },
+      "sunken": {
+        "role": "neutral",
+        "displayName": "Sunken",
+        "canonical": "translucent; see frontmatter"
+      },
+      "wash-terre-verte-top": {
+        "role": "neutral",
+        "displayName": "Terre Verte wash, top",
+        "canonical": "oklch(91.8% 0.026 134)"
+      },
+      "wash-terre-verte-bottom": {
+        "role": "neutral",
+        "displayName": "Terre Verte wash, bottom",
+        "canonical": "oklch(94.8% 0.016 111)"
+      },
+      "wash-terre-verte-top-dark": {
+        "role": "neutral",
+        "displayName": "Terre Verte wash, top dark",
+        "canonical": "oklch(30.4% 0.036 149)"
+      },
+      "wash-terre-verte-bottom-dark": {
+        "role": "neutral",
+        "displayName": "Terre Verte wash, bottom dark",
+        "canonical": "oklch(24.2% 0.017 145)"
+      },
+      "wash-burnt-sienna-top": {
+        "role": "neutral",
+        "displayName": "Burnt Sienna wash, top",
+        "canonical": "oklch(91.1% 0.027 62)"
+      },
+      "wash-burnt-sienna-bottom": {
+        "role": "neutral",
+        "displayName": "Burnt Sienna wash, bottom",
+        "canonical": "oklch(94.6% 0.016 79)"
+      },
+      "wash-burnt-sienna-top-dark": {
+        "role": "neutral",
+        "displayName": "Burnt Sienna wash, top dark",
+        "canonical": "#452318"
+      },
+      "wash-burnt-sienna-bottom-dark": {
+        "role": "neutral",
+        "displayName": "Burnt Sienna wash, bottom dark",
+        "canonical": "oklch(24.0% 0.014 67)"
+      },
+      "wash-yellow-ochre-top": {
+        "role": "neutral",
+        "displayName": "Yellow Ochre wash, top",
+        "canonical": "oklch(92.4% 0.042 82)"
+      },
+      "wash-yellow-ochre-bottom": {
+        "role": "neutral",
+        "displayName": "Yellow Ochre wash, bottom",
+        "canonical": "oklch(95.0% 0.022 87)"
+      },
+      "wash-yellow-ochre-top-dark": {
+        "role": "neutral",
+        "displayName": "Yellow Ochre wash, top dark",
+        "canonical": "#413516"
+      },
+      "wash-yellow-ochre-bottom-dark": {
+        "role": "neutral",
+        "displayName": "Yellow Ochre wash, bottom dark",
+        "canonical": "oklch(24.7% 0.015 96)"
+      },
+      "wash-raw-umber-top": {
+        "role": "neutral",
+        "displayName": "Raw Umber wash, top",
+        "canonical": "oklch(90.6% 0.020 70)"
+      },
+      "wash-raw-umber-bottom": {
+        "role": "neutral",
+        "displayName": "Raw Umber wash, bottom",
+        "canonical": "oklch(94.4% 0.016 86)"
+      },
+      "wash-raw-umber-top-dark": {
+        "role": "neutral",
+        "displayName": "Raw Umber wash, top dark",
+        "canonical": "#29211B"
+      },
+      "wash-raw-umber-bottom-dark": {
+        "role": "neutral",
+        "displayName": "Raw Umber wash, bottom dark",
+        "canonical": "oklch(23.4% 0.009 98)"
+      },
+      "wash-paynes-grey-top": {
+        "role": "neutral",
+        "displayName": "Payne's Grey wash, top",
+        "canonical": "oklch(91.1% 0.009 225)"
+      },
+      "wash-paynes-grey-bottom": {
+        "role": "neutral",
+        "displayName": "Payne's Grey wash, bottom",
+        "canonical": "oklch(94.7% 0.008 114)"
+      },
+      "wash-paynes-grey-top-dark": {
+        "role": "neutral",
+        "displayName": "Payne's Grey wash, top dark",
+        "canonical": "#1C2C39"
+      },
+      "wash-paynes-grey-bottom-dark": {
+        "role": "neutral",
+        "displayName": "Payne's Grey wash, bottom dark",
+        "canonical": "oklch(23.5% 0.008 211)"
+      },
+      "wash-unbleached-top": {
+        "role": "neutral",
+        "displayName": "Unbleached wash, top",
+        "canonical": "oklch(93.4% 0.010 87)"
+      },
+      "wash-unbleached-bottom": {
+        "role": "neutral",
+        "displayName": "Unbleached wash, bottom",
+        "canonical": "oklch(95.2% 0.012 92)"
+      },
+      "wash-unbleached-top-dark": {
+        "role": "neutral",
+        "displayName": "Unbleached wash, top dark",
+        "canonical": "oklch(28.5% 0.006 92)"
+      },
+      "wash-unbleached-bottom-dark": {
+        "role": "neutral",
+        "displayName": "Unbleached wash, bottom dark",
+        "canonical": "oklch(23.7% 0.006 122)"
+      },
+      "clay-ink": {
+        "role": "secondary",
+        "displayName": "Clay Ink",
+        "canonical": "#8A4A30"
+      },
+      "amber-ink": {
+        "role": "tertiary",
+        "displayName": "Amber Ink",
+        "canonical": "#76531E"
+      },
+      "slate-rest-ink": {
+        "role": "secondary",
+        "displayName": "Slate Rest Ink",
+        "canonical": "#3E5E70"
+      },
+      "wash-rest-slate-top": {
+        "role": "neutral",
+        "displayName": "Rest slate wash, top",
+        "canonical": "#CFE1EB"
+      },
+      "wash-rest-slate-top-dark": {
+        "role": "neutral",
+        "displayName": "Rest slate wash, top dark",
+        "canonical": "#1A313D"
+      }
+    },
+    "typographyMeta": {
+      "timer": {
+        "displayName": "Timer",
+        "purpose": "The countdown only."
+      },
+      "timer-dial": {
+        "displayName": "Timer Dial",
+        "purpose": "The countdown inside the Focus dial."
+      },
+      "display": {
+        "displayName": "Display",
+        "purpose": "Page titles and empty-state titles."
+      },
+      "title": {
+        "displayName": "Title",
+        "purpose": "Headings inside a page: break suggestion names, the recap heading."
+      },
+      "figure": {
+        "displayName": "Figure",
+        "purpose": "A number standing alone in a line, like the streak in the status corner."
+      },
+      "headline": {
+        "displayName": "Headline",
+        "purpose": "Row titles and emphasised labels."
+      },
+      "body": {
+        "displayName": "Body",
+        "purpose": "Row text, field text, most copy."
+      },
+      "button": {
+        "displayName": "Button",
+        "purpose": "Button labels."
+      },
+      "tab": {
+        "displayName": "Tab",
+        "purpose": "Main tab bar and segmented controls."
+      },
+      "caption": {
+        "displayName": "Caption",
+        "purpose": "Subtitles, helper text, badges."
+      },
+      "label": {
+        "displayName": "Label",
+        "purpose": "Tracked uppercase micro-caps section labels and column heads."
+      }
+    },
+    "shadows": [
+      {
+        "name": "lit-chip",
+        "value": "0 1px 3px rgba(0,0,0,0.12)",
+        "purpose": "Under the selected tab, a lit tile on the bar."
+      },
+      {
+        "name": "hover-card",
+        "value": "0 2px 6px rgba(0,0,0,0.12)",
+        "purpose": "Under the weekly chart day detail card."
+      }
+    ],
+    "motion": [
+      {
+        "name": "quick",
+        "value": "ease-out 0.16s",
+        "purpose": "Pressed states, hovers, segment changes."
+      },
+      {
+        "name": "standard",
+        "value": "ease-out 0.22s",
+        "purpose": "Onboarding to main window, general transitions."
+      },
+      {
+        "name": "entrance",
+        "value": "ease-out 0.28s",
+        "purpose": "Page wash crossfade."
+      },
+      {
+        "name": "tab-slide",
+        "value": "spring(response 0.32s, damping 0.86)",
+        "purpose": "Selected tab chip sliding between tabs."
+      },
+      {
+        "name": "field-focus",
+        "value": "ease-out 0.12s",
+        "purpose": "Field border to moss on focus."
+      },
+      {
+        "name": "dial-tick",
+        "value": "linear 0.5s",
+        "purpose": "Progress arc; none with Reduce Motion."
+      },
+      {
+        "name": "break-wash",
+        "value": "ease-in-out 0.9s",
+        "purpose": "Focus page turning slate at the start of a break; 0.12s linear with Reduce Motion."
+      }
+    ],
+    "breakpoints": [
+      {
+        "name": "window-min",
+        "value": "860px"
+      },
+      {
+        "name": "window-default",
+        "value": "920px"
+      }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "The one filled action on a screen.",
+      "html": "<button class=\"ds-btn-primary\">Start focus</button>",
+      "css": ".ds-btn-primary{font:600 13.5px -apple-system, 'SF Pro Text', system-ui, sans-serif;color:#F5F2E8;background:#3B6148;border:none;border-radius:9999px;height:44px;padding:0 22px;cursor:pointer;transition:background .16s ease-out} .ds-btn-primary:hover{background:#34573F} .ds-btn-primary:active{background:#618C69} .ds-btn-primary:focus-visible{outline:2px solid #618C69;outline-offset:2px}"
+    },
+    {
+      "name": "Secondary Button",
+      "kind": "button",
+      "refersTo": "button-secondary",
+      "description": "Outlined companion to the primary action.",
+      "html": "<button class=\"ds-btn-secondary\">Skip to break</button>",
+      "css": ".ds-btn-secondary{font:600 13.5px -apple-system, 'SF Pro Text', system-ui, sans-serif;color:#3B6148;background:transparent;border:1.2px solid rgba(59,97,72,.35);border-radius:9999px;height:44px;padding:0 22px;cursor:pointer;transition:background .16s ease-out} .ds-btn-secondary:hover{background:rgba(217,224,209,.3)} .ds-btn-secondary:active{background:rgba(217,224,209,.5)} .ds-btn-secondary:focus-visible{outline:2px solid #618C69;outline-offset:2px}"
+    },
+    {
+      "name": "Destructive Button",
+      "kind": "button",
+      "refersTo": "button-destructive",
+      "description": "Outlined clay, for anything you would regret.",
+      "html": "<button class=\"ds-btn-destructive\">Start the wait</button>",
+      "css": ".ds-btn-destructive{font:600 13.5px -apple-system, 'SF Pro Text', system-ui, sans-serif;color:#B87355;background:transparent;border:1.2px solid rgba(184,115,85,.35);border-radius:9999px;height:36px;padding:0 22px;cursor:pointer;transition:background .16s ease-out} .ds-btn-destructive:hover,.ds-btn-destructive:active{background:rgba(184,115,85,.12)} .ds-btn-destructive:focus-visible{outline:2px solid #B87355;outline-offset:2px}"
+    },
+    {
+      "name": "Segmented Control",
+      "kind": "custom",
+      "refersTo": "segmented-selected",
+      "description": "Capsule segments on a sunken track; the selection is a lit chip, like the tab bar.",
+      "html": "<div class=\"ds-seg\" role=\"tablist\"><button class=\"ds-seg-item is-on\" role=\"tab\" aria-selected=\"true\">Apps</button><button class=\"ds-seg-item\" role=\"tab\">Websites</button></div>",
+      "css": ".ds-seg{display:inline-flex;padding:3px;background:rgba(41,49,41,.05);border:1px solid rgba(41,49,41,.2);border-radius:9999px} .ds-seg-item{font:400 12.5px -apple-system, 'SF Pro Text', system-ui, sans-serif;color:rgba(41,49,41,.74);background:transparent;border:none;border-radius:9999px;height:28px;padding:0 16px;cursor:pointer;transition:background .16s ease-out,color .16s ease-out} .ds-seg-item:hover{color:#293129} .ds-seg-item.is-on{font-weight:600;color:#293129;background:#FFFDF7;box-shadow:0 1px 3px rgba(0,0,0,.12)} .ds-seg-item:focus-visible{outline:2px solid #618C69;outline-offset:1px}"
+    },
+    {
+      "name": "Text Field",
+      "kind": "input",
+      "refersTo": "field",
+      "description": "A shade above the page, moss ring on focus.",
+      "html": "<input class=\"ds-field\" placeholder=\"What are you working on?\">",
+      "css": ".ds-field{font:400 13px -apple-system, 'SF Pro Text', system-ui, sans-serif;color:#293129;background:rgba(255,255,255,.55);border:1px solid rgba(41,49,41,.2);border-radius:6px;padding:7px 10px;width:260px;transition:border-color .12s ease-out,box-shadow .12s ease-out} .ds-field::placeholder{color:rgba(41,49,41,.74)} .ds-field:hover{border-color:rgba(41,49,41,.3)} .ds-field:focus,.ds-field:focus-visible{outline:none;border-color:#3B6148;box-shadow:0 0 0 .5px #3B6148}"
+    },
+    {
+      "name": "Tab Bar",
+      "kind": "nav",
+      "refersTo": "tab-bar",
+      "description": "Centred capsule of pages; the selected tab is a lit chip.",
+      "html": "<nav class=\"ds-tabs\"><span class=\"ds-tabs-icon\"></span><button class=\"ds-tab is-on\">Focus</button><button class=\"ds-tab\">Blocked<i class=\"ds-tab-dot\"></i></button><button class=\"ds-tab\">Schedules</button><button class=\"ds-tab\">History</button><button class=\"ds-tab\">Analytics</button></nav>",
+      "css": ".ds-tabs{display:inline-flex;align-items:center;gap:2px;padding:4px;background:rgba(41,49,41,.06);border:1px solid rgba(41,49,41,.14);border-radius:9999px} .ds-tabs-icon{width:26px;height:26px;margin:0 5px;border-radius:7px;background:#3B6148} .ds-tab{display:inline-flex;align-items:center;gap:5px;font:600 12.5px -apple-system, 'SF Pro Text', system-ui, sans-serif;color:rgba(41,49,41,.74);background:transparent;border:none;border-radius:9999px;height:30px;padding:0 15px;cursor:pointer;transition:background .2s ease-out,color .2s ease-out} .ds-tab:hover{color:#293129} .ds-tab.is-on{color:#293129;background:#FFFDF7;box-shadow:0 1px 3px rgba(0,0,0,.12)} .ds-tab:focus-visible{outline:2px solid #618C69;outline-offset:1px} .ds-tab-dot{width:6px;height:6px;border-radius:50%;background:#B8874A}"
+    },
+    {
+      "name": "Status Corner",
+      "kind": "custom",
+      "refersTo": "figure",
+      "description": "Where you stand, set as type: a serif figure and small words.",
+      "html": "<button class=\"ds-status\"><span class=\"ds-status-fig\">22</span><span class=\"ds-status-after\">day streak · 1h 40m today</span></button>",
+      "css": ".ds-status{display:inline-flex;align-items:baseline;gap:5px;background:transparent;border:none;border-radius:9999px;height:30px;padding:0 10px;cursor:pointer;transition:background .16s ease-out} .ds-status:hover{background:rgba(41,49,41,.05)} .ds-status:focus-visible{outline:2px solid #618C69;outline-offset:1px} .ds-status-fig{font:400 17px 'New York', ui-serif, Georgia, serif;font-variant-numeric:tabular-nums;color:#293129} .ds-status-after{font:400 11.5px -apple-system, 'SF Pro Text', system-ui, sans-serif;color:rgba(41,49,41,.74)}"
+    },
+    {
+      "name": "Badge",
+      "kind": "chip",
+      "refersTo": "badge",
+      "description": "Outlined hairline capsule for a behaviour or state.",
+      "html": "<span class=\"ds-badge\">Guard Screen</span>",
+      "css": ".ds-badge{display:inline-block;font:400 11.5px -apple-system, 'SF Pro Text', system-ui, sans-serif;color:rgba(41,49,41,.74);border:1px solid rgba(41,49,41,.2);border-radius:9999px;padding:4px 9px}"
+    },
+    {
+      "name": "Focus Dial",
+      "kind": "custom",
+      "refersTo": "timer-dial",
+      "description": "The signature: a hairline ring, a moss arc, the countdown in serif.",
+      "html": "<div class=\"ds-dial\"><svg viewBox=\"0 0 276 276\"><circle cx=\"138\" cy=\"138\" r=\"135.5\" fill=\"none\" stroke=\"rgba(41,49,41,.2)\" stroke-width=\"5\"/><circle cx=\"138\" cy=\"138\" r=\"135.5\" fill=\"none\" stroke=\"#3B6148\" stroke-width=\"5\" stroke-linecap=\"round\" stroke-dasharray=\"851\" stroke-dashoffset=\"255\" transform=\"rotate(-90 138 138)\"/></svg><div class=\"ds-dial-in\"><span class=\"ds-dial-phase\">Focus · 50 / 10</span><span class=\"ds-dial-time\">34:12</span></div></div>",
+      "css": ".ds-dial{position:relative;width:276px;height:276px} .ds-dial svg{position:absolute;inset:0;width:100%;height:100%} .ds-dial-in{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px} .ds-dial-phase{font:600 9.5px -apple-system, 'SF Pro Text', system-ui, sans-serif;letter-spacing:1.6px;text-transform:uppercase;color:#3B6148} .ds-dial-time{font:400 70px 'New York', ui-serif, Georgia, serif;font-variant-numeric:tabular-nums;color:#293129;line-height:1}"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Quiet Study",
+    "overview": "Quietwhile looks like a calm room with good paper on the desk. The canvas is unbleached sand, the ink is a deep moss, and the numbers you came to see (the countdown, durations, today's minutes, the streak) are set in a book serif, as if written down rather than displayed. Everything else is small, plain sans. Regions are separated by a single hairline rule or a change of pigment, never by boxes, so a page reads as one sheet rather than a dashboard.\n\nEach page of the main window is stained with its own earth pigment: terre verte, burnt sienna, yellow ochre, raw umber, Payne's grey, and unbleached paper. The stain is strongest under the tab bar and settles back into the canvas lower down, so you know which room you are in before you read a word. The pigments differ in strength as well as hue, the way real paint does; they are a shelf of colours, not a rainbow.\n\nThe feel is calm but crisp. Warm palette, generous space, and nothing shouting, but alignment is exact and hierarchy is sharp. There is one filled button per screen. The countdown is the loudest thing in the app, and it should stay that way.\n\nIt must never look like productivity SaaS (blue-purple dashboards, gradient hero numbers, grids of icon-title-text cards), like stock macOS Settings (grey grouped forms with system-accent controls), or like a neon \"hacker\" tool (glows, monospace costume, pure-black backgrounds).",
+    "keyCharacteristics": [
+      "Sand paper and moss ink, in light and dark, with every colour resolving per appearance.",
+      "Serif for numerals the eye lands on; SF for everything else; tracked micro-caps instead of section boxes.",
+      "Hairline rules and pigment changes separate regions; there are almost no containers.",
+      "Capsules for anything you press; softly rounded rectangles for anything you type into.",
+      "Secondary text, rules, fields and recesses are thinned ink, so they take on the hue of whatever page they sit on.",
+      "Flat by default: two small shadows in the whole system."
+    ],
+    "rules": [
+      {
+        "name": "The One Voice Rule",
+        "body": "Deep Moss is the only filled accent on a screen, and a screen has one filled button. Everything else is outlined, quiet, or text.",
+        "section": "colors"
+      },
+      {
+        "name": "The Thinned Ink Rule",
+        "body": "Secondary text, rules, fields and recesses are ink or white at reduced alpha, never a fixed grey, so they belong to whichever pigment they sit on. A new neutral that is opaque is almost always a mistake.",
+        "section": "colors"
+      },
+      {
+        "name": "The Pigment Shelf Rule",
+        "body": "A new wash must be a real earth pigment, mixed into the sand paper rather than floated as a pastel, with its own strength. No lavender, no baby blue, no hue picked to fill a gap in the colour wheel. Light tops sit near OKLCH L 0.91, dark tops near L 0.29.",
+        "section": "colors"
+      },
+      {
+        "name": "The Ink Shade Rule",
+        "body": "Clay, amber and slate are fill colours. When they become words, glyphs or small status dots, use their `-ink` shade, which clears 4.5:1 on every light wash, hovered rows included; the fill values sit near 2.5–3.9:1 there. The floating HUD follows it too.",
+        "section": "colors"
+      },
+      {
+        "name": "The Increase Contrast Rule",
+        "body": "With Increase Contrast on, thinned ink rises to 90% and hairlines to about half strength, and chart bars draw at full moss. The faintness is a choice for calm, never a requirement.",
+        "section": "colors"
+      },
+      {
+        "name": "The Rest Is Slate Rule",
+        "body": "Everything that belongs to a break is slate, never moss: the wash, the dial's arc and phase label, the break guide's figures and its buttons. Moss means focus; a break that looks like focus is a break nobody takes.",
+        "section": "colors"
+      },
+      {
+        "name": "The Meaning Holds Rule",
+        "body": "Clay always means regret, slate always means rest, amber always means \"needs your answer\". A wash may borrow a family (sienna for Blocked) but a control never uses one of these colours just for variety.",
+        "section": "colors"
+      },
+      {
+        "name": "The Written Number Rule",
+        "body": "A number the eye lands on is set in the serif with tabular figures. Numbers inside running sans text stay sans.",
+        "section": "typography"
+      },
+      {
+        "name": "The No-Box Header Rule",
+        "body": "A section is introduced by a tracked micro-caps label and separated by a hairline, never by a filled header bar or a card.",
+        "section": "typography"
+      },
+      {
+        "name": "The Tone Before Shadow Rule",
+        "body": "Separate with a rule, a recess or a pigment change first. A new shadow needs a reason a third shadow has never had.",
+        "section": "elevation"
+      }
+    ],
+    "dos": [
+      "Do keep one filled Deep Moss button per screen and make everything else secondary, quiet or a link.",
+      "Do set the countdown, durations, counts and the streak in the serif with tabular figures.",
+      "Do introduce sections with a 9.5px tracked micro-caps label and separate them with a hairline rule.",
+      "Do build new neutrals from thinned ink or white at reduced alpha (Hairline, Field, Sunken) so they take on the page's pigment.",
+      "Do check secondary text against the darkest wash top in light mode and the lightest in dark: it must hold 4.5:1.",
+      "Do use the app's own controls (FLSegmentedControl, FLMenuPicker, the field modifier, FLActionButtonStyle) instead of stock AppKit pickers, bezels and accent-coloured rings.",
+      "Do give every colour a light and a dark value and check both.",
+      "Do keep the amber needs-answer dot visible on the tab bar whenever a page needs the person's OK.",
+      "Do write clay, amber and slate words in their `-ink` shades.",
+      "Do say what a block guards, and that calls keep going, directly above Start; during a break, say what's free and until when.",
+      "Do ask before a strict block starts from anywhere that couldn't show its cost first (the menu, ⌘N, the global shortcut, the menu bar, and \"Start next block\" after a strict break), with Cancel as the default.",
+      "Do use one definition of a daily average everywhere: minutes over calendar days in the range."
+    ],
+    "donts": [
+      "Don't make it look like productivity SaaS: no blue-purple dashboards, gradient hero numbers, or grids of icon-title-text cards.",
+      "Don't make it look like stock macOS Settings: no grey grouped forms, no controls in the system accent colour.",
+      "Don't make it look like a neon \"hacker\" tool: no glows, no monospace as decoration, no pure-black backgrounds.",
+      "Don't add a page wash from a hue-wheel gap; lavender, baby blue and blush pastels are out. Use a real earth pigment mixed into the paper.",
+      "Don't use clay, slate or amber decoratively; they mean regret, rest and needs-an-answer.",
+      "Don't draw a status as a dot in a tinted capsule; set it as type.",
+      "Don't paint gaps or rings in Sand Paper on a stained page; cut them out or use thinned ink.",
+      "Don't add a third shadow, a coloured glow, or a card around something a hairline could separate. Analytics, too, is bands on the page, not boxed panels.",
+      "Don't let a strict block start on Return, or a running block's loudest control be a way out.",
+      "Don't greet a returning person with zeros or a lapsed streak; lead with what they last did.",
+      "Don't hide a control at opacity 0; it drops out of the accessibility tree. Use a trace of opacity, switch off hit-testing, and show it whenever it has keyboard focus.",
+      "Don't offer \"Did it\" before there's anything to have done."
+    ]
+  }
+}
