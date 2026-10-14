@@ -49,14 +49,40 @@ public enum SupportedBrowser: String, CaseIterable, Identifiable {
         """
     }
 
-    func redirectScript(to url: String) -> String {
-        let escaped = url
+    private func literal(_ value: String) -> String {
+        let escaped = value
             .replacingOccurrences(of: "\\", with: "\\\\")
             .replacingOccurrences(of: "\"", with: "\\\"")
+        return "\"\(escaped)\""
+    }
+
+    func redirectScript(from originalURL: String, to url: String) -> String {
         return """
+        if application id "\(bundleIdentifier)" is not running then return false
         tell application id "\(bundleIdentifier)"
-            if (count of windows) is 0 then return
-            set URL of \(tabReference) to "\(escaped)"
+            if (count of windows) is 0 then return false
+            set targetTab to \(tabReference)
+            if URL of targetTab is not \(literal(originalURL)) then return false
+            set URL of targetTab to \(literal(url))
+            return true
+        end tell
+        """
+    }
+
+    /// Match our unique placeholder across all windows without selecting a tab.
+    /// Never navigate a tab the user has already taken somewhere else.
+    func restoreScript(matching blockedURL: String, to originalURL: String) -> String {
+        """
+        if application id "\(bundleIdentifier)" is not running then return false
+        tell application id "\(bundleIdentifier)"
+            repeat with browserWindow in windows
+                repeat with browserTab in tabs of browserWindow
+                    if URL of browserTab is \(literal(blockedURL)) then
+                        set URL of browserTab to \(literal(originalURL))
+                    end if
+                end repeat
+            end repeat
+            return true
         end tell
         """
     }
@@ -70,7 +96,8 @@ public enum BrowserScriptError: Error, Equatable {
 
 public protocol BrowserScripting: AnyObject {
     func currentURL(in browser: SupportedBrowser) -> Result<URL?, BrowserScriptError>
-    func redirect(_ browser: SupportedBrowser, to url: String) -> Bool
+    func redirect(_ browser: SupportedBrowser, from originalURL: String, to url: String) -> Bool
+    func restore(_ browser: SupportedBrowser, matching blockedURL: String, to originalURL: String) -> Bool
 }
 
 /// Runs the browser scripts through `NSAppleScript`. Only ever used from the
@@ -88,15 +115,28 @@ public final class AppleScriptBrowserScripting: BrowserScripting {
         }
     }
 
-    public func redirect(_ browser: SupportedBrowser, to url: String) -> Bool {
-        if case .success = run(browser.redirectScript(to: url)) {
-            return true
-        }
-        return false
+    public func redirect(_ browser: SupportedBrowser, from originalURL: String, to url: String) -> Bool {
+        succeeded(browser.redirectScript(from: originalURL, to: url))
+    }
+
+    public func restore(_ browser: SupportedBrowser, matching blockedURL: String, to originalURL: String) -> Bool {
+        succeeded(browser.restoreScript(matching: blockedURL, to: originalURL))
+    }
+
+    private func succeeded(_ source: String) -> Bool {
+        guard case .success(let result) = run(source) else { return false }
+        return result == "true"
     }
 
     private func run(_ source: String) -> Result<String, BrowserScriptError> {
-        guard let script = NSAppleScript(source: source) else {
+        // A hung browser must not leave a check (or restoration on quit)
+        // waiting for Apple Events' much longer default timeout.
+        let boundedSource = """
+        with timeout of 3 seconds
+        \(source)
+        end timeout
+        """
+        guard let script = NSAppleScript(source: boundedSource) else {
             return .failure(.failed("could not compile the script"))
         }
         var errorInfo: NSDictionary?
@@ -133,7 +173,18 @@ public final class WebsiteGuard {
     private var sites: [BlockedSite] = []
     private var endsAt: Date?
     private var isChecking = false
+    private var isRestoring = false
     private var deniedBrowsers: Set<SupportedBrowser> = []
+    private var revision = 0
+
+    // Accessed only on the scripting queue, including when a stop is queued
+    // behind an inspection that is still waiting for the browser to respond.
+    private struct ReplacedTab {
+        var browser: SupportedBrowser
+        var originalURL: URL
+        var blockedURL: String
+    }
+    private var replacedTabs: [ReplacedTab] = []
 
     public init(
         scripting: BrowserScripting = AppleScriptBrowserScripting(),
@@ -146,13 +197,45 @@ public final class WebsiteGuard {
     public var isActive: Bool { !sites.isEmpty }
 
     public func update(sites: [BlockedSite], endsAt: Date?) {
-        self.sites = sites.filter(\.isEnabled)
+        let enabledSites = sites.filter(\.isEnabled)
+        if self.sites != enabledSites || self.endsAt != endsAt { revision += 1 }
+        self.sites = enabledSites
         self.endsAt = endsAt
+        scheduleRestoration()
     }
 
-    public func stop() {
+    public func stop(waitUntilRestored: Bool = false) {
         sites = []
         endsAt = nil
+        revision += 1
+        if waitUntilRestored {
+            // Application termination must not exit before queued restoration.
+            queue.sync { restoreTabs(noLongerMatching: []) }
+        } else {
+            scheduleRestoration()
+        }
+    }
+
+    private func scheduleRestoration() {
+        // Timer snapshots arrive every second. A slow or unavailable browser
+        // must not accumulate restoration jobs faster than it can answer.
+        guard !isRestoring else { return }
+        isRestoring = true
+        let sites = self.sites
+        queue.async { [self] in
+            restoreTabs(noLongerMatching: sites)
+            DispatchQueue.main.async {
+                self.isRestoring = false
+                if self.sites != sites { self.scheduleRestoration() }
+            }
+        }
+    }
+
+    private func restoreTabs(noLongerMatching sites: [BlockedSite]) {
+        replacedTabs.removeAll { tab in
+            guard !sites.contains(where: { $0.matches(tab.originalURL) }) else { return false }
+            return scripting.restore(tab.browser, matching: tab.blockedURL, to: tab.originalURL.absoluteString)
+        }
     }
 
     /// Asked again after a denial only when the user says they fixed it.
@@ -179,11 +262,16 @@ public final class WebsiteGuard {
         isChecking = true
         let sites = self.sites
         let endsAt = self.endsAt
+        let revision = self.revision
         queue.async { [weak self] in
             guard let self else { return }
             let outcome = self.inspect(browser, sites: sites, endsAt: endsAt)
             DispatchQueue.main.async {
                 self.isChecking = false
+                guard self.revision == revision else {
+                    completion?()
+                    return
+                }
                 switch outcome {
                 case .blocked(let visit):
                     self.onBlocked?(visit)
@@ -212,7 +300,11 @@ public final class WebsiteGuard {
             return .clear
         case .success(let url?):
             guard let site = sites.first(where: { $0.matches(url) }) else { return .clear }
-            guard scripting.redirect(browser, to: blockedPage(site, endsAt)) else { return .clear }
+            // A unique fragment distinguishes different original URLs on the
+            // same site, even when their placeholder HTML is identical.
+            let page = blockedPage(site, endsAt) + "#quietwhile-" + UUID().uuidString
+            guard scripting.redirect(browser, from: url.absoluteString, to: page) else { return .clear }
+            replacedTabs.append(ReplacedTab(browser: browser, originalURL: url, blockedURL: page))
             return .blocked(BlockedVisit(site: site, browser: browser, url: url))
         }
     }

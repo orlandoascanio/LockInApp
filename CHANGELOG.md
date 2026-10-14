@@ -2,6 +2,13 @@
 
 What changed in each Quietwhile release (called LockIn up to 0.3.3). Versions come from the git tag the release is built from (`vX.Y.Z`).
 
+## 0.3.7 (2026-10-14)
+
+- Website tabs replaced by Quietwhile now return to their original URLs when focus ends, their blocking rule is removed or disabled, or Quietwhile quits normally. This also restores background tabs across browser windows.
+- Tabs you close or navigate elsewhere are left alone. Different pages on the same website return to their own original URLs, including query parameters and fragments.
+- A block ending while a browser check is in progress no longer leaves the newly replaced tab behind. Browser requests have a short timeout, and slow browsers do not accumulate restoration jobs.
+- Tabs left on the blocked page by an older version still need the browser's Back button once.
+
 ## 0.3.6 (2026-10-11)
 
 - A shorter welcome guide: choose a distracting app or website, prepare the block, then start. Suggested apps still come from how you use your Mac. Launch at login and advanced options stay in Settings.

@@ -597,7 +597,7 @@ final class MenuBarController: NSObject, ObservableObject {
     /// left on disk instead, so the relaunch picks it back up.
     func handleAppWillTerminate() {
         blocker.stop()
-        websiteGuard.stop()
+        websiteGuard.stop(waitUntilRestored: true)
         pinnedHUD.dismiss()
         hotkeys.unregisterAll()
         if !snapshot.isStrict {

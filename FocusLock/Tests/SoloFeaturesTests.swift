@@ -431,9 +431,13 @@ final class WebsiteGuardTests: XCTestCase {
 
         func currentURL(in browser: SupportedBrowser) -> Result<URL?, BrowserScriptError> { url }
 
-        func redirect(_ browser: SupportedBrowser, to url: String) -> Bool {
+        func redirect(_ browser: SupportedBrowser, from originalURL: String, to url: String) -> Bool {
             redirects.append(url)
             return true
+        }
+
+        func restore(_ browser: SupportedBrowser, matching blockedURL: String, to originalURL: String) -> Bool {
+            true
         }
     }
 
@@ -446,7 +450,8 @@ final class WebsiteGuardTests: XCTestCase {
 
         guard case .blocked(let visit) = outcome else { return XCTFail("expected a block") }
         XCTAssertEqual(visit.site.pattern, "youtube.com")
-        XCTAssertEqual(scripting.redirects, ["blocked:youtube.com"])
+        XCTAssertEqual(scripting.redirects.count, 1)
+        XCTAssertTrue(scripting.redirects[0].hasPrefix("blocked:youtube.com#quietwhile-"))
     }
 
     func testLeavesOtherSitesAlone() {
@@ -477,7 +482,7 @@ final class WebsiteGuardTests: XCTestCase {
     }
 
     func testRedirectScriptEscapesQuotes() {
-        XCTAssertTrue(SupportedBrowser.safari.redirectScript(to: #"a"b"#).contains(#""a\"b""#))
+        XCTAssertTrue(SupportedBrowser.safari.redirectScript(from: "https://example.com", to: #"a"b"#).contains(#""a\"b""#))
         XCTAssertTrue(SupportedBrowser.chrome.readScript.contains("active tab of front window"))
         XCTAssertTrue(SupportedBrowser.safari.readScript.contains("current tab of front window"))
     }
