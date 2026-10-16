@@ -2,6 +2,23 @@
 
 What changed in each Quietwhile release (called LockIn up to 0.3.3). Versions come from the git tag the release is built from (`vX.Y.Z`).
 
+## Unreleased
+
+- Long breaks. Every fourth block of a run ends in a 15-minute break instead of the usual one. Settings › Breaks › Long break turns it off or sets it to every 2–6 blocks and 10–30 minutes. A long break never comes out shorter than your usual break, and the count starts over when a run ends.
+- +5 minutes. Adds five minutes to a focus block (its break moves back with it), to a break, or to a break that already ended. It's on the Focus page, in Session › Add 5 Minutes (⌘=), in Shortcuts as "Add Five Minutes", and on a global shortcut. "Snooze 2 minutes" in the break-ended window is now "5 more minutes".
+- The notch island. When a block or a break ends, the notch opens with what's next: the break and a suggestion for it, or Start focus, +5 min break and End cycle. The time left keeps running beside the notch, and dots count the blocks to the long break. A minute before focus ends it offers five more. It never takes keyboard focus, waits for an answer when a break is over, and stays open while the pointer is on it. On a Mac without a notch it drops from the top of the menu bar. Settings › When time is up turns it off and brings back the break-ended window.
+- Every macOS sound can be the timer sound, and focus ending and break ending each have their own. Both start as the sound you had.
+- Analytics adds 90 days, Year and a custom range of dates. Longer ranges show weeks or months instead of days. History is never trimmed. Month labels now include the year ("Oct 2025") so they don't read as dates, and weekday totals over ten hours are no longer cut off.
+- Two new global shortcuts: Add 5 minutes (⌃⌥⌘=) and Show Quietwhile (⌃⌥⌘O). Change or clear them in Settings › Shortcuts.
+- A new Insights page (⌘6) says what your own blocks show about how focus goes for you:
+  - A few plain sentences about your strongest patterns, such as when your focus holds best or what you reach for most. Nothing is claimed from fewer than three blocks.
+  - What pulls you away: each guarded app or site you reached for, how often, and how far into a block. How many finished blocks were clean, and your current run of them.
+  - When focus holds (morning, afternoon, evening, late night), the block lengths you actually finish, and strict against relaxed.
+  - What came of your goals: done, made progress or got stuck, and which category gets stuck most.
+  - Where focus went, if you turn it on: which app was in front during focus blocks, and which website in browsers you already let Quietwhile read for guarding. It never asks for a new permission. Only totals are kept, on this Mac, and they can be cleared from the page.
+- Reaches for guarded apps and sites are now kept over time, on this Mac, for Insights. The Blocked page's "today" counts work as before.
+- The tab bar is a little tighter to fit Insights, and the streak in the corner has a shorter form, so a narrow window never cuts it off.
+
 ## 0.3.7 (2026-10-14)
 
 - Website tabs replaced by Quietwhile now return to their original URLs when focus ends, their blocking rule is removed or disabled, or Quietwhile quits normally. This also restores background tabs across browser windows.
