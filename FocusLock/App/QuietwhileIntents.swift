@@ -77,6 +77,23 @@ struct SkipPhaseIntent: AppIntent {
     }
 }
 
+struct ExtendPhaseIntent: AppIntent {
+    static let title: LocalizedStringResource = "Add Five Minutes"
+    static let description = IntentDescription("Adds five minutes to the focus block or break that's running, or restarts a break that just ended with five minutes.")
+
+    @MainActor
+    func perform() async throws -> some IntentResult & ProvidesDialog {
+        guard let controller = await QuietwhileCommandCenter.shared.readyController() else {
+            throw QuietwhileIntentError.notReady
+        }
+        guard let extended = controller.extendCurrentPhase() else {
+            return .result(dialog: "Nothing is running.")
+        }
+        let what = extended.phase == .focus ? "Focus" : "The break"
+        return .result(dialog: "\(what) now ends in \(extended.formattedRemaining).")
+    }
+}
+
 struct FocusStatusIntent: AppIntent {
     static let title: LocalizedStringResource = "Get Focus Status"
     static let description = IntentDescription("Tells you what Quietwhile is doing and how long is left.")
@@ -129,6 +146,12 @@ struct QuietwhileShortcuts: AppShortcutsProvider {
             phrases: ["Skip to the next phase in \(.applicationName)"],
             shortTitle: "Skip Phase",
             systemImageName: "forward.end"
+        )
+        AppShortcut(
+            intent: ExtendPhaseIntent(),
+            phrases: ["Add five minutes in \(.applicationName)"],
+            shortTitle: "Add 5 Minutes",
+            systemImageName: "plus.circle"
         )
         AppShortcut(
             intent: FocusStatusIntent(),

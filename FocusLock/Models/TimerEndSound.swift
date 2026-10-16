@@ -5,34 +5,35 @@ import Foundation
 /// It plays from the app rather than through a notification, so it still
 /// sounds when notifications are off or macOS Focus is silencing them, which
 /// is most of the time someone is locked in.
+///
+/// Every sound macOS ships in /System/Library/Sounds is offered, named as
+/// System Settings names them.
 public enum TimerEndSound: String, Codable, Equatable, CaseIterable, Identifiable {
     case off
+    case basso
+    case blow
+    case bottle
+    case frog
+    case funk
     case glass
     case hero
+    case morse
     case ping
+    case pop
+    case purr
+    case sosumi
     case submarine
+    case tink
 
     public var id: String { rawValue }
 
     public var displayName: String {
-        switch self {
-        case .off: return "Off"
-        case .glass: return "Glass"
-        case .hero: return "Hero"
-        case .ping: return "Ping"
-        case .submarine: return "Submarine"
-        }
+        self == .off ? "Off" : rawValue.capitalized
     }
 
     /// The macOS system sound to play, or `nil` for silence.
     public var systemSoundName: String? {
-        switch self {
-        case .off: return nil
-        case .glass: return "Glass"
-        case .hero: return "Hero"
-        case .ping: return "Ping"
-        case .submarine: return "Submarine"
-        }
+        self == .off ? nil : rawValue.capitalized
     }
 
     /// Whether going from one phase to the other means a timer ran out, as

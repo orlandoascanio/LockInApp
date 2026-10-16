@@ -58,6 +58,10 @@ colors:
   wash-paynes-grey-bottom: "#EDEEE8"
   wash-paynes-grey-top-dark: "#1C2C39"
   wash-paynes-grey-bottom-dark: "#191F21"
+  wash-caput-mortuum-top: "#E8DCDD"
+  wash-caput-mortuum-bottom: "#F1ECE5"
+  wash-caput-mortuum-top-dark: "#35222A"
+  wash-caput-mortuum-bottom-dark: "#1F1B1D"
   wash-rest-slate-top: "#CFE1EB"
   wash-rest-slate-bottom: "#EAEDE9"
   wash-rest-slate-top-dark: "#1A313D"
@@ -207,7 +211,7 @@ components:
 
 Quietwhile looks like a calm room with good paper on the desk. The canvas is unbleached sand, the ink is a deep moss, and the numbers you came to see (the countdown, durations, today's minutes, the streak) are set in a book serif, as if written down rather than displayed. Everything else is small, plain sans. Regions are separated by a single hairline rule or a change of pigment, never by boxes, so a page reads as one sheet rather than a dashboard.
 
-Each page of the main window is stained with its own earth pigment: terre verte, burnt sienna, yellow ochre, raw umber, Payne's grey, and unbleached paper. The stain is strongest under the tab bar and settles back into the canvas lower down, so you know which room you are in before you read a word. The pigments differ in strength as well as hue, the way real paint does; they are a shelf of colours, not a rainbow.
+Each page of the main window is stained with its own earth pigment: terre verte, burnt sienna, yellow ochre, raw umber, Payne's grey, caput mortuum, and unbleached paper. The stain is strongest under the tab bar and settles back into the canvas lower down, so you know which room you are in before you read a word. The pigments differ in strength as well as hue, the way real paint does; they are a shelf of colours, not a rainbow.
 
 The feel is calm but crisp. Warm palette, generous space, and nothing shouting, but alignment is exact and hierarchy is sharp. There is one filled button per screen. The countdown is the loudest thing in the app, and it should stay that way.
 
@@ -257,6 +261,7 @@ Each main-window page is a vertical gradient from its pigment's top colour to it
 | Schedules | Yellow ochre | Daylight: the hours a schedule claims. |
 | History | Raw umber | Sepia: the past. |
 | Analytics | Payne's grey | Cool and measured, for the numbers. |
+| Insights | Caput mortuum | A dusky violet-brown, warmer than the numbers: what they say about you. |
 | Settings | Unbleached | The machinery, kept neutral. |
 | Focus, during a break | Rest slate | Not a page but a state: the break turns the page slate over 0.9 s, because slate has always meant rest here. |
 

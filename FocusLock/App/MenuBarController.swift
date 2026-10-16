@@ -98,6 +98,15 @@ final class MenuBarController: NSObject, ObservableObject {
     private let blocker: AppBlocker
     private let timerEngine: TimerEngine
     private let activityStore = BlockActivityStore()
+    private let reachLog = ReachLogStore()
+    private let focusTimeStore = FocusTimeStore()
+    private let domainSampler = BrowserDomainSampler()
+    /// Every reach and every block's focus time, for Insights.
+    @Published private(set) var reaches: [Reach] = []
+    @Published private(set) var focusTimeRecords: [FocusTimeRecord] = []
+    private var focusTime = FocusTimeAccumulator()
+    private var lastFocusTimeSample: Date?
+    private var lastDomainSample = Date.distantPast
     let breakActivity = BreakActivityStore()
     /// This break's suggestion, chosen once when it starts.
     @Published private(set) var breakPick: BreakActivityStore.Pick?
@@ -108,9 +117,16 @@ final class MenuBarController: NSObject, ObservableObject {
     private let breakEndedOverlay = BreakEndedWindowController()
     private let autoResumeOverlay = AutoResumeOverlayController()
     private let pinnedHUD = PinnedHUDController()
+    private let notchIsland = NotchIslandController()
 
     private let snoozeMinutes = 5
-    private let breakSnoozeMinutes = 2
+    /// What "+5 min" adds, to a block, a break, or a break that ran out.
+    static let extendMinutes = 5
+    /// The end of the focus block the one-minute warning was last shown for,
+    /// so it shows once per block, and again if the block is extended.
+    private var finalMinuteShownFor: Date?
+    /// Set by the tick when a timer ran out on its own; consumed by `apply`.
+    private var timerRanOutFrom: SessionPhase?
     private var lastInterceptedBundleId: String?
 
     /// When autopilot started counting the current wait: the moment the break
@@ -368,8 +384,12 @@ final class MenuBarController: NSObject, ObservableObject {
                 breakMinutes: minutes
             )
         }
-        notificationService.appPlaysTimerEndSound = { [weak self] in
-            self?.config.timerEndSound != .off
+        notificationService.isLongBreak = { [weak self] cycle in
+            self?.config.longBreak.isLongBreak(afterCycle: cycle) ?? false
+        }
+        notificationService.appPlaysTimerEndSound = { [weak self] breakEnded in
+            guard let self else { return false }
+            return (breakEnded ? self.config.breakEndSound : self.config.timerEndSound) != .off
         }
 
         self.timerEngine.onChange = { [weak self] snapshot in
@@ -381,12 +401,14 @@ final class MenuBarController: NSObject, ObservableObject {
         self.blocker.delegate = self
         self.blocker.onInterception = { [weak self] app in
             Task { @MainActor in
-                self?.recordInterception(key: app.bundleId)
+                self?.recordInterception(key: app.bundleId, reach: (app.bundleId, app.name, .app))
             }
         }
 
         websiteGuard.onBlocked = { [weak self] visit in
-            self?.recordInterception(key: Self.activityKey(for: visit.site))
+            // The guarded site's own name, so m.youtube.com and youtube.com
+            // add up as the one thing that was reached for.
+            self?.recordInterception(key: Self.activityKey(for: visit.site), reach: (visit.site.host, visit.site.host, .site))
             self?.notificationService.notice(
                 title: "\(visit.site.host) is guarded",
                 body: "Quietwhile swapped the page out in \(visit.browser.displayName)."
@@ -410,6 +432,9 @@ final class MenuBarController: NSObject, ObservableObject {
 
         configureOverlayHandlers()
         configureBreakEndedHandlers()
+        notchIsland.onAction = { [weak self] id in
+            self?.handleNotchAction(id)
+        }
         configureAutoResumeHandlers()
         configurePinnedHUDHandlers()
         reloadHistory()
@@ -433,9 +458,19 @@ final class MenuBarController: NSObject, ObservableObject {
         pinnedHUD.apply(config.hud)
     }
 
-    private func recordInterception(key: String) {
+    private func recordInterception(key: String, reach: (key: String, name: String, kind: Reach.Kind)) {
         blockedTodayCounts = activityStore.recordInterception(bundleId: key)
         updateOnboardingProgress { $0.recordInterception(at: Date()) }
+
+        let entry = Reach(
+            at: Date(),
+            key: reach.key,
+            name: reach.name,
+            kind: reach.kind,
+            blockStartedAt: snapshot.phase == .focus ? snapshot.sessionStartedAt : nil
+        )
+        reachLog.append(entry)
+        reaches.append(entry)
     }
 
     private static func activityKey(for site: BlockedSite) -> String {
@@ -447,6 +482,8 @@ final class MenuBarController: NSObject, ObservableObject {
     /// and week chart never lag behind the list.
     private func reloadHistory() {
         history = historyStore.loadHistory()
+        if reaches.isEmpty { reaches = reachLog.load() }
+        if focusTimeRecords.isEmpty { focusTimeRecords = focusTimeStore.load() }
         updateOnboardingProgress { $0.reconcile(history: history) }
         refreshDerivedStats()
     }
@@ -596,6 +633,7 @@ final class MenuBarController: NSObject, ObservableObject {
     /// focus block as abandoned before the process exits. A strict block is
     /// left on disk instead, so the relaunch picks it back up.
     func handleAppWillTerminate() {
+        flushFocusTime()
         blocker.stop()
         websiteGuard.stop(waitUntilRestored: true)
         pinnedHUD.dismiss()
@@ -743,7 +781,7 @@ final class MenuBarController: NSObject, ObservableObject {
         // The chip speaks for one block; the next one starts from Settings again.
         nextBlockStrictChoice = nil
 
-        breakEndedOverlay.dismiss()
+        dismissBreakEndedPrompt()
         autoResumeOverlay.dismiss()
         autoResumeAnchor = nil
         strictEscape = nil
@@ -752,7 +790,7 @@ final class MenuBarController: NSObject, ObservableObject {
         reloadHistory()
         timerEngine.startFocus(
             focusMinutes: minutes.map(AppConfig.normalizedFocusMinutes) ?? config.focusMinutes,
-            breakMinutes: config.breakMinutes,
+            breakMinutes: config.longBreak.breakMinutes(afterCycle: cycle, shortBreak: config.breakMinutes),
             blockedAppsCount: activeBlockedApps.count + activeBlockedSites.count,
             strictMode: isStrict,
             task: config.task.task,
@@ -912,7 +950,7 @@ final class MenuBarController: NSObject, ObservableObject {
     /// through `stopSession` or a completed emergency exit.
     private func endSession() {
         dismissCurrentScheduleOccurrence()
-        breakEndedOverlay.dismiss()
+        dismissBreakEndedPrompt()
         autoResumeOverlay.dismiss()
         autoResumeAnchor = nil
         strictEscape = nil
@@ -956,6 +994,10 @@ final class MenuBarController: NSObject, ObservableObject {
             }
         case .skip:
             requestSkipPhase()
+        case .extend:
+            extendCurrentPhase()
+        case .show:
+            openMainWindow()
         }
     }
 
@@ -1204,11 +1246,22 @@ final class MenuBarController: NSObject, ObservableObject {
         config.timerEndSound = sound
         saveConfig()
         // Picking one is the only way to know what it sounds like.
-        playTimerEndSound()
+        play(sound)
     }
 
-    private func playTimerEndSound() {
-        guard let name = config.timerEndSound.systemSoundName else { return }
+    func updateBreakEndSound(_ sound: TimerEndSound) {
+        config.breakEndSound = sound
+        saveConfig()
+        play(sound)
+    }
+
+    /// The sound for a timer that ran out of `phase`.
+    private func playTimerEndSound(ranOutOf phase: SessionPhase) {
+        play(phase == .break ? config.breakEndSound : config.timerEndSound)
+    }
+
+    private func play(_ sound: TimerEndSound) {
+        guard let name = sound.systemSoundName else { return }
         let played = NSSound(named: NSSound.Name(name))?.play() ?? false
         FocusLockLog.debug("timer-end sound \(name) played: \(played)")
     }
@@ -1507,6 +1560,9 @@ final class MenuBarController: NSObject, ObservableObject {
         // History only changes when the phase does; re-reading the file every
         // tick would be wasteful.
         if previousPhase != newSnapshot.phase {
+            if previousPhase == .focus {
+                flushFocusTime()
+            }
             reloadHistory()
             syncWatchdog()
             if newSnapshot.phase == .completed {
@@ -1526,6 +1582,10 @@ final class MenuBarController: NSObject, ObservableObject {
         updateStatusItem()
         syncBlocker()
         syncPinnedHUD()
+        if let ranOutFrom = timerRanOutFrom, previousPhase != newSnapshot.phase {
+            timerRanOutFrom = nil
+            presentTimerRanOut(from: ranOutFrom)
+        }
         handleBreakEndedTransition(from: previousPhase, to: newSnapshot.phase)
         syncAutoResume()
 
@@ -1757,9 +1817,13 @@ final class MenuBarController: NSObject, ObservableObject {
         let phaseBeforeTick = timerEngine.snapshot.phase
         timerEngine.refresh()
         if TimerEndSound.timerRanOut(from: phaseBeforeTick, to: timerEngine.snapshot.phase) {
-            playTimerEndSound()
+            playTimerEndSound(ranOutOf: phaseBeforeTick)
             pinnedHUD.pulse()
+            // The engine's change reaches `apply` on the next pass, so the
+            // island is told there, once the new phase is in place.
+            timerRanOutFrom = phaseBeforeTick
         }
+        syncFinalMinute()
         syncEscape(now: now)
 
         if now.timeIntervalSince(lastScheduleCheck) >= 5 {
@@ -1773,6 +1837,7 @@ final class MenuBarController: NSObject, ObservableObject {
         }
 
         syncEyeReminder(now: now)
+        sampleFocusTime(now: now)
     }
 
     /// Reading a tab from a browser that has never been asked would make
@@ -1860,7 +1925,7 @@ final class MenuBarController: NSObject, ObservableObject {
             // Autopilot still asks first — it only takes the screen once the
             // grace period has gone by with no answer.
             autoResumeAnchor = snapshot.breakEndedAt
-            breakEndedOverlay.show()
+            showBreakEndedPrompt()
         }
     }
 
@@ -1894,7 +1959,7 @@ final class MenuBarController: NSObject, ObservableObject {
                     awayMinutes: awayMinutes
                 )
             } else {
-                breakEndedOverlay.dismiss()
+                dismissBreakEndedPrompt()
                 autoResumeOverlay.show(
                     countdown: Self.formatCountdown(remaining),
                     progress: progress,
@@ -1938,7 +2003,7 @@ final class MenuBarController: NSObject, ObservableObject {
     private func postponeAutoResume() {
         autoResumeOverlay.dismiss()
         autoResumeAnchor = Date()
-        breakEndedOverlay.show()
+        showBreakEndedPrompt()
     }
 
     private static func formatCountdown(_ seconds: TimeInterval) -> String {
@@ -2184,6 +2249,10 @@ extension MenuBarController: NSMenuItemValidation {
         skip.target = self
         menu.addItem(skip)
 
+        let extend = NSMenuItem(title: "Add 5 Minutes", action: #selector(menuExtend(_:)), keyEquivalent: "=")
+        extend.target = self
+        menu.addItem(extend)
+
         let stop = NSMenuItem(title: "End Session", action: #selector(menuStopSession(_:)), keyEquivalent: ".")
         stop.target = self
         menu.addItem(stop)
@@ -2230,7 +2299,7 @@ extension MenuBarController: NSMenuItemValidation {
         menu.addItem(mainWindow)
         menu.addItem(.separator())
 
-        // ⌘1–⌘5 for the pages in the tab bar, in its order.
+        // ⌘1–⌘6 for the pages in the tab bar, in its order.
         for (index, page) in MainPage.tabs.enumerated() {
             let item = NSMenuItem(title: page.title, action: #selector(menuShowPage(_:)), keyEquivalent: "\(index + 1)")
             item.tag = index
@@ -2281,6 +2350,9 @@ extension MenuBarController: NSMenuItemValidation {
             // The window's words for the same two actions.
             menuItem.title = snapshot.phase == .focus ? "Skip to Break" : "Start Next Block"
             return (isSessionActive || snapshot.phase == .breakEnded) && !isStrictLocked
+        case #selector(menuExtend(_:)):
+            menuItem.title = snapshot.phase == .focus ? "Add 5 Minutes to Focus" : "Add 5 Minutes to Break"
+            return canExtend
         case #selector(menuShowPage(_:)):
             return !isOnboarding
         case #selector(menuExportCSV(_:)), #selector(menuExportJSON(_:)):
@@ -2295,6 +2367,7 @@ extension MenuBarController: NSMenuItemValidation {
     @objc private func menuStartFocus(_ sender: Any?) { requestStartFocus() }
     @objc private func menuStopSession(_ sender: Any?) { requestStopSession() }
     @objc private func menuSkip(_ sender: Any?) { requestSkipPhase() }
+    @objc private func menuExtend(_ sender: Any?) { extendCurrentPhase() }
     @objc private func menuOpenSettings(_ sender: Any?) { openSettings() }
     @objc private func menuOpenMainWindow(_ sender: Any?) { openMainWindow() }
     @objc private func menuShowPage(_ sender: NSMenuItem) {
@@ -2324,24 +2397,16 @@ extension MenuBarController: AppBlockerDelegate {
 
 private extension MenuBarController {
     func startFocusFromBreakEndedOverlay() {
-        breakEndedOverlay.dismiss()
+        dismissBreakEndedPrompt()
         startFocus()
     }
 
     func snoozeBreakEndedOverlay() {
-        breakEndedOverlay.dismiss()
-        timerEngine.startBreakExtension(
-            minutes: breakSnoozeMinutes,
-            focusMinutes: snapshot.focusMinutes,
-            blockedAppsCount: activeBlockedApps.count + activeBlockedSites.count,
-            strictMode: snapshot.isStrict
-        )
-        reloadHistory()
-        syncBlocker()
+        extendCurrentPhase()
     }
 
     func endCycleFromBreakEndedOverlay() {
-        breakEndedOverlay.dismiss()
+        dismissBreakEndedPrompt()
         dismissCurrentScheduleOccurrence()
         timerEngine.endCycle()
         reloadHistory()
@@ -2390,5 +2455,300 @@ private extension MenuBarController {
             running.unhide()
             running.activate()
         }
+    }
+}
+
+// MARK: - Extending and the notch island
+
+extension MenuBarController {
+    /// A block or a break is running, or a break ran out and is waiting.
+    var canExtend: Bool {
+        isSessionActive || snapshot.phase == .breakEnded
+    }
+
+    /// Whether the break that follows (or is running after) this block is
+    /// the long one.
+    var currentBreakIsLong: Bool {
+        snapshot.breakMinutes > 0 && config.longBreak.isLongBreak(afterCycle: snapshot.currentCycle)
+    }
+
+    /// Five more minutes of whatever is running: more focus, a longer break,
+    /// or a break that ran out starting again. Strict blocks allow it too —
+    /// it only ever adds focus or postpones the next block.
+    /// - Returns: the timer as it is now; `snapshot` only catches up once
+    ///   the engine's change has been applied.
+    @discardableResult
+    func extendCurrentPhase() -> TimerSnapshot? {
+        guard canExtend else { return nil }
+        let wasWaiting = snapshot.phase == .breakEnded
+        if wasWaiting {
+            dismissBreakEndedPrompt()
+            autoResumeOverlay.dismiss()
+            autoResumeAnchor = nil
+        }
+        guard timerEngine.extend(byMinutes: Self.extendMinutes) else { return nil }
+        let extended = timerEngine.snapshot
+        reloadHistory()
+
+        if config.notchAlertsEnabled, let endsAt = extended.phaseEndsAt {
+            let isFocus = extended.phase == .focus
+            notchIsland.present(NotchMoment(
+                kind: .extended,
+                tone: isFocus ? .focus : .rest,
+                symbol: "plus",
+                eyebrow: "+\(Self.extendMinutes) min",
+                title: "\(isFocus ? "Focus" : "Break") until \(Self.shortTime(endsAt))",
+                countsDownTo: endsAt,
+                lifetime: 2.5
+            ))
+        }
+        return extended
+    }
+
+    func updateLongBreak(_ update: (inout LongBreakSettings) -> Void) {
+        var longBreak = config.longBreak
+        update(&longBreak)
+        // Rebuilt so the ranges are enforced on whatever was changed.
+        config.longBreak = LongBreakSettings(enabled: longBreak.enabled, minutes: longBreak.minutes, every: longBreak.every)
+        saveConfig()
+    }
+
+    func updateNotchAlerts(enabled: Bool) {
+        config.notchAlertsEnabled = enabled
+        saveConfig()
+        if enabled {
+            previewNotchIsland()
+        } else {
+            notchIsland.dismiss()
+        }
+    }
+
+    /// Shows what the island looks like, from Settings.
+    func previewNotchIsland() {
+        notchIsland.present(NotchMoment(
+            kind: .runDone,
+            tone: .focus,
+            symbol: "checkmark",
+            eyebrow: "Preview",
+            title: "This is where Quietwhile speaks up.",
+            detail: "When a block or a break ends, and a minute before focus does.",
+            set: setProgress(position: 2, done: true),
+            lifetime: 4
+        ))
+    }
+
+    // MARK: Prompt when a break ends
+
+    func showBreakEndedPrompt() {
+        guard config.notchAlertsEnabled else {
+            breakEndedOverlay.show()
+            return
+        }
+        notchIsland.present(breakOverMoment())
+    }
+
+    func dismissBreakEndedPrompt() {
+        breakEndedOverlay.dismiss()
+        notchIsland.dismiss()
+    }
+
+    // MARK: Moments
+
+    /// Called from the tick when a timer ran out on its own, never when
+    /// someone pressed Skip or End.
+    func presentTimerRanOut(from previous: SessionPhase) {
+        guard config.notchAlertsEnabled, previous == .focus else { return }
+        switch snapshot.phase {
+        case .break:
+            notchIsland.present(focusDoneMoment())
+        case .completed:
+            notchIsland.present(NotchMoment(
+                kind: .runDone,
+                tone: .done,
+                symbol: "checkmark",
+                eyebrow: "Block done · \(snapshot.focusMinutes) min",
+                title: "That’s the block.",
+                detail: currentTask.goal.isEmpty ? nil : currentTask.goal,
+                actions: [.init(id: "start", title: nextBlockIsStrict ? "Start strict block" : "Start another", role: .primary)],
+                lifetime: 9
+            ))
+        default:
+            break
+        }
+    }
+
+    /// One minute before focus ends, the chance to keep going — offered
+    /// before the block is over rather than after, when it can still be taken
+    /// without breaking the thread.
+    func syncFinalMinute() {
+        guard
+            config.notchAlertsEnabled,
+            snapshot.phase == .focus,
+            snapshot.focusMinutes >= 5,
+            let endsAt = snapshot.phaseEndsAt,
+            endsAt != finalMinuteShownFor,
+            snapshot.remainingSeconds <= 60,
+            snapshot.remainingSeconds > 45,
+            notchIsland.currentMoment?.holdsUntilAnswered != true
+        else {
+            return
+        }
+        finalMinuteShownFor = endsAt
+
+        let breakLine: String
+        if snapshot.breakMinutes > 0 {
+            breakLine = "Your \(currentBreakIsLong ? "long " : "")break starts at \(Self.shortTime(endsAt))."
+        } else {
+            breakLine = "The block ends at \(Self.shortTime(endsAt))."
+        }
+        let goal = currentTask.goal
+        notchIsland.present(NotchMoment(
+            kind: .finalMinute,
+            tone: .finalMinute,
+            symbol: "hourglass",
+            eyebrow: "One minute left",
+            title: goal.isEmpty ? "Land the thought you’re on." : goal,
+            detail: breakLine,
+            countsDownTo: endsAt,
+            actions: [.init(id: "extend", title: "+\(Self.extendMinutes) min focus", role: .secondary)],
+            lifetime: 9
+        ))
+    }
+
+    private func focusDoneMoment() -> NotchMoment {
+        let isLong = currentBreakIsLong
+        let suggestion = breakSuggestion?.title
+        let detail = suggestion ?? (isLong ? "Get properly away from the desk." : "Step away from the screen for a bit.")
+        return NotchMoment(
+            kind: .focusDone,
+            tone: .rest,
+            symbol: isLong ? "sun.max.fill" : "leaf.fill",
+            eyebrow: isLong ? "Set done · \(config.longBreak.every) blocks" : "Block \(snapshot.currentCycle) done · \(snapshot.focusMinutes) min",
+            title: "\(isLong ? "Long break" : "Break") · \(snapshot.breakMinutes) min",
+            detail: detail,
+            countsDownTo: snapshot.phaseEndsAt,
+            set: setProgress(position: config.longBreak.positionInSet(cycle: snapshot.currentCycle), done: true),
+            actions: [.init(id: "skip", title: "Skip break", role: .secondary)],
+            lifetime: 9
+        )
+    }
+
+    private func breakOverMoment() -> NotchMoment {
+        let nextCycle = snapshot.currentCycle + 1
+        let nextEarnsLong = config.longBreak.isLongBreak(afterCycle: nextCycle) && config.breakMinutes > 0
+        var detail = "Block \(nextCycle) · \(config.focusMinutes) min"
+        if nextEarnsLong {
+            detail += " — the long break comes after this one."
+        }
+        return NotchMoment(
+            kind: .breakOver,
+            tone: .focus,
+            symbol: "arrow.forward",
+            eyebrow: currentBreakIsLong ? "Long break over" : "Break over",
+            title: "Back to it.",
+            detail: detail,
+            set: setProgress(position: config.longBreak.positionInSet(cycle: nextCycle), done: false),
+            actions: [
+                .init(id: "start", title: nextBlockIsStrict ? "Start strict block" : "Start focus", role: .primary),
+                .init(id: "extend", title: "+\(Self.extendMinutes) min break", role: .secondary),
+                .init(id: "endCycle", title: "End cycle", role: .quiet)
+            ],
+            holdsUntilAnswered: true
+        )
+    }
+
+    private func setProgress(position: Int, done: Bool) -> NotchMoment.SetProgress? {
+        guard config.longBreak.enabled, config.breakMinutes > 0 else { return nil }
+        return .init(position: position, total: config.longBreak.every, positionDone: done)
+    }
+
+    func handleNotchAction(_ id: String) {
+        switch id {
+        case "start":
+            notchIsland.dismiss()
+            if snapshot.phase == .breakEnded {
+                startFocusFromBreakEndedOverlay()
+            } else {
+                requestStartFocus()
+            }
+        case "extend":
+            extendCurrentPhase()
+        case "skip":
+            notchIsland.dismiss()
+            requestSkipPhase()
+        case "endCycle":
+            notchIsland.dismiss()
+            endCycleFromBreakEndedOverlay()
+        default:
+            notchIsland.dismiss()
+        }
+    }
+}
+
+// MARK: - Focus time, for Insights
+
+extension MenuBarController {
+    func updateTrackFocusTime(enabled: Bool) {
+        config.trackFocusTime = enabled
+        saveConfig()
+        if !enabled {
+            // What was counted so far in this block is kept; nothing more is.
+            flushFocusTime()
+        }
+    }
+
+    /// Forgets every reach and all focus time. History itself is untouched.
+    func clearInsightsData() {
+        focusTime = FocusTimeAccumulator()
+        lastFocusTimeSample = nil
+        reachLog.reset()
+        focusTimeStore.reset()
+        reaches = []
+        focusTimeRecords = []
+    }
+
+    /// Counts the time since the last tick against whatever app is in front,
+    /// during focus only and only while someone is at the keyboard.
+    func sampleFocusTime(now: Date) {
+        guard config.trackFocusTime, snapshot.phase == .focus, let blockStart = snapshot.sessionStartedAt else {
+            lastFocusTimeSample = nil
+            return
+        }
+        focusTime.begin(blockStartedAt: blockStart)
+        defer { lastFocusTimeSample = now }
+        guard let last = lastFocusTimeSample else { return }
+
+        // Two minutes without a key or the mouse is someone away from the
+        // desk, not time spent in the app they left in front.
+        guard systemIdleSeconds < 120,
+              let app = NSWorkspace.shared.frontmostApplication,
+              let bundleId = app.bundleIdentifier
+        else {
+            return
+        }
+        focusTime.addApp(bundleId: bundleId, name: app.localizedName ?? bundleId, seconds: now.timeIntervalSince(last))
+
+        guard let browser = SupportedBrowser(rawValue: bundleId),
+              permissions.browsers[browser] == .granted,
+              now.timeIntervalSince(lastDomainSample) >= Self.domainSampleSeconds
+        else {
+            return
+        }
+        lastDomainSample = now
+        domainSampler.host(in: browser) { [weak self] host in
+            guard let self, let host, self.snapshot.sessionStartedAt == blockStart else { return }
+            self.focusTime.addSite(host: host, seconds: Self.domainSampleSeconds)
+        }
+    }
+
+    /// How often the front tab is read: enough for totals, rare enough that
+    /// the browser never notices.
+    static let domainSampleSeconds: TimeInterval = 5
+
+    func flushFocusTime() {
+        lastFocusTimeSample = nil
+        guard let record = focusTime.finish() else { return }
+        focusTimeStore.append(record)
+        focusTimeRecords.append(record)
     }
 }

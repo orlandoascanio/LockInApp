@@ -31,7 +31,7 @@ struct BreakEndedOverlayView: View {
                     .buttonStyle(FLActionButtonStyle(variant: .primary, minHeight: 44))
                     .keyboardShortcut(.defaultAction)
 
-                Button("Snooze 2 minutes", action: onSnooze)
+                Button("5 more minutes", action: onSnooze)
                     .buttonStyle(FLLinkButtonStyle(tint: .flInkSoft))
 
                 Button("End cycle", action: onEndCycle)

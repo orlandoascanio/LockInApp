@@ -109,6 +109,35 @@ public final class TimerEngine {
         snapshot = makeSnapshot(for: state, now: currentDate)
     }
 
+    /// Adds `minutes` to whatever is running: a focus block runs longer (and
+    /// its break moves back with it), a break runs longer, and a break that
+    /// already ran out starts again with `minutes` on the clock.
+    /// - Returns: whether there was anything to extend.
+    @discardableResult
+    public func extend(byMinutes minutes: Int = 5, now: Date? = nil) -> Bool {
+        guard minutes > 0, var state = stateStore.loadSessionState() else { return false }
+        let currentDate = now ?? clock()
+
+        switch state.state {
+        case .focus:
+            state.focusMinutes = min(AppConfig.focusMinutesRange.upperBound, state.focusMinutes + minutes)
+        case .break:
+            state.breakMinutes += minutes
+        case .breakEnded:
+            // A break is `startedAt + focusMinutes` onwards, so moving the
+            // start makes the new break begin now.
+            state.state = .break
+            state.breakMinutes = minutes
+            state.startedAt = currentDate.addingTimeInterval(-TimeInterval(state.focusMinutes * 60))
+        case .idle, .paused, .completed, .cancelled:
+            return false
+        }
+
+        try? stateStore.saveSessionState(state)
+        snapshot = makeSnapshot(for: state, now: currentDate)
+        return true
+    }
+
     /// Ends focus early and goes straight to the break. The block is logged as
     /// completed with the minutes actually worked; under a minute counts as
     /// cancelled, since nothing was focused on.

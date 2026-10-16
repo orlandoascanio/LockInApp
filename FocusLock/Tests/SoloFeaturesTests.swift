@@ -258,6 +258,21 @@ final class HotkeySettingsTests: XCTestCase {
         XCTAssertEqual(legacy.start, HotkeySettings().start)
     }
 
+    func testShortcutsSavedBeforeExtendAndShowGetTheirDefaults() throws {
+        let saved = #"{"enabled":true,"start":null,"stop":{"keyCode":14,"modifiers":6400},"skip":null}"#
+        let decoded = try JSONDecoder().decode(HotkeySettings.self, from: Data(saved.utf8))
+        XCTAssertNil(decoded.start)
+        XCTAssertEqual(decoded.extend, HotkeySettings().extend)
+        XCTAssertEqual(decoded.show, HotkeySettings().show)
+    }
+
+    func testEveryDefaultShortcutIsUsableAndDistinct() {
+        let combos = HotkeyAction.allCases.compactMap { HotkeySettings()[$0] }
+        XCTAssertEqual(combos.count, HotkeyAction.allCases.count)
+        XCTAssertTrue(combos.allSatisfy(\.isUsable))
+        XCTAssertEqual(Set(combos).count, combos.count)
+    }
+
     func testComboWithoutACommandModifierIsNotUsable() {
         XCTAssertFalse(KeyCombo(keyCode: 1, modifiers: KeyCombo.shift).isUsable)
         XCTAssertTrue(KeyCombo(keyCode: 1, modifiers: KeyCombo.option).isUsable)

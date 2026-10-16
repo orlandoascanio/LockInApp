@@ -37,6 +37,8 @@ public enum HotkeyAction: String, Codable, CaseIterable, Identifiable {
     case start
     case stop
     case skip
+    case extend
+    case show
 
     public var id: String { rawValue }
 
@@ -45,6 +47,8 @@ public enum HotkeyAction: String, Codable, CaseIterable, Identifiable {
         case .start: return "Start focus"
         case .stop: return "End session"
         case .skip: return "Skip to break"
+        case .extend: return "Add 5 minutes"
+        case .show: return "Show Quietwhile"
         }
     }
 }
@@ -54,6 +58,8 @@ public struct HotkeySettings: Codable, Equatable {
     public var start: KeyCombo? = KeyCombo(keyCode: 1, modifiers: KeyCombo.control | KeyCombo.option | KeyCombo.command)  // ⌃⌥⌘S
     public var stop: KeyCombo? = KeyCombo(keyCode: 14, modifiers: KeyCombo.control | KeyCombo.option | KeyCombo.command)   // ⌃⌥⌘E
     public var skip: KeyCombo? = KeyCombo(keyCode: 45, modifiers: KeyCombo.control | KeyCombo.option | KeyCombo.command)   // ⌃⌥⌘N
+    public var extend: KeyCombo? = KeyCombo(keyCode: 24, modifiers: KeyCombo.control | KeyCombo.option | KeyCombo.command) // ⌃⌥⌘=
+    public var show: KeyCombo? = KeyCombo(keyCode: 31, modifiers: KeyCombo.control | KeyCombo.option | KeyCombo.command)   // ⌃⌥⌘O
 
     public init() {}
 
@@ -63,6 +69,8 @@ public struct HotkeySettings: Codable, Equatable {
             case .start: return start
             case .stop: return stop
             case .skip: return skip
+            case .extend: return extend
+            case .show: return show
             }
         }
         set {
@@ -70,6 +78,8 @@ public struct HotkeySettings: Codable, Equatable {
             case .start: start = newValue
             case .stop: stop = newValue
             case .skip: skip = newValue
+            case .extend: extend = newValue
+            case .show: show = newValue
             }
         }
     }
@@ -86,7 +96,7 @@ public struct HotkeySettings: Codable, Equatable {
     }
 
     private enum CodingKeys: String, CodingKey {
-        case enabled, start, stop, skip
+        case enabled, start, stop, skip, extend, show
     }
 
     public init(from decoder: Decoder) throws {
@@ -98,6 +108,8 @@ public struct HotkeySettings: Codable, Equatable {
         start = container.contains(.start) ? try container.decodeIfPresent(KeyCombo.self, forKey: .start) : fallback.start
         stop = container.contains(.stop) ? try container.decodeIfPresent(KeyCombo.self, forKey: .stop) : fallback.stop
         skip = container.contains(.skip) ? try container.decodeIfPresent(KeyCombo.self, forKey: .skip) : fallback.skip
+        extend = container.contains(.extend) ? try container.decodeIfPresent(KeyCombo.self, forKey: .extend) : fallback.extend
+        show = container.contains(.show) ? try container.decodeIfPresent(KeyCombo.self, forKey: .show) : fallback.show
     }
 
     public func encode(to encoder: Encoder) throws {
@@ -106,5 +118,7 @@ public struct HotkeySettings: Codable, Equatable {
         try container.encode(start, forKey: .start)
         try container.encode(stop, forKey: .stop)
         try container.encode(skip, forKey: .skip)
+        try container.encode(extend, forKey: .extend)
+        try container.encode(show, forKey: .show)
     }
 }

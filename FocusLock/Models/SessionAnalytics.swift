@@ -3,7 +3,11 @@ import Foundation
 public enum SessionAnalyticsPeriod: String, CaseIterable, Identifiable {
     case sevenDays
     case thirtyDays
+    case ninetyDays
+    case year
     case allTime
+    /// From a chosen day through `referenceDate`.
+    case custom
 
     public var id: String { rawValue }
 }
@@ -100,10 +104,15 @@ public struct SessionAnalyticsSnapshot: Equatable {
 }
 
 public enum SessionAnalytics {
+    /// - Parameters:
+    ///   - referenceDate: the last day in the range. Today, except for a
+    ///     custom range that ends earlier.
+    ///   - customStart: the first day of a `.custom` range.
     public static func snapshot(
         history: [SessionHistoryEntry],
         period: SessionAnalyticsPeriod,
         referenceDate: Date = Date(),
+        customStart: Date? = nil,
         calendar: Calendar = .current
     ) -> SessionAnalyticsSnapshot {
         let referenceDay = calendar.startOfDay(for: referenceDate)
@@ -117,6 +126,12 @@ public enum SessionAnalytics {
             requestedStart = calendar.date(byAdding: .day, value: -6, to: referenceDay) ?? referenceDay
         case .thirtyDays:
             requestedStart = calendar.date(byAdding: .day, value: -29, to: referenceDay) ?? referenceDay
+        case .ninetyDays:
+            requestedStart = calendar.date(byAdding: .day, value: -89, to: referenceDay) ?? referenceDay
+        case .year:
+            requestedStart = calendar.date(byAdding: .day, value: -364, to: referenceDay) ?? referenceDay
+        case .custom:
+            requestedStart = min(calendar.startOfDay(for: customStart ?? referenceDay), referenceDay)
         case .allTime:
             requestedStart = history
                 .map { calendar.startOfDay(for: $0.startedAt) }
@@ -131,7 +146,6 @@ public enum SessionAnalytics {
         let granularity = granularity(
             from: requestedStart,
             through: referenceDay,
-            period: period,
             calendar: calendar
         )
         let timeline = makeTimeline(
@@ -188,16 +202,13 @@ public enum SessionAnalytics {
         )
     }
 
+    /// Bars of a day up to a month, then weeks, then months, so a chart never
+    /// has more than about two dozen bars to squeeze in.
     private static func granularity(
         from start: Date,
         through end: Date,
-        period: SessionAnalyticsPeriod,
         calendar: Calendar
     ) -> SessionAnalyticsGranularity {
-        guard period == .allTime else {
-            return .day
-        }
-
         let days = (calendar.dateComponents([.day], from: start, to: end).day ?? 0) + 1
         if days <= 31 {
             return .day

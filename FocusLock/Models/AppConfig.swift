@@ -54,6 +54,8 @@ public struct AppConfig: Codable, Equatable {
 
     public var focusMinutes: Int
     public var breakMinutes: Int
+    /// The longer break that closes every few blocks of a run.
+    public var longBreak: LongBreakSettings
     public var blockerMode: BlockerMode
     public var breakEndBehavior: BreakEndBehavior
     /// Grace period and countdown used when `breakEndBehavior` is `.autopilot`.
@@ -82,15 +84,28 @@ public struct AppConfig: Codable, Equatable {
     /// or quitting while one is running.
     public var confirmBeforeEnding: Bool
 
-    /// Played when a focus block or a break runs out.
+    /// Played when a focus block runs out. Keeps its old name, from when one
+    /// sound covered breaks too, so saved choices carry over.
     public var timerEndSound: TimerEndSound
+    /// Played when a break runs out.
+    public var breakEndSound: TimerEndSound
 
     /// The daily focus the week chart measures each day against.
     public var dailyFocusGoalMinutes: Int
 
+    /// The island that grows out of the notch when a block or a break ends,
+    /// and a minute before focus does.
+    public var notchAlertsEnabled: Bool
+
+    /// Notes which app is in front during focus blocks — and which website,
+    /// in browsers already allowed for guarding — for Insights. Off until
+    /// chosen; only totals are kept, on this Mac.
+    public var trackFocusTime: Bool
+
     public init(
         focusMinutes: Int = 25,
         breakMinutes: Int = 5,
+        longBreak: LongBreakSettings = LongBreakSettings(),
         blockerMode: BlockerMode = .guardScreen,
         breakEndBehavior: BreakEndBehavior = .ask,
         autoResume: AutoResumePlanner = .default,
@@ -107,10 +122,14 @@ public struct AppConfig: Codable, Equatable {
         onboardingCompleted: Bool = false,
         confirmBeforeEnding: Bool = true,
         timerEndSound: TimerEndSound = .glass,
-        dailyFocusGoalMinutes: Int = 120
+        breakEndSound: TimerEndSound = .glass,
+        dailyFocusGoalMinutes: Int = 120,
+        notchAlertsEnabled: Bool = true,
+        trackFocusTime: Bool = false
     ) {
         self.focusMinutes = Self.normalizedFocusMinutes(focusMinutes)
         self.breakMinutes = max(0, breakMinutes)
+        self.longBreak = longBreak
         self.blockerMode = blockerMode
         self.breakEndBehavior = breakEndBehavior
         self.autoResume = autoResume
@@ -127,7 +146,10 @@ public struct AppConfig: Codable, Equatable {
         self.onboardingCompleted = onboardingCompleted
         self.confirmBeforeEnding = confirmBeforeEnding
         self.timerEndSound = timerEndSound
+        self.breakEndSound = breakEndSound
         self.dailyFocusGoalMinutes = Self.normalizedDailyGoal(dailyFocusGoalMinutes)
+        self.notchAlertsEnabled = notchAlertsEnabled
+        self.trackFocusTime = trackFocusTime
     }
 
     public static let `default` = AppConfig()
@@ -135,6 +157,7 @@ public struct AppConfig: Codable, Equatable {
     private enum CodingKeys: String, CodingKey {
         case focusMinutes
         case breakMinutes
+        case longBreak
         case blockerMode
         case strictMode
         case breakEndBehavior
@@ -154,7 +177,10 @@ public struct AppConfig: Codable, Equatable {
         case onboardingCompleted
         case confirmBeforeEnding
         case timerEndSound
+        case breakEndSound
         case dailyFocusGoalMinutes
+        case notchAlertsEnabled
+        case trackFocusTime
     }
 
     public init(from decoder: Decoder) throws {
@@ -163,6 +189,7 @@ public struct AppConfig: Codable, Equatable {
             try container.decodeIfPresent(Int.self, forKey: .focusMinutes) ?? 50
         )
         breakMinutes = max(0, try container.decodeIfPresent(Int.self, forKey: .breakMinutes) ?? 10)
+        longBreak = (try? container.decodeIfPresent(LongBreakSettings.self, forKey: .longBreak)) ?? LongBreakSettings()
         if let decodedMode = try container.decodeIfPresent(BlockerMode.self, forKey: .blockerMode) {
             blockerMode = decodedMode
         } else {
@@ -200,15 +227,20 @@ public struct AppConfig: Codable, Equatable {
         onboardingCompleted = (try? container.decodeIfPresent(Bool.self, forKey: .onboardingCompleted)) ?? true
         confirmBeforeEnding = (try? container.decodeIfPresent(Bool.self, forKey: .confirmBeforeEnding)) ?? true
         timerEndSound = (try? container.decodeIfPresent(TimerEndSound.self, forKey: .timerEndSound)) ?? .glass
+        // Before breaks had their own sound, the one sound played for both.
+        breakEndSound = (try? container.decodeIfPresent(TimerEndSound.self, forKey: .breakEndSound)) ?? timerEndSound
         dailyFocusGoalMinutes = Self.normalizedDailyGoal(
             (try? container.decodeIfPresent(Int.self, forKey: .dailyFocusGoalMinutes)) ?? 120
         )
+        notchAlertsEnabled = (try? container.decodeIfPresent(Bool.self, forKey: .notchAlertsEnabled)) ?? true
+        trackFocusTime = (try? container.decodeIfPresent(Bool.self, forKey: .trackFocusTime)) ?? false
     }
 
     public func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
         try container.encode(focusMinutes, forKey: .focusMinutes)
         try container.encode(breakMinutes, forKey: .breakMinutes)
+        try container.encode(longBreak, forKey: .longBreak)
         try container.encode(blockerMode, forKey: .blockerMode)
         try container.encode(breakEndBehavior, forKey: .breakEndBehavior)
         try container.encode(autoResume, forKey: .autoResume)
@@ -225,7 +257,10 @@ public struct AppConfig: Codable, Equatable {
         try container.encode(onboardingCompleted, forKey: .onboardingCompleted)
         try container.encode(confirmBeforeEnding, forKey: .confirmBeforeEnding)
         try container.encode(timerEndSound, forKey: .timerEndSound)
+        try container.encode(breakEndSound, forKey: .breakEndSound)
         try container.encode(dailyFocusGoalMinutes, forKey: .dailyFocusGoalMinutes)
+        try container.encode(notchAlertsEnabled, forKey: .notchAlertsEnabled)
+        try container.encode(trackFocusTime, forKey: .trackFocusTime)
     }
 
     public static func normalizedDailyGoal(_ minutes: Int) -> Int {

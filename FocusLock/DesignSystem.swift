@@ -108,8 +108,9 @@ extension Color {
 // Each page of the main window is stained with its own earth pigment, the
 // kind a sand-and-moss world would actually have on the shelf: terre verte
 // for focus, burnt sienna for what's blocked, yellow ochre for the hours a
-// schedule claims, raw umber for the past, Payne's grey for the numbers, and
-// unbleached paper for the machinery. They differ in strength as well as hue,
+// schedule claims, raw umber for the past, Payne's grey for the numbers,
+// caput mortuum for what the numbers say about you, and unbleached paper for
+// the machinery. They differ in strength as well as hue,
 // like real pigments do, rather than marching around the colour wheel. The
 // stain is strongest under the tab bar and settles back into the canvas.
 // Derived in OKLCH; light tops sit near L 0.91, dark tops near L 0.29.
@@ -128,6 +129,7 @@ struct FLPageWash {
     static let yellowOchre = FLPageWash(light: ("#F4E4C7", "#F5EEDE"), dark: ("#413516", "#242218"))
     static let rawUmber = FLPageWash(light: ("#E9DED2", "#F1ECE1"), dark: ("#29211B", "#1D1C18"))
     static let paynesGrey = FLPageWash(light: ("#DCE3E6", "#EDEEE8"), dark: ("#1C2C39", "#191F21"))
+    static let caputMortuum = FLPageWash(light: ("#E8DCDD", "#F1ECE5"), dark: ("#35222A", "#1F1B1D"))
     /// Not a page: the Focus page during a break, in the slate that has
     /// always meant rest here.
     static let restSlate = FLPageWash(light: ("#CFE1EB", "#EAEDE9"), dark: ("#1A313D", "#192122"))

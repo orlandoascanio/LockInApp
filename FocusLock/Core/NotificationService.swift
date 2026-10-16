@@ -18,12 +18,22 @@ public final class NotificationService: NSObject, NotificationSending, UNUserNot
     /// the app, which owns the settings; `nil` sends the plain notice.
     public var breakSuggestion: ((_ cycle: Int, _ minutes: Int) -> BreakSuggestion?)?
 
+    /// Whether the break after block `cycle` is the long one. Set by the app,
+    /// which owns the settings.
+    public var isLongBreak: ((_ cycle: Int) -> Bool)?
+
     /// True while the app plays its own chime when a timer runs out. The
     /// banners for those moments then arrive silently instead of on top of it.
-    public var appPlaysTimerEndSound: (() -> Bool)?
+    /// Asked separately for the end of a focus block and of a break, which
+    /// can each have their own sound, or none.
+    public var appPlaysTimerEndSound: ((_ breakEnded: Bool) -> Bool)?
 
-    private var timerEndNeedsSound: Bool {
-        !(appPlaysTimerEndSound?() ?? false)
+    private var focusEndNeedsSound: Bool {
+        !(appPlaysTimerEndSound?(false) ?? false)
+    }
+
+    private var breakEndNeedsSound: Bool {
+        !(appPlaysTimerEndSound?(true) ?? false)
     }
 
     public init(center: UNUserNotificationCenter? = nil) {
@@ -55,14 +65,15 @@ public final class NotificationService: NSObject, NotificationSending, UNUserNot
     }
 
     public func focusCompleted() {
-        send(title: "Focus completed", body: "Nice work. Time for a break.", sound: timerEndNeedsSound)
+        send(title: "Focus completed", body: "Nice work. Time for a break.", sound: focusEndNeedsSound)
     }
 
     public func breakStarted(minutes: Int, cycle: Int) {
+        let label = isLongBreak?(cycle) == true ? "Long break" : "Break"
         if let suggestion = breakSuggestion?(cycle, minutes) {
-            send(title: "Break · \(minutes) min — \(suggestion.title)", body: suggestion.detail, sound: timerEndNeedsSound)
+            send(title: "\(label) · \(minutes) min — \(suggestion.title)", body: suggestion.detail, sound: focusEndNeedsSound)
         } else {
-            send(title: "Break started", body: "\(minutes) minutes to reset.", sound: timerEndNeedsSound)
+            send(title: "\(label) started", body: "\(minutes) minutes to reset.", sound: focusEndNeedsSound)
         }
     }
 
@@ -79,7 +90,7 @@ public final class NotificationService: NSObject, NotificationSending, UNUserNot
     }
 
     public func breakEnded() {
-        send(title: "Break is done.", body: "Time to get locked in again.", sound: timerEndNeedsSound)
+        send(title: "Break is done.", body: "Time to get locked in again.", sound: breakEndNeedsSound)
     }
 
     public func sessionCancelled() {

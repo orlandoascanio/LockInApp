@@ -39,6 +39,8 @@ struct SettingsView: View {
                         FLRule()
                         strictSection
                     case .breaks:
+                        longBreakSection
+                        FLRule()
                         sessionSection
                         FLRule()
                         breakSuggestionsSection
@@ -122,6 +124,47 @@ struct SettingsView: View {
                     .foregroundStyle(Color.flInkSoft)
             }
         }
+    }
+
+    private var longBreakSection: some View {
+        section("Long break") {
+            VStack(alignment: .leading, spacing: 14) {
+                toggleRow(
+                    title: "Take a longer break after a set of blocks",
+                    detail: controller.config.breakMinutes > 0
+                        ? "Every \(ordinal(controller.config.longBreak.every)) block in a run ends in a \(controller.config.longBreak.minutes)-minute break instead of \(controller.config.breakMinutes). The count starts over when a run ends."
+                        : "Your blocks have no break right now, so there is nothing to lengthen. Set a break on the Focus page.",
+                    isOn: Binding(
+                        get: { controller.config.longBreak.enabled },
+                        set: { enabled in controller.updateLongBreak { $0.enabled = enabled } }
+                    )
+                )
+
+                if controller.config.longBreak.enabled {
+                    choiceRow(
+                        label: "After",
+                        options: LongBreakSettings.everyOptions,
+                        selection: controller.config.longBreak.every,
+                        title: { "\($0) blocks" },
+                        onSelect: { every in controller.updateLongBreak { $0.every = every } }
+                    )
+
+                    choiceRow(
+                        label: "Length",
+                        options: LongBreakSettings.minutesOptions,
+                        selection: controller.config.longBreak.minutes,
+                        title: { "\($0) min" },
+                        onSelect: { minutes in controller.updateLongBreak { $0.minutes = minutes } }
+                    )
+                }
+            }
+        }
+    }
+
+    private func ordinal(_ number: Int) -> String {
+        let formatter = NumberFormatter()
+        formatter.numberStyle = .ordinal
+        return formatter.string(from: NSNumber(value: number)) ?? "\(number)th"
     }
 
     private var sessionSection: some View {
@@ -230,21 +273,59 @@ struct SettingsView: View {
     private var timerSoundSection: some View {
         section("When time is up") {
             VStack(alignment: .leading, spacing: 12) {
-                FLSegmentedControl(
-                    options: TimerEndSound.allCases,
+                soundRow(
+                    label: "Focus ends",
                     selection: Binding(
                         get: { controller.config.timerEndSound },
                         set: { controller.updateTimerEndSound($0) }
-                    ),
-                    title: \.displayName,
-                    accessibilityLabel: "Sound when time is up"
+                    )
                 )
 
-                Text("Plays when a focus block or a break runs out, even with notifications off or a Focus mode on.")
+                soundRow(
+                    label: "Break ends",
+                    selection: Binding(
+                        get: { controller.config.breakEndSound },
+                        set: { controller.updateBreakEndSound($0) }
+                    )
+                )
+
+                Text("Plays when the timer runs out, even with notifications off or a Focus mode on. Choosing one plays it.")
                     .font(FLTypography.caption)
                     .foregroundStyle(Color.flInkSoft)
                     .fixedSize(horizontal: false, vertical: true)
+
+                toggleRow(
+                    title: "Speak up from the notch",
+                    detail: "When a block or a break ends, the notch opens with what's next and the time still running. A minute before focus ends it offers five more. On a Mac without a notch it drops from the top of the menu bar.",
+                    isOn: Binding(
+                        get: { controller.config.notchAlertsEnabled },
+                        set: { controller.updateNotchAlerts(enabled: $0) }
+                    )
+                )
+
+                if controller.config.notchAlertsEnabled {
+                    Button("Show me") { controller.previewNotchIsland() }
+                        .buttonStyle(FLLinkButtonStyle(tint: .flAccentDeep))
+                }
             }
+        }
+    }
+
+    private func soundRow(label: String, selection: Binding<TimerEndSound>) -> some View {
+        HStack(spacing: FLSpacing.md) {
+            Text(label)
+                .font(FLTypography.body)
+                .foregroundStyle(Color.flInk)
+                .frame(width: 120, alignment: .leading)
+
+            Picker(label, selection: selection) {
+                ForEach(TimerEndSound.allCases) { sound in
+                    Text(sound.displayName).tag(sound)
+                }
+            }
+            .pickerStyle(.menu)
+            .labelsHidden()
+            .fixedSize()
         }
     }
 

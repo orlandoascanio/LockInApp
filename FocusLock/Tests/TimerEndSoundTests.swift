@@ -39,4 +39,28 @@ final class TimerEndSoundTests: XCTestCase {
         XCTAssertEqual(decoded.timerEndSound, .off)
     }
 
+    func testEveryMacOSSoundIsOffered() throws {
+        let installed = try FileManager.default.contentsOfDirectory(atPath: "/System/Library/Sounds")
+            .filter { $0.hasSuffix(".aiff") }
+            .map { String($0.dropLast(5)) }
+        let offered = Set(TimerEndSound.allCases.compactMap(\.systemSoundName))
+        XCTAssertTrue(Set(installed).isSubset(of: offered), "Not offered: \(Set(installed).subtracting(offered))")
+    }
+
+    func testBreakSoundStartsAsTheSoundChosenBeforeItExisted() throws {
+        let json = Data(#"{"focusMinutes":25,"breakMinutes":5,"timerEndSound":"submarine"}"#.utf8)
+        let config = try JSONDecoder().decode(AppConfig.self, from: json)
+        XCTAssertEqual(config.timerEndSound, .submarine)
+        XCTAssertEqual(config.breakEndSound, .submarine)
+    }
+
+    func testFocusAndBreakSoundsAreKeptApart() throws {
+        var config = AppConfig()
+        config.timerEndSound = .tink
+        config.breakEndSound = .off
+        let decoded = try JSONDecoder().decode(AppConfig.self, from: JSONEncoder().encode(config))
+        XCTAssertEqual(decoded.timerEndSound, .tink)
+        XCTAssertEqual(decoded.breakEndSound, .off)
+    }
+
 }

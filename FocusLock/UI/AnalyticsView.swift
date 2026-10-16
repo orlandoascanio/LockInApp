@@ -5,9 +5,22 @@ import SwiftUI
 struct AnalyticsView: View {
     @EnvironmentObject private var controller: MenuBarController
     @State private var period: SessionAnalyticsPeriod = .thirtyDays
+    @State private var customStart = Calendar.current.date(byAdding: .day, value: -13, to: Date()) ?? Date()
+    @State private var customEnd = Date()
 
     private var analytics: SessionAnalyticsSnapshot {
-        SessionAnalytics.snapshot(history: controller.history, period: period)
+        SessionAnalytics.snapshot(
+            history: controller.history,
+            period: period,
+            referenceDate: period == .custom ? customEnd : Date(),
+            customStart: customStart
+        )
+    }
+
+    /// Nothing before the first session can hold anything, and nothing after
+    /// today.
+    private var earliestDay: Date {
+        controller.history.map(\.startedAt).min().map { Calendar.current.startOfDay(for: $0) } ?? Date()
     }
 
     var body: some View {
@@ -43,16 +56,51 @@ struct AnalyticsView: View {
 
             Spacer(minLength: FLSpacing.md)
 
-            FLSegmentedControl(
-                options: SessionAnalyticsPeriod.allCases,
-                selection: $period,
-                title: \.title,
-                accessibilityLabel: "Analytics time range"
-            )
+            VStack(alignment: .trailing, spacing: 10) {
+                FLSegmentedControl(
+                    options: SessionAnalyticsPeriod.allCases,
+                    selection: $period,
+                    title: \.title,
+                    accessibilityLabel: "Analytics time range"
+                )
+
+                if period == .custom {
+                    customRangePicker
+                }
+            }
         }
         .padding(.horizontal, 26)
         .padding(.top, 28)
         .padding(.bottom, 20)
+    }
+
+    private var customRangePicker: some View {
+        HStack(spacing: 8) {
+            DatePicker(
+                "From",
+                selection: Binding(
+                    get: { customStart },
+                    set: { customStart = min($0, customEnd) }
+                ),
+                in: min(earliestDay, customEnd)...Date(),
+                displayedComponents: .date
+            )
+            Text("to")
+                .font(FLTypography.caption)
+                .foregroundStyle(Color.flInkSoft)
+            DatePicker(
+                "To",
+                selection: Binding(
+                    get: { customEnd },
+                    set: { customEnd = max($0, customStart) }
+                ),
+                in: customStart...Date(),
+                displayedComponents: .date
+            )
+        }
+        .labelsHidden()
+        .datePickerStyle(.compact)
+        .font(FLTypography.caption)
     }
 
     private var periodEmptyState: some View {
@@ -337,7 +385,8 @@ struct AnalyticsView: View {
                 .font(.system(size: 10.5, design: .serif))
                 .monospacedDigit()
                 .foregroundStyle(day.minutes > 0 ? Color.flInk : Color.flInkSoft)
-                .frame(width: 44, alignment: .trailing)
+                // Wide enough for "124h 30m" once a range runs to months.
+                .frame(width: 62, alignment: .trailing)
         }
         .frame(height: 13)
         .accessibilityElement(children: .combine)
@@ -514,7 +563,7 @@ struct AnalyticsView: View {
         let points = analytics.timeline
         let every: Int
         switch analytics.granularity {
-        case .day: every = period == .sevenDays ? 1 : 5
+        case .day: every = points.count <= 8 ? 1 : 5
         case .week, .month: every = max(1, points.count / 6)
         }
         let calendar = Calendar.current
@@ -548,8 +597,14 @@ struct AnalyticsView: View {
             return "Last 7 days"
         case .thirtyDays:
             return "Last 30 days"
+        case .ninetyDays:
+            return "Last 90 days"
+        case .year:
+            return "Last 12 months"
         case .allTime:
             return "Since \(Self.longDateFormatter.string(from: analytics.startDate))"
+        case .custom:
+            return "\(Self.longDateFormatter.string(from: analytics.startDate)) – \(Self.longDateFormatter.string(from: analytics.endDate))"
         }
     }
 
@@ -597,7 +652,7 @@ struct AnalyticsView: View {
     private func axisLabel(for date: Date) -> String {
         switch analytics.granularity {
         case .day:
-            if period == .sevenDays {
+            if analytics.timeline.count <= 8 {
                 return Self.chartDayFormatter.string(from: date)
             }
             return Self.shortDateFormatter.string(from: date)
@@ -648,9 +703,10 @@ struct AnalyticsView: View {
         return formatter
     }()
 
+    /// "Oct 2025": a two-digit year reads as a day of the month.
     private static let monthFormatter: DateFormatter = {
         let formatter = DateFormatter()
-        formatter.setLocalizedDateFormatFromTemplate("MMM yy")
+        formatter.setLocalizedDateFormatFromTemplate("MMM yyyy")
         return formatter
     }()
 }
@@ -662,8 +718,14 @@ private extension SessionAnalyticsPeriod {
             return "7 days"
         case .thirtyDays:
             return "30 days"
+        case .ninetyDays:
+            return "90 days"
+        case .year:
+            return "Year"
         case .allTime:
             return "All time"
+        case .custom:
+            return "Custom"
         }
     }
 
@@ -673,8 +735,14 @@ private extension SessionAnalyticsPeriod {
             return "last 7 days"
         case .thirtyDays:
             return "last 30 days"
+        case .ninetyDays:
+            return "last 90 days"
+        case .year:
+            return "last 12 months"
         case .allTime:
             return "all time"
+        case .custom:
+            return "in this range"
         }
     }
 }

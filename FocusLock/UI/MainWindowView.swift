@@ -7,6 +7,7 @@ enum MainPage: String, CaseIterable, Identifiable {
     case schedules
     case history
     case analytics
+    case insights
     case settings
 
     var id: String { rawValue }
@@ -23,6 +24,8 @@ enum MainPage: String, CaseIterable, Identifiable {
             return "History"
         case .analytics:
             return "Analytics"
+        case .insights:
+            return "Insights"
         case .settings:
             return "Settings"
         }
@@ -40,6 +43,8 @@ enum MainPage: String, CaseIterable, Identifiable {
             return "clock.arrow.circlepath"
         case .analytics:
             return "chart.bar.xaxis"
+        case .insights:
+            return "sparkle.magnifyingglass"
         case .settings:
             return "gearshape"
         }
@@ -79,6 +84,8 @@ struct MainWindowView: View {
                     SessionHistoryView()
                 case .analytics:
                     AnalyticsView()
+                case .insights:
+                    InsightsView()
                 case .settings:
                     SettingsView()
                 }
@@ -141,13 +148,15 @@ extension MainPage {
             return .rawUmber
         case .analytics:
             return .paynesGrey
+        case .insights:
+            return .caputMortuum
         case .settings:
             return .unbleached
         }
     }
 
     /// The pages with a place in the tab bar. Settings hangs off the gear.
-    static let tabs: [MainPage] = [.focus, .blockedApps, .schedules, .history, .analytics]
+    static let tabs: [MainPage] = [.focus, .blockedApps, .schedules, .history, .analytics, .insights]
 }
 
 // MARK: - Top bar
@@ -241,7 +250,7 @@ private struct MainTopBar: View {
                 }
             }
             .foregroundStyle(isSelected ? Color.flTabSelectedInk : Color.flInkSoft)
-            .padding(.horizontal, 15)
+            .padding(.horizontal, 13)
             .frame(height: 30)
             .background {
                 if isSelected {
@@ -268,6 +277,7 @@ private struct MainTopBar: View {
             ViewThatFits(in: .horizontal) {
                 statusLine(status.after)
                 statusLine(status.afterShort)
+                statusLine(status.afterTiny ?? status.afterShort)
             }
             .lineLimit(1)
             .padding(.horizontal, 10)
@@ -310,6 +320,8 @@ private struct MainTopBar: View {
         var figure: String?
         var after: String?
         var afterShort: String?
+        /// For the narrowest window, where even the short form would be cut.
+        var afterTiny: String?
         var tint: Color = .flInkSoft
     }
 
@@ -336,12 +348,13 @@ private struct MainTopBar: View {
                 let day = Self.dayLabel(last.date)
                 return Status(
                     after: "Last focus \(day) · \(FLWeeklyRhythm.duration(last.minutes))",
-                    afterShort: "Last focus \(day)"
+                    afterShort: "Last focus \(day)",
+                    afterTiny: day
                 )
             }
             let days = "day streak"
             let today = minutes > 0 ? "\(days) · \(FLWeeklyRhythm.duration(minutes)) today" : days
-            return Status(figure: "\(streak)", after: today, afterShort: days)
+            return Status(figure: "\(streak)", after: today, afterShort: days, afterTiny: streak == 1 ? "day" : "days")
         }
     }
 
@@ -534,7 +547,8 @@ struct FocusPageView: View {
             let strict = controller.snapshot.isStrict ? " · Strict" : ""
             return "Focus · \(controller.snapshot.focusMinutes) / \(controller.snapshot.breakMinutes)\(strict)"
         case .break:
-            return "Break · block \(controller.snapshot.currentCycle) done"
+            let kind = controller.currentBreakIsLong ? "Long break" : "Break"
+            return "\(kind) · block \(controller.snapshot.currentCycle) done"
         case .breakEnded:
             return "Break ended"
         default:
@@ -782,6 +796,14 @@ struct FocusPageView: View {
 
     // MARK: Commit
 
+    private func extendButton(minHeight: CGFloat, label: String? = nil) -> some View {
+        Button(label ?? "+\(MenuBarController.extendMinutes) min") {
+            controller.extendCurrentPhase()
+        }
+        .buttonStyle(FLActionButtonStyle(variant: .quiet, minHeight: minHeight))
+        .help(controller.snapshot.phase == .focus ? "Add five minutes to this block" : "Add five minutes to the break")
+    }
+
     /// The one button, and in plain words what pressing it means. While a
     /// block runs the time is the loud thing; every way out stays quiet.
     @ViewBuilder
@@ -811,6 +833,8 @@ struct FocusPageView: View {
                     }
                     .buttonStyle(FLActionButtonStyle(variant: .quiet, minHeight: 36))
 
+                    extendButton(minHeight: 36)
+
                 case .break:
                     // A break's ways back to work are offered, never urged.
                     Button("Start next block") {
@@ -823,8 +847,12 @@ struct FocusPageView: View {
                     }
                     .buttonStyle(FLActionButtonStyle(variant: .quiet, minHeight: 32))
 
+                    extendButton(minHeight: 32)
+
                 case .breakEnded:
                     startButton
+
+                    extendButton(minHeight: 44, label: "+\(MenuBarController.extendMinutes) min break")
 
                     Button("End cycle") {
                         controller.requestStopSession()
@@ -897,8 +925,9 @@ struct FocusPageView: View {
             guard let endsAt = controller.snapshot.phaseEndsAt else {
                 return "Guard is on"
             }
-            if controller.config.breakMinutes > 0 {
-                return "\(controller.config.breakMinutes) min break at \(Self.time(endsAt))"
+            if controller.snapshot.breakMinutes > 0 {
+                let kind = controller.currentBreakIsLong ? "long break" : "break"
+                return "\(controller.snapshot.breakMinutes) min \(kind) at \(Self.time(endsAt))"
             }
             return "Ends at \(Self.time(endsAt))"
 
