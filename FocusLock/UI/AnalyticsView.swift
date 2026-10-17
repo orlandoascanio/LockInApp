@@ -25,7 +25,20 @@ struct AnalyticsView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            header
+            StatsHeader {
+                VStack(alignment: .trailing, spacing: 10) {
+                    FLSegmentedControl(
+                        options: SessionAnalyticsPeriod.allCases,
+                        selection: $period,
+                        title: \.title,
+                        accessibilityLabel: "Analytics time range"
+                    )
+
+                    if period == .custom {
+                        customRangePicker
+                    }
+                }
+            }
 
             if controller.history.isEmpty {
                 FLEmptyState(
@@ -40,38 +53,6 @@ struct AnalyticsView: View {
                 dashboard
             }
         }
-    }
-
-    private var header: some View {
-        HStack(alignment: .center, spacing: FLSpacing.lg) {
-            VStack(alignment: .leading, spacing: 3) {
-                Text("Analytics")
-                    .font(FLTypography.display)
-                    .foregroundStyle(Color.flInk)
-
-                Text("A clear view of how your focus is changing.")
-                    .font(FLTypography.caption)
-                    .foregroundStyle(Color.flInkSoft)
-            }
-
-            Spacer(minLength: FLSpacing.md)
-
-            VStack(alignment: .trailing, spacing: 10) {
-                FLSegmentedControl(
-                    options: SessionAnalyticsPeriod.allCases,
-                    selection: $period,
-                    title: \.title,
-                    accessibilityLabel: "Analytics time range"
-                )
-
-                if period == .custom {
-                    customRangePicker
-                }
-            }
-        }
-        .padding(.horizontal, 26)
-        .padding(.top, 28)
-        .padding(.bottom, 20)
     }
 
     private var customRangePicker: some View {
@@ -121,24 +102,21 @@ struct AnalyticsView: View {
 
     private var dashboard: some View {
         ScrollView {
-            // Bands on the page separated by hairlines, as on Focus, rather
-            // than a grid of boxed panels.
+            // Bands on the page divided by hairlines, as on Focus.
             VStack(spacing: 0) {
-                metrics
                 FLRule()
-                focusTrend
+                metrics.flBand(vertical: 18)
+                FLRule()
+                focusTrend.flBand()
                 FLRule()
 
-                HStack(alignment: .top, spacing: 0) {
+                HStack(alignment: .top, spacing: FLLayout.columnGap) {
                     weekdayPattern
-                        .padding(.trailing, 22)
-                    Rectangle()
-                        .fill(Color.flHairline)
-                        .frame(width: 1)
+                    FLColumnRule()
                     outcomes
-                        .padding(.leading, 22)
                 }
                 .fixedSize(horizontal: false, vertical: true)
+                .flBand()
 
                 FLRule()
 
@@ -148,90 +126,44 @@ struct AnalyticsView: View {
                 )
                 .font(FLTypography.caption)
                 .foregroundStyle(Color.flInkSoft)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(.top, 14)
+                .flBand(vertical: 14)
             }
-            .padding(.horizontal, 26)
-            .padding(.bottom, 26)
         }
+        .flScrollEdges(top: 0)
     }
 
     private var metrics: some View {
-        HStack(spacing: 16) {
-            metric(
+        HStack(spacing: 20) {
+            FLFigure(
+                label: "Focused",
                 value: formatted(minutes: analytics.totalFocusMinutes),
-                label: "focused",
                 detail: period.detail
             )
-
-            metricDivider
-
-            metric(
+            FLColumnRule()
+            FLFigure(
+                label: analytics.completedSessions == 1 ? "Session" : "Sessions",
                 value: "\(analytics.completedSessions)",
-                label: analytics.completedSessions == 1 ? "session" : "sessions",
                 detail: "completed"
             )
-
-            metricDivider
-
-            metric(
+            FLColumnRule()
+            FLFigure(
+                label: "Daily average",
                 value: formatted(minutes: dailyAverage),
-                label: "daily average",
                 detail: "over \(daysInRange) day\(daysInRange == 1 ? "" : "s")"
             )
-
-            metricDivider
-
-            metric(
+            FLColumnRule()
+            FLFigure(
+                label: "Completion",
                 value: analytics.completionRate.formatted(.percent.precision(.fractionLength(0))),
-                label: "completion",
                 detail: "\(analytics.outcomes.total) total attempts"
             )
         }
-        .padding(.bottom, 20)
-    }
-
-    private func metric(value: String, label: String, detail: String) -> some View {
-        VStack(alignment: .leading, spacing: 2) {
-            Text(value)
-                .font(.system(size: 24, design: .serif))
-                .monospacedDigit()
-                .foregroundStyle(Color.flInk)
-                .lineLimit(1)
-                .minimumScaleFactor(0.72)
-
-            Text(label)
-                .font(.system(size: 11.5, weight: .medium))
-                .foregroundStyle(Color.flInk)
-                .lineLimit(1)
-
-            Text(detail)
-                .font(.system(size: 11))
-                .foregroundStyle(Color.flInkSoft)
-                .lineLimit(1)
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .accessibilityElement(children: .combine)
-    }
-
-    private var metricDivider: some View {
-        Rectangle()
-            .fill(Color.flHairline.opacity(0.65))
-            .frame(width: 1, height: 54)
+        .fixedSize(horizontal: false, vertical: true)
     }
 
     private var focusTrend: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            HStack(alignment: .firstTextBaseline) {
-                VStack(alignment: .leading, spacing: 3) {
-                    FLMicroLabel(text: "Focus over time")
-                    Text(periodDescription)
-                        .font(FLTypography.caption)
-                        .foregroundStyle(Color.flInkSoft)
-                }
-
-                Spacer()
-
+        VStack(alignment: .leading, spacing: 18) {
+            FLSectionHeader(title: "Focus over time", subtitle: periodDescription) {
                 if let line = referenceLine {
                     HStack(spacing: 6) {
                         Line()
@@ -239,7 +171,7 @@ struct AnalyticsView: View {
                             .frame(width: 18, height: 1)
 
                         Text(line.legend)
-                            .font(.system(size: 10.5))
+                            .font(FLTypography.caption)
                             .foregroundStyle(Color.flInkSoft)
                             .monospacedDigit()
                     }
@@ -265,11 +197,11 @@ struct AnalyticsView: View {
                     )
                     .foregroundStyle(isCurrent(point) ? Color.flAccentDeep : Color.flAccent.opacity(0.62))
                     // Rounded on top only, so bars stand on the baseline.
-                    .clipShape(UnevenRoundedRectangle(topLeadingRadius: 4, topTrailingRadius: 4, style: .continuous))
+                    .clipShape(UnevenRoundedRectangle(topLeadingRadius: 5, topTrailingRadius: 5, style: .continuous))
                     .annotation(position: .top, spacing: 4) {
                         if showsBarValues, point.minutes > 0 {
                             Text(formatted(minutes: point.minutes))
-                                .font(.system(size: 10, weight: isCurrent(point) ? .semibold : .regular))
+                                .font(.system(size: 10.5, weight: isCurrent(point) ? .semibold : .regular))
                                 .foregroundStyle(isCurrent(point) ? Color.flInk : Color.flInkSoft)
                                 .monospacedDigit()
                         }
@@ -287,7 +219,7 @@ struct AnalyticsView: View {
                     AxisValueLabel(anchor: .top) {
                         if let date = value.as(Date.self) {
                             Text(axisLabel(for: date))
-                                .font(.system(size: 9.5, weight: isCurrentPeriod(date) ? .semibold : .regular))
+                                .font(.system(size: 10.5, weight: isCurrentPeriod(date) ? .semibold : .regular))
                                 .foregroundStyle(isCurrentPeriod(date) ? Color.flInk : Color.flInkSoft)
                         }
                     }
@@ -296,18 +228,18 @@ struct AnalyticsView: View {
             .chartYAxis {
                 AxisMarks(position: .leading, values: yAxisValues) { value in
                     AxisGridLine(stroke: StrokeStyle(lineWidth: 0.7))
-                        .foregroundStyle(Color.flHairline.opacity(0.5))
+                        .foregroundStyle(Color.flHairline)
                     AxisValueLabel {
                         if let minutes = value.as(Int.self) {
                             Text(formatted(minutes: minutes))
-                                .font(.system(size: 9.5))
+                                .font(.system(size: 10.5))
                                 .foregroundStyle(Color.flInkSoft)
                                 .monospacedDigit()
                         }
                     }
                 }
             }
-            .frame(height: 184)
+            .frame(height: 200)
             .accessibilityLabel("Focus over time")
             .accessibilityHint("A bar chart of completed focus minutes for \(periodDescription.lowercased()).")
 
@@ -327,16 +259,15 @@ struct AnalyticsView: View {
                 Spacer(minLength: 0)
             }
         }
-        .padding(.vertical, 22)
     }
 
     private func chartFootnote(label: String, value: String) -> some View {
         VStack(alignment: .leading, spacing: 2) {
             Text(label)
-                .font(.system(size: 9.5))
+                .font(FLTypography.micro)
                 .foregroundStyle(Color.flInkSoft)
             Text(value)
-                .font(.system(size: 11.5, weight: .medium))
+                .font(.system(size: 13, weight: .semibold))
                 .foregroundStyle(Color.flInk)
                 .monospacedDigit()
         }
@@ -344,62 +275,54 @@ struct AnalyticsView: View {
     }
 
     private var weekdayPattern: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            VStack(alignment: .leading, spacing: 3) {
-                FLMicroLabel(text: "Weekly pattern")
-                Text("Total focus by weekday")
-                    .font(FLTypography.caption)
-                    .foregroundStyle(Color.flInkSoft)
-            }
+        VStack(alignment: .leading, spacing: 16) {
+            FLSectionHeader(title: "Weekly pattern", subtitle: "Total focus by weekday")
 
-            VStack(spacing: 8) {
+            VStack(spacing: 10) {
                 ForEach(analytics.weekdayFocus) { day in
                     weekdayRow(day)
                 }
             }
         }
-        .padding(.vertical, 22)
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     private func weekdayRow(_ day: WeekdayFocusSummary) -> some View {
-        HStack(spacing: 9) {
+        HStack(spacing: 10) {
             Text(Self.weekdayFormatter.string(from: day.date))
-                .font(.system(size: 10.5, weight: .medium))
+                .font(.system(size: 11.5, weight: .medium))
                 .foregroundStyle(Color.flInkSoft)
-                .frame(width: 28, alignment: .leading)
+                .frame(width: 32, alignment: .leading)
 
             GeometryReader { geometry in
                 ZStack(alignment: .leading) {
                     Capsule()
-                        .fill(Color.flHairline.opacity(0.45))
+                        .fill(Color.flSunken)
 
                     Capsule()
-                        .fill(Color.flAccent.opacity(0.72))
+                        .fill(Color.flAccent.opacity(0.8))
                         .frame(width: weekdayBarWidth(day.minutes, available: geometry.size.width))
                 }
             }
-            .frame(height: 6)
+            .frame(height: 7)
 
             Text(formatted(minutes: day.minutes))
-                .font(.system(size: 10.5, design: .serif))
+                .font(.system(size: 11.5, weight: .medium))
                 .monospacedDigit()
                 .foregroundStyle(day.minutes > 0 ? Color.flInk : Color.flInkSoft)
                 // Wide enough for "124h 30m" once a range runs to months.
                 .frame(width: 62, alignment: .trailing)
         }
-        .frame(height: 13)
+        .frame(height: 15)
         .accessibilityElement(children: .combine)
     }
 
     private var outcomes: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            VStack(alignment: .leading, spacing: 3) {
-                FLMicroLabel(text: "Outcomes")
-                Text("\(analytics.outcomes.total) session attempt\(analytics.outcomes.total == 1 ? "" : "s")")
-                    .font(FLTypography.caption)
-                    .foregroundStyle(Color.flInkSoft)
-            }
+        VStack(alignment: .leading, spacing: 16) {
+            FLSectionHeader(
+                title: "Outcomes",
+                subtitle: "\(analytics.outcomes.total) session attempt\(analytics.outcomes.total == 1 ? "" : "s")"
+            )
 
             outcomeRow(
                 title: "Completed",
@@ -417,9 +340,7 @@ struct AnalyticsView: View {
                 tint: .flClay
             )
 
-            Rectangle()
-                .fill(Color.flHairline.opacity(0.6))
-                .frame(height: 1)
+            FLRule()
                 .padding(.top, 2)
 
             HStack {
@@ -428,7 +349,6 @@ struct AnalyticsView: View {
                 insight(label: "Focused days", value: "\(analytics.activeDays)")
             }
         }
-        .padding(.vertical, 22)
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 
@@ -437,14 +357,14 @@ struct AnalyticsView: View {
             ? 0
             : Double(count) / Double(analytics.outcomes.total)
 
-        return VStack(spacing: 5) {
+        return VStack(spacing: 6) {
             HStack {
                 Text(title)
-                    .font(.system(size: 10.5, weight: .medium))
+                    .font(.system(size: 12, weight: .medium))
                     .foregroundStyle(Color.flInk)
                 Spacer()
                 Text("\(count) · \(fraction.formatted(.percent.precision(.fractionLength(0))))")
-                    .font(.system(size: 10.5))
+                    .font(.system(size: 12))
                     .monospacedDigit()
                     .foregroundStyle(Color.flInkSoft)
             }
@@ -452,14 +372,14 @@ struct AnalyticsView: View {
             GeometryReader { geometry in
                 ZStack(alignment: .leading) {
                     Capsule()
-                        .fill(Color.flHairline.opacity(0.45))
+                        .fill(Color.flSunken)
 
                     Capsule()
                         .fill(tint)
                         .frame(width: max(count > 0 ? 3 : 0, geometry.size.width * fraction))
                 }
             }
-            .frame(height: 6)
+            .frame(height: 7)
         }
         .accessibilityElement(children: .combine)
     }
@@ -467,10 +387,10 @@ struct AnalyticsView: View {
     private func insight(label: String, value: String) -> some View {
         VStack(alignment: .leading, spacing: 2) {
             Text(label)
-                .font(.system(size: 9.5))
+                .font(FLTypography.micro)
                 .foregroundStyle(Color.flInkSoft)
             Text(value)
-                .font(.system(size: 12, weight: .medium))
+                .font(.system(size: 13, weight: .semibold))
                 .monospacedDigit()
                 .foregroundStyle(Color.flInk)
         }
