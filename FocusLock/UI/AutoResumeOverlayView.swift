@@ -32,7 +32,9 @@ struct AutoResumeOverlayView: View {
             Spacer()
 
             VStack(spacing: 20) {
-                FLMicroLabel(text: "Autopilot · next block starts in", tint: .flAccentDeep)
+                Text("Autopilot · next block starts in")
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundStyle(Color.flAccentDeep)
 
                 Text(model.countdown)
                     .font(FLTypography.timerOverlay)
@@ -86,7 +88,9 @@ struct AutoResumeOverlayView: View {
 
     private var topBar: some View {
         HStack {
-            FLMicroLabel(text: AppIdentity.name)
+            Text(AppIdentity.name)
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundStyle(Color.flInkSoft)
 
             Spacer()
 
