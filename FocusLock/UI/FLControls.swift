@@ -1,11 +1,11 @@
 import AppKit
 import SwiftUI
 
-// Controls in the app's own look, so no screen mixes stock AppKit bezels with
-// the palette's capsules and fields.
+// Controls drawn the way macOS draws its own, in the app's moss, so no screen
+// mixes stock bezels painted in the Mac's accent colour with the palette.
 
-/// Capsule segmented control. Replaces `Picker(.segmented)`, whose selection is
-/// painted in the Mac's accent colour rather than the palette's.
+/// Segmented control: a raised white segment on a sunken track, as AppKit
+/// draws one, with arrow keys and VoiceOver to match.
 struct FLSegmentedControl<Option: Hashable>: View {
     let options: [Option]
     @Binding var selection: Option
@@ -29,28 +29,27 @@ struct FLSegmentedControl<Option: Hashable>: View {
                             Circle().fill(Color.flWarningInk).frame(width: 6, height: 6)
                         }
                     }
-                    .font(.system(size: 12.5, weight: isSelected ? .semibold : .regular))
+                    .font(.system(size: 12.5, weight: isSelected ? .semibold : .medium))
                     .foregroundStyle(isSelected ? Color.flTabSelectedInk : Color.flInkSoft)
-                    .padding(.horizontal, 16)
-                    .frame(height: 28)
-                    // The lit chip, as in the tab bar: a selection is a place
-                    // you are, so it doesn't spend the page's one moss fill.
+                    .padding(.horizontal, 14)
+                    .frame(height: 26)
+                    // A selection is a place you are, so it is a raised chip
+                    // rather than the page's one moss fill.
                     .background {
                         if isSelected {
-                            Capsule()
+                            RoundedRectangle(cornerRadius: FLRadius.md, style: .continuous)
                                 .fill(Color.flTabSelected)
-                                .shadow(color: .black.opacity(0.12), radius: 3, y: 1)
+                                .shadow(color: .black.opacity(0.14), radius: 2, y: 1)
                         }
                     }
-                    .contentShape(Capsule())
+                    .contentShape(RoundedRectangle(cornerRadius: FLRadius.md, style: .continuous))
                 }
                 .buttonStyle(.plain)
                 .accessibilityAddTraits(isSelected ? [.isSelected] : [])
             }
         }
-        .padding(3)
-        .background(Capsule().fill(Color.flSunken))
-        .overlay(Capsule().strokeBorder(Color.flHairline, lineWidth: 1))
+        .padding(2)
+        .background(RoundedRectangle(cornerRadius: FLRadius.md + 2, style: .continuous).fill(Color.flSunken))
         .fixedSize()
         // Arrow keys step through the choices, as in a stock segmented control.
         .onMoveCommand { direction in
@@ -79,8 +78,8 @@ struct FLSegmentedControl<Option: Hashable>: View {
     }
 }
 
-/// A dropdown that looks like the app's fields: the value, a chevron, and a
-/// menu of choices. Replaces the stock pop-up button.
+/// A pop-up button: the value, the up-down chevron, and a menu of choices,
+/// drawn as AppKit draws one but without the Mac's accent colour.
 struct FLMenuPicker<Option: Hashable>: View {
     let options: [Option]
     let selection: Option?
@@ -120,12 +119,16 @@ struct FLMenuPicker<Option: Hashable>: View {
                     .foregroundStyle(Color.flInkSoft)
             }
             .padding(.horizontal, 10)
-            .padding(.vertical, 7)
+            .padding(.vertical, 6)
             .frame(width: width)
-            .background(Color.flField, in: RoundedRectangle(cornerRadius: FLRadius.md, style: .continuous))
+            .background(
+                RoundedRectangle(cornerRadius: FLRadius.md, style: .continuous)
+                    .fill(Color.flField)
+                    .shadow(color: .black.opacity(0.05), radius: 1, y: 1)
+            )
             .overlay(
                 RoundedRectangle(cornerRadius: FLRadius.md, style: .continuous)
-                    .strokeBorder(Color.flHairline, lineWidth: 1)
+                    .strokeBorder(Color.flFieldEdge, lineWidth: 1)
             )
             .contentShape(Rectangle())
         }
@@ -188,12 +191,12 @@ struct FLStepperButtons: View {
         HStack(spacing: 0) {
             step(systemImage: "minus", enabled: canDecrement, action: onDecrement)
                 .accessibilityLabel("Decrease \(label.lowercased())")
-            Rectangle().fill(Color.flHairline).frame(width: 1, height: 16)
+            Rectangle().fill(Color.flFieldEdge).frame(width: 1, height: 16)
             step(systemImage: "plus", enabled: canIncrement, action: onIncrement)
                 .accessibilityLabel("Increase \(label.lowercased())")
         }
-        .background(Capsule().fill(Color.flField))
-        .overlay(Capsule().strokeBorder(Color.flHairline, lineWidth: 1))
+        .background(RoundedRectangle(cornerRadius: FLRadius.md, style: .continuous).fill(Color.flField))
+        .overlay(RoundedRectangle(cornerRadius: FLRadius.md, style: .continuous).strokeBorder(Color.flFieldEdge, lineWidth: 1))
     }
 
     private func step(systemImage: String, enabled: Bool, action: @escaping () -> Void) -> some View {
@@ -210,19 +213,24 @@ struct FLStepperButtons: View {
     }
 }
 
-/// Small text button in the palette, for inline actions like Save or Test.
+/// Small push button, for inline actions like Save or Test: a raised white
+/// capsule, as a stock push button is.
 struct FLInlineButtonStyle: ButtonStyle {
-    var tint: Color = .flAccentDeep
+    var tint: Color = .flInk
     @Environment(\.isEnabled) private var isEnabled
 
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
-            .font(.system(size: 12, weight: .semibold))
+            .font(.system(size: 12, weight: .medium))
             .foregroundStyle(isEnabled ? tint : Color.flInkSoft.opacity(0.55))
             .padding(.horizontal, 12)
-            .frame(height: 28)
-            .background(Capsule().fill(configuration.isPressed ? Color.flAccentSoft : .clear))
-            .overlay(Capsule().strokeBorder(isEnabled ? tint.opacity(0.35) : Color.flHairline, lineWidth: 1))
+            .frame(height: 26)
+            .background(
+                Capsule()
+                    .fill(configuration.isPressed ? Color.flSunken : Color.flTabSelected)
+                    .shadow(color: .black.opacity(isEnabled ? 0.06 : 0), radius: 1, y: 1)
+            )
+            .overlay(Capsule().strokeBorder(Color.flFieldEdge.opacity(0.8), lineWidth: 1))
             .contentShape(Capsule())
             .animation(FLAnimation.quick, value: configuration.isPressed)
     }
