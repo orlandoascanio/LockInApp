@@ -140,7 +140,7 @@ private struct OnboardingFlow: View {
     private func heading(_ title: String, _ detail: String) -> some View {
         VStack(spacing: FLSpacing.sm) {
             Text(title)
-                .font(.system(size: 30, weight: .regular, design: .serif))
+                .font(.system(size: 28, weight: .bold))
                 .foregroundStyle(Color.flInk)
             Text(detail)
                 .font(.system(size: 14))
@@ -346,7 +346,9 @@ private struct OnboardingFlow: View {
 
                 if !suggestions.frequent.isEmpty {
                     VStack(spacing: FLSpacing.sm) {
-                        FLMicroLabel(text: "Other apps you open a lot")
+                        Text("Other apps you open a lot")
+                            .font(FLTypography.headline)
+                            .foregroundStyle(Color.flInkSoft)
                         appGrid {
                             ForEach(suggestions.frequent) { app in
                                 appChip(name: app.name, bundleId: app.bundleId, url: app.url,
