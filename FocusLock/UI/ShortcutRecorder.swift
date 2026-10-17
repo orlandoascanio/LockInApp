@@ -15,26 +15,22 @@ struct ShortcutRecorder: View {
 
     var body: some View {
         HStack(spacing: 10) {
-            Text(action.title)
-                .font(FLTypography.body)
-                .foregroundStyle(Color.flInk)
-                .frame(width: 150, alignment: .leading)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(action.title)
+                    .font(FLTypography.body)
+                    .foregroundStyle(Color.flInk)
 
-            Button(action: toggleRecording) {
-                Text(label)
-                    .font(.system(size: 12.5, weight: .medium, design: isRecording ? .default : .rounded))
-                    .foregroundStyle(isRecording ? Color.flAccentDeep : (combo == nil ? Color.flInkSoft : Color.flInk))
-                    .frame(minWidth: 120)
-                    .frame(height: 28)
-                    .padding(.horizontal, 10)
-                    .background(Color.flField, in: RoundedRectangle(cornerRadius: FLRadius.md))
-                    .overlay(
-                        RoundedRectangle(cornerRadius: FLRadius.md)
-                            .strokeBorder(isRecording ? Color.flAccentDeep : Color.flHairline, lineWidth: isRecording ? 1.5 : 1)
-                    )
+                if controller.hotkeyFailures.contains(action) {
+                    Text("Another app already uses this")
+                        .font(FLTypography.callout)
+                        .foregroundStyle(Color.flClayInk)
+                } else if let hint {
+                    Text(hint)
+                        .font(FLTypography.callout)
+                        .foregroundStyle(Color.flInkSoft)
+                }
             }
-            .buttonStyle(.plain)
-            .accessibilityLabel("Shortcut for \(action.title): \(label)")
+            .frame(maxWidth: .infinity, alignment: .leading)
 
             if combo != nil && !isRecording {
                 Button {
@@ -48,16 +44,25 @@ struct ShortcutRecorder: View {
                 .accessibilityLabel("Clear the \(action.title) shortcut")
             }
 
-            if controller.hotkeyFailures.contains(action) {
-                Text("Another app already uses this")
-                    .font(FLTypography.caption)
-                    .foregroundStyle(Color.flClayInk)
-            } else if let hint {
-                Text(hint)
-                    .font(FLTypography.caption)
-                    .foregroundStyle(Color.flInkSoft)
+            Button(action: toggleRecording) {
+                Text(label)
+                    .font(.system(size: 12.5, weight: .medium))
+                    .monospacedDigit()
+                    .foregroundStyle(isRecording ? Color.flAccentDeep : (combo == nil ? Color.flInkSoft : Color.flInk))
+                    .frame(minWidth: 120)
+                    .frame(height: 26)
+                    .padding(.horizontal, 10)
+                    .background(Color.flField, in: RoundedRectangle(cornerRadius: FLRadius.md, style: .continuous))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: FLRadius.md, style: .continuous)
+                            .strokeBorder(isRecording ? Color.flAccentDeep : Color.flFieldEdge, lineWidth: isRecording ? 1.5 : 1)
+                    )
             }
+            .buttonStyle(.plain)
+            .accessibilityLabel("Shortcut for \(action.title): \(label)")
         }
+        .padding(.vertical, 9)
+        .frame(minHeight: 44)
         .onDisappear(perform: stopRecording)
     }
 
