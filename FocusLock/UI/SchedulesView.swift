@@ -6,10 +6,13 @@ struct SchedulesView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            header
-
-            if !controller.launchAtLogin, !controller.config.schedules.isEmpty {
-                loginHint
+            FLPageHeader(title: "Schedules", subtitle: subtitle) {
+                Button {
+                    controller.addSchedule()
+                } label: {
+                    Label("Add schedule", systemImage: "plus")
+                }
+                .buttonStyle(FLActionButtonStyle(variant: .primary, minHeight: 34))
             }
 
             if controller.config.schedules.isEmpty {
@@ -21,44 +24,31 @@ struct SchedulesView: View {
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else {
                 ScrollView {
-                    VStack(spacing: 0) {
+                    VStack(alignment: .leading, spacing: 0) {
+                        if !controller.launchAtLogin {
+                            loginHint
+                                .padding(.horizontal, FLLayout.pageInset)
+                                .padding(.bottom, 16)
+                        }
+
                         ForEach(controller.config.schedules) { schedule in
                             FLRule()
                             ScheduleRow(schedule: schedule)
+                                .flBand(vertical: 18)
                         }
+
                         FLRule()
+
                         Text("Inside a window, each break rolls straight into the next block. Stopping a session skips the rest of that window; the next one starts as normal. A block still running when the window closes gets to finish.")
-                            .font(.system(size: 11))
+                            .font(FLTypography.caption)
                             .foregroundStyle(Color.flInkSoft)
                             .fixedSize(horizontal: false, vertical: true)
-                            .padding(.horizontal, 26)
-                            .padding(.vertical, 14)
-                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .flBand(vertical: 14)
                     }
                 }
+                .flScrollEdges(top: 0)
             }
         }
-    }
-
-    private var header: some View {
-        HStack(alignment: .center) {
-            VStack(alignment: .leading, spacing: 3) {
-                Text("Schedules")
-                    .font(FLTypography.display)
-                    .foregroundStyle(Color.flInk)
-                Text(subtitle)
-                    .font(FLTypography.caption)
-                    .foregroundStyle(Color.flInkSoft)
-            }
-            Spacer()
-            Button("＋  Add schedule") {
-                controller.addSchedule()
-            }
-            .buttonStyle(FLActionButtonStyle(variant: .primary, minHeight: 36))
-        }
-        .padding(.horizontal, 26)
-        .padding(.top, 28)
-        .padding(.bottom, 20)
     }
 
     private var subtitle: String {
@@ -74,22 +64,12 @@ struct SchedulesView: View {
     }
 
     private var loginHint: some View {
-        HStack(spacing: 12) {
-            Image(systemName: "power")
-                .foregroundStyle(Color.flWarningInk)
-            Text("Schedules only run while Quietwhile is open.")
-                .font(FLTypography.caption)
-                .foregroundStyle(Color.flInk)
-            Spacer()
+        FLCallout(tone: .warning, systemImage: "power", title: "Schedules only run while Quietwhile is open.") {
             Button("Open Quietwhile at login") {
                 controller.setLaunchAtLogin(true)
             }
-            .buttonStyle(FLLinkButtonStyle())
+            .buttonStyle(FLLinkButtonStyle(tint: .flWarningInk))
         }
-        .padding(12)
-        .background(Color.flWarning.opacity(0.1), in: RoundedRectangle(cornerRadius: FLRadius.lg))
-        .padding(.horizontal, 26)
-        .padding(.bottom, 16)
     }
 }
 
@@ -103,7 +83,8 @@ private struct ScheduleRow: View {
         VStack(alignment: .leading, spacing: 14) {
             HStack(spacing: 12) {
                 TextField("Name", text: binding(\.name))
-                    .flField(width: 180)
+                    .font(.system(size: 15, weight: .semibold))
+                    .flField(width: 220)
 
                 Spacer()
 
@@ -111,21 +92,20 @@ private struct ScheduleRow: View {
                     FLBadge(text: "On now")
                 }
 
-                Toggle("", isOn: binding(\.isEnabled))
-                    .toggleStyle(.switch)
-                    .tint(Color.flAccentDeep)
-                    .labelsHidden()
-                    .accessibilityLabel("Enable \(schedule.name)")
-
                 Button {
                     controller.requestRemoveSchedule(schedule)
                 } label: {
                     Image(systemName: "trash")
+                        .font(.system(size: 12.5))
                         .foregroundStyle(Color.flClayInk)
+                        .frame(width: 28, height: 28)
+                        .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
                 .help("Delete \(schedule.name)")
                 .accessibilityLabel("Delete \(schedule.name)")
+
+                FLSwitch(isOn: binding(\.isEnabled), label: "Enable \(schedule.name)")
             }
 
             HStack(spacing: 6) {
@@ -143,26 +123,19 @@ private struct ScheduleRow: View {
                 Spacer()
             }
 
-            HStack(alignment: .top, spacing: FLSpacing.md) {
+            HStack(alignment: .center, spacing: FLSpacing.md) {
                 VStack(alignment: .leading, spacing: 2) {
                     Text("Strict blocks")
                         .font(FLTypography.body)
                         .foregroundStyle(Color.flInk)
                     Text("No ending, skipping, or quitting during this schedule's focus blocks.")
-                        .font(FLTypography.caption)
+                        .font(FLTypography.callout)
                         .foregroundStyle(Color.flInkSoft)
                 }
                 Spacer(minLength: FLSpacing.md)
-                Toggle("", isOn: binding(\.strict))
-                    .toggleStyle(.switch)
-                    .tint(Color.flAccentDeep)
-                    .labelsHidden()
-                    .accessibilityLabel("Strict blocks for \(schedule.name)")
+                FLSwitch(isOn: binding(\.strict), label: "Strict blocks for \(schedule.name)")
             }
-            .frame(maxWidth: 560, alignment: .leading)
         }
-        .padding(.horizontal, 26)
-        .padding(.vertical, 18)
         .opacity(schedule.isEnabled ? 1 : 0.6)
     }
 
@@ -185,11 +158,10 @@ private struct ScheduleRow: View {
             controller.updateSchedule(updated)
         } label: {
             Text(symbol)
-                .font(.system(size: 12, weight: isOn ? .semibold : .regular))
-                .foregroundStyle(isOn ? Color.flCanvas : Color.flInkSoft)
+                .font(.system(size: 12, weight: isOn ? .semibold : .medium))
+                .foregroundStyle(isOn ? Color.flOnAccent : Color.flInkSoft)
                 .frame(width: 44, height: 26)
                 .background(Capsule().fill(isOn ? Color.flAccentDeep : Color.flSunken))
-                .overlay(Capsule().strokeBorder(isOn ? .clear : Color.flHairline, lineWidth: 1))
                 .contentShape(Capsule())
         }
         .buttonStyle(.plain)
