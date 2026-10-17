@@ -211,7 +211,7 @@ private struct BreathingGuide: View {
                         Circle()
                             .strokeBorder(Color.flRest.opacity(0.55), lineWidth: 2)
                         Text("4·4·4·4")
-                            .font(.system(size: 13, design: .serif))
+                            .font(.system(size: 13, weight: .semibold))
                             .foregroundStyle(Color.flRestInk)
                     } else {
                         Circle()
