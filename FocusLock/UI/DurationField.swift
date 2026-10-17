@@ -24,7 +24,7 @@ struct FLDurationField: View {
                 .foregroundStyle(Color.flInkSoft)
 
             TextField("Duration", text: $text)
-                .font(.system(size: 15, design: .serif))
+                .font(.system(size: 14, weight: .semibold))
                 .multilineTextAlignment(.leading)
                 .focused($isFocused)
                 .flField(width: 64, focused: isFocused)
