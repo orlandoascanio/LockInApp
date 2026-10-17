@@ -8,15 +8,13 @@ struct BreakEndedOverlayView: View {
     var body: some View {
         VStack(spacing: 0) {
             VStack(spacing: 18) {
-                FLMicroLabel(text: "Break ended", tint: .flAccentDeep)
+                Text("Break ended")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(Color.flAccentDeep)
 
                 Text("Back to it.")
-                    .font(FLTypography.timer(44))
+                    .font(.system(size: 34, weight: .bold))
                     .foregroundStyle(Color.flInk)
-
-                Rectangle()
-                    .fill(Color.flAccentDeep)
-                    .frame(width: 36, height: 2)
 
                 Text("You rested. The next block is the one that counts.")
                     .font(.system(size: 14))
@@ -26,17 +24,19 @@ struct BreakEndedOverlayView: View {
             .padding(.top, 40)
             .padding(.bottom, 32)
 
-            HStack(spacing: 22) {
-                Button("Start focus", action: onStartFocus)
-                    .buttonStyle(FLActionButtonStyle(variant: .primary, minHeight: 44))
-                    .keyboardShortcut(.defaultAction)
+            HStack(spacing: 10) {
+                Button("End cycle", action: onEndCycle)
+                    .buttonStyle(FLActionButtonStyle(variant: .destructiveQuiet, minHeight: 40))
+                    .keyboardShortcut(.cancelAction)
+
+                Spacer()
 
                 Button("5 more minutes", action: onSnooze)
-                    .buttonStyle(FLLinkButtonStyle(tint: .flInkSoft))
+                    .buttonStyle(FLActionButtonStyle(variant: .secondary, minHeight: 40))
 
-                Button("End cycle", action: onEndCycle)
-                    .buttonStyle(FLLinkButtonStyle(tint: .flClayInk))
-                    .keyboardShortcut(.cancelAction)
+                Button("Start focus", action: onStartFocus)
+                    .buttonStyle(FLActionButtonStyle(variant: .primary, minHeight: 40))
+                    .keyboardShortcut(.defaultAction)
             }
             .padding(.bottom, 38)
         }
