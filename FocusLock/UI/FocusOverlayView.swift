@@ -87,12 +87,14 @@ struct FocusOverlayView: View {
 
     private var topBar: some View {
         HStack {
-            FLMicroLabel(text: AppIdentity.name)
+            Text(AppIdentity.name)
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundStyle(Color.flInkSoft)
 
             Spacer()
 
             Text("\(model.countdown) remaining")
-                .font(.system(size: 12, design: .serif))
+                .font(.system(size: 12, weight: .medium))
                 .monospacedDigit()
                 .foregroundStyle(Color.flInkSoft)
                 .accessibilityLabel("\(model.countdown) remaining in this focus block")
