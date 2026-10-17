@@ -92,155 +92,164 @@ struct MainWindowView: View {
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         }
-        .background(PageWashBackground(
-            page: controller.page,
-            isBreak: controller.page == .focus && controller.snapshot.phase == .break
-        ))
-    }
-}
-
-// MARK: - Page wash
-
-/// Every page's wash stacked, the current one shown, so switching pages
-/// crossfades from one colour to the next.
-private struct PageWashBackground: View {
-    let page: MainPage
-    /// A break turns the Focus page slate: rest, never more focus.
-    var isBreak = false
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
-
-    var body: some View {
-        ZStack {
-            ForEach(MainPage.allCases) { candidate in
-                wash(candidate.wash)
-                    .opacity(candidate == page && !isBreak ? 1 : 0)
-            }
-            wash(.restSlate)
-                .opacity(isBreak ? 1 : 0)
-        }
-        // A crossfade is not motion, but with Reduce Motion on it settles
-        // faster so the page doesn't seem to drift. Into a break it takes
-        // its time, like an exhale.
-        .animation(reduceMotion ? .linear(duration: 0.12) : FLAnimation.entrance, value: page)
-        .animation(reduceMotion ? .linear(duration: 0.12) : .easeInOut(duration: 0.9), value: isBreak)
-        .ignoresSafeArea()
-    }
-
-    private func wash(_ wash: FLPageWash) -> some View {
-        LinearGradient(
-            colors: [Color(nsColor: wash.top), Color(nsColor: wash.bottom)],
-            startPoint: .top,
-            endPoint: UnitPoint(x: 0.5, y: 0.7)
-        )
+        // The top bar starts at the window's top edge, so the title shares
+        // the titlebar with the traffic lights.
+        .ignoresSafeArea(.container, edges: .top)
+        // One canvas behind every page, as a Mac window has; the cards on it
+        // carry the structure.
+        .background(Color.flCanvas.ignoresSafeArea())
     }
 }
 
 extension MainPage {
-    var wash: FLPageWash {
-        switch self {
-        case .focus:
-            return .terreVerte
-        case .blockedApps:
-            return .burntSienna
-        case .schedules:
-            return .yellowOchre
-        case .history:
-            return .rawUmber
-        case .analytics:
-            return .paynesGrey
-        case .insights:
-            return .caputMortuum
-        case .settings:
-            return .unbleached
-        }
+    /// Every page with a place in the Window menu, in ⌘1–⌘6 order. Settings
+    /// has ⌘, instead.
+    static let tabs: [MainPage] = [.focus, .blockedApps, .schedules, .history, .analytics, .insights]
+
+    /// The tab bar: four places. Analytics, Insights and History share one
+    /// tab, Stats, and a switcher at the top of each.
+    static let tabBar: [MainPage] = [.focus, .blockedApps, .schedules, .analytics]
+
+    /// The three views of your focus that live under Stats.
+    static let statsPages: [MainPage] = [.analytics, .insights, .history]
+
+    var isStats: Bool {
+        Self.statsPages.contains(self)
     }
 
-    /// The pages with a place in the tab bar. Settings hangs off the gear.
-    static let tabs: [MainPage] = [.focus, .blockedApps, .schedules, .history, .analytics, .insights]
+    /// The tab this page sits under.
+    var tab: MainPage {
+        isStats ? .analytics : self
+    }
+
+    var tabTitle: String {
+        self == .analytics ? "Stats" : title
+    }
+
+    var tabSymbol: String {
+        switch self {
+        case .focus:
+            return "timer"
+        case .blockedApps:
+            return "shield.lefthalf.filled"
+        case .schedules:
+            return "calendar"
+        case .analytics, .insights, .history:
+            return "chart.bar.xaxis"
+        case .settings:
+            return "gearshape"
+        }
+    }
 }
 
 // MARK: - Top bar
 
-/// A pill of tabs centred in the titlebar, with where you stand (session or
-/// streak) and Settings tucked into the right-hand corner.
+/// The window's own title beside the traffic lights, as a titled Mac window
+/// has, and under it a tab bar of four places, with where you stand (session
+/// or streak) and Settings on the right.
 private struct MainTopBar: View {
     @EnvironmentObject private var controller: MenuBarController
     @Namespace private var selection
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    /// Stats opens on whichever of its views you last had.
+    @State private var lastStatsPage: MainPage = .analytics
 
     var body: some View {
-        // Equal flexible sides keep the pill centred and give the corner only
-        // the room beside it, so the status shortens instead of running under
-        // the tabs.
-        HStack(spacing: 12) {
-            Color.clear
-                .frame(maxWidth: .infinity, maxHeight: 1)
-
-            tabPill
-                .fixedSize()
-
-            HStack(spacing: 8) {
-                Spacer(minLength: 0)
-                statusPill
-                settingsButton
+        VStack(spacing: 0) {
+            // The titlebar row. AppKit's own title is hidden, because it
+            // would be centred over the tabs; this one sits where a unified
+            // toolbar puts it.
+            HStack {
+                Text(AppIdentity.name)
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(Color.flInk)
+                    .accessibilityHidden(true)
+                Spacer()
             }
-            .frame(maxWidth: .infinity)
+            .padding(.leading, 80)
+            .frame(height: 32)
+
+            // Equal flexible sides keep the tabs centred and give the corner
+            // only the room beside them, so the status shortens instead of
+            // running under the tabs.
+            HStack(spacing: 12) {
+                Color.clear
+                    .frame(maxWidth: .infinity, maxHeight: 1)
+
+                tabBar
+                    .fixedSize()
+
+                HStack(spacing: 8) {
+                    Spacer(minLength: 0)
+                    statusPill
+                    settingsButton
+                }
+                .frame(maxWidth: .infinity)
+            }
+            .padding(.horizontal, 20)
+            .frame(height: 46)
         }
-        .padding(.horizontal, 16)
-        .padding(.top, 10)
-        .frame(height: 58)
+        .onChange(of: controller.page) { _, page in
+            if page.isStats { lastStatsPage = page }
+        }
     }
 
     // MARK: Tabs
 
-    private var tabPill: some View {
+    private var tabBar: some View {
         HStack(spacing: 2) {
-            Image(nsImage: NSApp.applicationIconImage)
-                .resizable()
-                .interpolation(.high)
-                .frame(width: 26, height: 26)
-                .padding(.horizontal, 5)
-                .accessibilityHidden(true)
-
-            ForEach(MainPage.tabs) { page in
+            ForEach(MainPage.tabBar) { page in
                 tab(page)
             }
         }
-        .padding(4)
-        .background(Capsule().fill(Color.flInk.opacity(0.06)))
-        .overlay(Capsule().strokeBorder(Color.flHairline.opacity(0.7), lineWidth: 1))
+        .padding(3)
+        .background(
+            Capsule()
+                .fill(Color.flSunken)
+        )
         .onMoveCommand { direction in
-            let tabs = MainPage.tabs
-            guard let index = tabs.firstIndex(of: controller.page) else { return }
+            let tabs = MainPage.tabBar
+            guard let index = tabs.firstIndex(of: controller.page.tab) else { return }
             switch direction {
-            case .left where index > 0: controller.page = tabs[index - 1]
-            case .right where index < tabs.count - 1: controller.page = tabs[index + 1]
+            case .left where index > 0: select(tabs[index - 1])
+            case .right where index < tabs.count - 1: select(tabs[index + 1])
             default: break
             }
         }
-        // One picker of pages for VoiceOver, "Focus, 1 of 5", not five buttons.
+        // One picker of pages for VoiceOver, "Focus, 1 of 4", not four buttons.
         .accessibilityRepresentation {
-            Picker("Page", selection: Binding(get: { controller.page }, set: { controller.page = $0 })) {
-                ForEach(MainPage.tabs) { page in
-                    Text(page.title).tag(page)
+            Picker("Page", selection: Binding(get: { controller.page.tab }, set: { select($0) })) {
+                ForEach(MainPage.tabBar) { page in
+                    Text(page.tabTitle).tag(page)
                 }
             }
             .pickerStyle(.segmented)
         }
         // The chip slides between tabs; with Reduce Motion it just moves.
-        .animation(reduceMotion ? nil : .spring(response: 0.32, dampingFraction: 0.86), value: controller.page)
+        .animation(reduceMotion ? nil : FLAnimation.move, value: controller.page.tab)
+    }
+
+    private func select(_ page: MainPage) {
+        if page == .analytics {
+            if !controller.page.isStats { controller.page = lastStatsPage }
+        } else {
+            controller.page = page
+        }
     }
 
     private func tab(_ page: MainPage) -> some View {
-        let isSelected = controller.page == page
+        let isSelected = controller.page.tab == page
         let needsAnswer = page == .blockedApps && controller.browserPermissionProblem != nil
 
         return Button {
-            controller.page = page
+            select(page)
         } label: {
-            HStack(spacing: 5) {
-                Text(page.title)
-                    .font(.system(size: 12.5, weight: .semibold))
+            HStack(spacing: 6) {
+                Image(systemName: page.tabSymbol)
+                    .font(.system(size: 12, weight: .semibold))
+                    .frame(width: 16)
+                Text(page.tabTitle)
+                    .font(.system(size: 13, weight: .semibold))
 
                 if needsAnswer {
                     Circle()
@@ -250,7 +259,7 @@ private struct MainTopBar: View {
                 }
             }
             .foregroundStyle(isSelected ? Color.flTabSelectedInk : Color.flInkSoft)
-            .padding(.horizontal, 13)
+            .padding(.horizontal, 14)
             .frame(height: 30)
             .background {
                 if isSelected {
@@ -268,8 +277,8 @@ private struct MainTopBar: View {
 
     // MARK: Corner
 
-    /// Where you stand, set as type rather than a badge: the number in the
-    /// serif the dial uses, the words around it small.
+    /// Where you stand: the figure in the weight the eye lands on, the words
+    /// around it secondary.
     private var statusPill: some View {
         Button {
             controller.page = .focus
@@ -298,18 +307,18 @@ private struct MainTopBar: View {
         HStack(alignment: .firstTextBaseline, spacing: 5) {
             if let before = status.before {
                 Text(before)
-                    .font(.system(size: 11.5, weight: .semibold))
+                    .font(.system(size: 12, weight: .semibold))
                     .foregroundStyle(status.tint)
             }
             if let figure = status.figure {
                 Text(figure)
-                    .font(.system(size: 17, weight: .regular, design: .serif))
+                    .font(.system(size: 13, weight: .bold))
                     .monospacedDigit()
                     .foregroundStyle(Color.flInk)
             }
             if let after {
                 Text(after)
-                    .font(.system(size: 11.5))
+                    .font(.system(size: 12))
                     .foregroundStyle(Color.flInkSoft)
             }
         }
@@ -376,19 +385,52 @@ private struct MainTopBar: View {
             controller.page = .settings
         } label: {
             Image(systemName: "gearshape")
-                .font(.system(size: 13, weight: .medium))
+                .font(.system(size: 14, weight: .medium))
                 .foregroundStyle(isSelected ? Color.flTabSelectedInk : Color.flInkSoft)
-                .frame(width: 30, height: 30)
+                .frame(width: 32, height: 32)
                 .background(
-                    Circle().fill(isSelected ? Color.flTabSelected : Color.flInk.opacity(0.06))
+                    Circle()
+                        .fill(isSelected ? Color.flTabSelected : Color.flSunken)
+                        .shadow(color: .black.opacity(isSelected ? 0.12 : 0), radius: 3, y: 1)
                 )
-                .overlay(Circle().strokeBorder(Color.flHairline.opacity(isSelected ? 0 : 0.7), lineWidth: 1))
                 .contentShape(Circle())
         }
         .buttonStyle(.plain)
-        .help("Settings")
+        .help("Settings (⌘,)")
         .accessibilityLabel("Settings")
         .accessibilityAddTraits(isSelected ? [.isSelected] : [])
+    }
+}
+
+/// The header the three Stats pages share: the title, a switcher between
+/// Analytics, Insights and History, and the open page's own controls.
+struct StatsHeader<Trailing: View>: View {
+    @EnvironmentObject private var controller: MenuBarController
+    @ViewBuilder var trailing: () -> Trailing
+
+    var body: some View {
+        HStack(alignment: .bottom, spacing: FLSpacing.md) {
+            VStack(alignment: .leading, spacing: 12) {
+                Text("Stats")
+                    .font(FLTypography.largeTitle)
+                    .foregroundStyle(Color.flInk)
+                    .accessibilityAddTraits(.isHeader)
+
+                FLSegmentedControl(
+                    options: MainPage.statsPages,
+                    selection: Binding(get: { controller.page }, set: { controller.page = $0 }),
+                    title: \.title,
+                    accessibilityLabel: "Stats view"
+                )
+            }
+
+            Spacer(minLength: FLSpacing.md)
+
+            trailing()
+        }
+        .padding(.horizontal, FLLayout.pageInset)
+        .padding(.top, 14)
+        .padding(.bottom, 18)
     }
 }
 
@@ -405,39 +447,38 @@ struct FocusPageView: View {
                 if showsBreakPanel {
                     FLRule()
                     BreakPanel(showsGuide: !isOnBreak)
+                        .flBand()
                 }
 
                 if let recap = controller.lastRecap, !controller.isSessionActive,
                    controller.snapshot.phase != .breakEnded {
                     FLRule()
                     RecapCard(recap: recap)
+                        .flBand(vertical: 18)
                 }
 
                 FLRule()
 
-                weeklyRhythm
-
-                FLRule()
-
-                TodayBlocks()
+                // The week and the day side by side, a hairline between.
+                HStack(alignment: .top, spacing: FLLayout.columnGap) {
+                    weeklyRhythm
+                        .frame(maxWidth: .infinity, alignment: .topLeading)
+                    FLColumnRule()
+                    TodayBlocks()
+                        .frame(maxWidth: .infinity, alignment: .topLeading)
+                }
+                .fixedSize(horizontal: false, vertical: true)
+                .flBand()
             }
-            .padding(.bottom, Self.fadeHeight)
+            .padding(.bottom, 12)
         }
-        // The page runs on below the fold; a soft edge says so.
-        .mask(
-            VStack(spacing: 0) {
-                Color.black
-                LinearGradient(colors: [.black, .clear], startPoint: .top, endPoint: .bottom)
-                    .frame(height: Self.fadeHeight)
-            }
-        )
+        .flScrollEdges()
         .sheet(isPresented: $showingEscape) {
             StrictEscapeSheet()
                 .environmentObject(controller)
         }
     }
 
-    private static let fadeHeight: CGFloat = 28
 
     @State private var showingEscape = false
     /// While the goal is being typed, Return belongs to the text field.
@@ -463,13 +504,13 @@ struct FocusPageView: View {
 
     // MARK: Hero
     //
-    // The time on the left; on the right, the block read top to bottom the
-    // way you set it up: how long, what for, what it guards, then the one
-    // button that commits to it and what that commitment means.
+    // One card: the time on the left; on the right, the block read top to
+    // bottom the way you set it up: how long, what for, what it guards, then
+    // the one button that commits to it and what that commitment means.
 
     private var hero: some View {
-        HStack(alignment: .center, spacing: 44) {
-            VStack(spacing: 16) {
+        HStack(alignment: .center, spacing: 36) {
+            VStack(spacing: 18) {
                 FocusDial(
                     phaseLabel: phaseLabel,
                     countdown: controller.displayCountdown,
@@ -485,8 +526,9 @@ struct FocusPageView: View {
                     isRunning: controller.isSessionActive
                 )
             }
+            .frame(maxWidth: .infinity)
 
-            VStack(alignment: .leading, spacing: 20) {
+            VStack(alignment: .leading, spacing: 16) {
                 if isOnBreak {
                     // The break is the thing to do now; the next block can
                     // wait until it's over.
@@ -502,19 +544,12 @@ struct FocusPageView: View {
                 if controller.offersFirstDistraction {
                     FirstDistractionPrompt()
                 } else {
-                    guardLine
-                }
-
-                if !isOnBreak {
-                    WebsiteProtectionAvailabilityNote(permissions: controller.permissions)
-                }
-
-                if let browser = controller.browserPermissionProblem, !controller.config.blockedSites.isEmpty {
-                    unguardedBrowserWarning(browser)
+                    guardCell
                 }
 
                 if !controller.offersFirstDistraction {
                     commitBlock
+                        .padding(.top, 2)
                 }
 
                 if controller.snapshot.phase == .focus {
@@ -523,17 +558,16 @@ struct FocusPageView: View {
 
                 if let message = controller.focusMessage {
                     Text(message)
-                        .font(FLTypography.caption)
+                        .font(FLTypography.callout)
                         .foregroundStyle(Color.flClayInk)
                         .fixedSize(horizontal: false, vertical: true)
                 }
             }
-            .frame(width: 440, alignment: .leading)
+            .frame(width: 420, alignment: .leading)
         }
-        .padding(.horizontal, 26)
-        .padding(.top, 18)
-        .padding(.bottom, 28)
-        .frame(maxWidth: .infinity)
+        .padding(.horizontal, FLLayout.pageInset)
+        .padding(.top, 14)
+        .padding(.bottom, 30)
     }
 
     private var beadTotal: Int {
@@ -637,9 +671,8 @@ struct FocusPageView: View {
             }
             .foregroundStyle(isOn ? Color.flAccentDeep : Color.flInkSoft)
             .padding(.horizontal, 12)
-            .frame(height: 30)
-            .background(Capsule().fill(isOn ? Color.flAccentSoft.opacity(0.55) : .clear))
-            .overlay(Capsule().strokeBorder(isOn ? Color.flAccentDeep.opacity(0.4) : Color.flHairline, lineWidth: 1))
+            .frame(height: 28)
+            .background(Capsule().fill(isOn ? Color.flAccentSoft : Color.flSunken))
             .contentShape(Capsule())
         }
         .buttonStyle(.plain)
@@ -653,35 +686,59 @@ struct FocusPageView: View {
         .accessibilityAddTraits(.isToggle)
     }
 
-    /// What the block takes away, said before you start it — and that the
-    /// call you are on carries on.
+    /// What the block takes away, said before you start it, in one well:
+    /// the apps, that the call you are on carries on, and anything that
+    /// stops a guard from working.
+    private var guardCell: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            guardLine
+
+            if let browser = controller.browserPermissionProblem, !controller.config.blockedSites.isEmpty {
+                unguardedBrowserWarning(browser)
+            }
+        }
+    }
+
     private var guardLine: some View {
         HStack(spacing: 12) {
             if controller.activeBlockedApps.isEmpty && controller.activeBlockedSites.isEmpty {
+                Image(systemName: "shield")
+                    .font(.system(size: 15))
+                    .foregroundStyle(Color.flInkSoft)
+                    .frame(width: 26)
                 Text(controller.config.blockedApps.isEmpty && controller.config.blockedSites.isEmpty
                      ? "Nothing guarded yet"
                      : "Everything guarded is switched off")
-                    .font(.system(size: 13))
+                    .font(FLTypography.body)
                     .foregroundStyle(Color.flInkSoft)
             } else {
                 if !controller.activeBlockedApps.isEmpty {
                     FLAppPile(apps: controller.activeBlockedApps.map {
                         FLAppPile.BlockedAppSummary(id: $0.bundleId, bundleId: $0.bundleId)
                     })
+                } else {
+                    Image(systemName: "globe")
+                        .font(.system(size: 15))
+                        .foregroundStyle(Color.flAccentDeep)
+                        .frame(width: 26)
                 }
 
                 VStack(alignment: .leading, spacing: 2) {
                     Text(guardedNames)
-                        .font(.system(size: 13, weight: .medium))
+                        .font(.system(size: 13, weight: .semibold))
                         .foregroundStyle(Color.flInk)
                         .lineLimit(1)
                         .truncationMode(.tail)
 
                     Text(guardPromise.text)
-                        .font(FLTypography.caption)
+                        .font(FLTypography.callout)
                         .foregroundStyle(guardPromise.isWarning ? Color.flClayInk : Color.flInkSoft)
-                        .lineLimit(2)
-                        .fixedSize(horizontal: false, vertical: true)
+                        .lineLimit(1)
+                        .truncationMode(.tail)
+
+                    if !isOnBreak {
+                        WebsiteProtectionAvailabilityNote(permissions: controller.permissions)
+                    }
                 }
             }
 
@@ -690,16 +747,13 @@ struct FocusPageView: View {
             Button {
                 controller.page = .blockedApps
             } label: {
-                HStack(spacing: 5) {
+                HStack(spacing: 3) {
                     Text(controller.config.blockedApps.isEmpty && controller.config.blockedSites.isEmpty ? "Add" : "Manage")
-                        .font(.system(size: 12, weight: .medium))
                     Image(systemName: "chevron.right")
-                        .font(.system(size: 9, weight: .bold))
+                        .font(.system(size: 10, weight: .semibold))
                 }
-                .foregroundStyle(Color.flAccentDeep)
-                .contentShape(Rectangle())
             }
-            .buttonStyle(.plain)
+            .buttonStyle(FLLinkButtonStyle())
         }
         // `.contain` keeps Manage its own button for VoiceOver.
         .accessibilityElement(children: .contain)
@@ -711,16 +765,19 @@ struct FocusPageView: View {
         if isOnBreak {
             return breakFreedom(apps: apps, sites: sites)
         }
-        var names = apps.prefix(2).joined(separator: ", ")
-        if apps.count > 2 {
-            names += " and \(apps.count - 2) more"
+        // Counts, not a list: the icons beside this already say which apps,
+        // and a list of names runs out of room by the third.
+        var parts: [String] = []
+        switch apps.count {
+        case 0: break
+        case 1: parts.append(apps[0])
+        default: parts.append("\(apps.count) apps")
+        }
+        if sites > 0 {
+            parts.append("\(sites) website\(sites == 1 ? "" : "s")")
         }
         let verb = controller.snapshot.phase == .focus ? "Guarding" : "Guards"
-        var parts: [String] = names.isEmpty ? [] : ["\(verb) \(names)"]
-        if sites > 0 {
-            parts.append("\(sites) site\(sites == 1 ? "" : "s") selected")
-        }
-        return parts.joined(separator: " · ")
+        return "\(verb) " + parts.joined(separator: " and ")
     }
 
     /// "Discord and 2 sites are yours until 1:23 PM": what the break hands
@@ -752,46 +809,34 @@ struct FocusPageView: View {
         }
         switch mode {
         case .guardScreen:
-            return ("Guard Screen · apps keep running, calls keep going", false)
+            return ("Guard Screen · calls keep going", false)
         case .hideOnly:
-            return ("Hide Only · apps keep running, just out of sight", false)
+            return ("Hide Only · apps tucked out of sight", false)
         case .quitApp:
-            return ("Quit App · guarded apps close if opened", false)
+            return ("Quit App · guarded apps close", false)
         }
     }
 
     /// Without the browser's OK, Quietwhile can't see its tabs, so guarded sites
     /// open freely. That must not hide below the fold.
     private func unguardedBrowserWarning(_ browser: SupportedBrowser) -> some View {
-        HStack(alignment: .firstTextBaseline, spacing: 8) {
+        HStack(spacing: 8) {
             Image(systemName: "exclamationmark.triangle.fill")
-                .font(.system(size: 11))
+                .font(.system(size: 11.5))
                 .foregroundStyle(Color.flWarningInk)
 
-            Text("Websites aren’t guarded in \(browser.displayName) yet. It needs your OK first.")
-                .font(.system(size: 12.5))
+            Text("Websites aren’t guarded in \(browser.displayName) yet")
+                .font(.system(size: 12, weight: .medium))
                 .foregroundStyle(Color.flInk)
                 .fixedSize(horizontal: false, vertical: true)
 
             Spacer(minLength: FLSpacing.sm)
 
-            Button {
+            Button("Allow…") {
                 controller.page = .blockedApps
-            } label: {
-                HStack(spacing: 5) {
-                    Text("Allow…")
-                        .font(.system(size: 12, weight: .semibold))
-                    Image(systemName: "chevron.right")
-                        .font(.system(size: 9, weight: .bold))
-                }
-                .foregroundStyle(Color.flWarningInk)
-                .contentShape(Rectangle())
             }
-            .buttonStyle(.plain)
+            .buttonStyle(FLLinkButtonStyle(tint: .flWarningInk))
         }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 9)
-        .background(Color.flWarning.opacity(0.12), in: RoundedRectangle(cornerRadius: FLRadius.md, style: .continuous))
     }
 
     // MARK: Commit
@@ -876,12 +921,12 @@ struct FocusPageView: View {
             Button("Start strict block") {
                 controller.startFocus()
             }
-            .buttonStyle(FLActionButtonStyle(variant: .primary, minHeight: 44))
+            .buttonStyle(FLActionButtonStyle(variant: .primary, minHeight: 44, fullWidth: true))
         } else {
             Button("Start focus") {
                 controller.startFocus()
             }
-            .buttonStyle(FLActionButtonStyle(variant: .primary, minHeight: 44))
+            .buttonStyle(FLActionButtonStyle(variant: .primary, minHeight: 44, fullWidth: true))
             .keyboardShortcut(isTypingGoal ? nil : .defaultAction)
         }
     }
@@ -966,16 +1011,12 @@ struct FocusPageView: View {
     // MARK: Weekly rhythm
 
     private var weeklyRhythm: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            HStack(alignment: .firstTextBaseline, spacing: 8) {
-                FLMicroLabel(text: "Last 7 days")
-                Text("· \(formatted(minutes: controller.recentSummary.totalMinutes))")
-                    .font(FLTypography.caption.weight(.semibold))
+        VStack(alignment: .leading, spacing: 18) {
+            FLSectionHeader(title: "Last 7 days", subtitle: controller.recentSummary.detail) {
+                Text(formatted(minutes: controller.recentSummary.totalMinutes))
+                    .font(.system(size: 15, weight: .semibold))
+                    .monospacedDigit()
                     .foregroundStyle(Color.flInk)
-                Spacer()
-                Text(controller.recentSummary.detail)
-                    .font(FLTypography.caption)
-                    .foregroundStyle(Color.flInkSoft)
             }
 
             FLWeeklyRhythm(
@@ -994,8 +1035,6 @@ struct FocusPageView: View {
                 goalMinutes: controller.config.dailyFocusGoalMinutes
             )
         }
-        .padding(.horizontal, 26)
-        .padding(.vertical, 20)
     }
 
     private static func dayName(_ date: Date) -> String {
