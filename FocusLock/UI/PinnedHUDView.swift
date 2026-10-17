@@ -71,7 +71,7 @@ struct PinnedHUDView: View {
         // Everything but the buttons lets clicks through to this, so the HUD
         // drags from anywhere else and right-clicks open its menu.
         .background(WindowDragHandle(menu: menu))
-        .background(shape.fill(Color.flCanvas))
+        .background(shape.fill(Color.flSurface).shadow(color: .black.opacity(0.14), radius: 8, y: 3))
         .overlay(shape.fill(model.tone.tint.opacity(0.18 * pulse)).allowsHitTesting(false))
         .overlay(
             shape
@@ -127,7 +127,9 @@ struct PinnedHUDView: View {
                 .allowsHitTesting(false)
 
             VStack(alignment: .leading, spacing: 2) {
-                FLMicroLabel(text: model.phaseLabel, tint: model.tone == .focus ? model.tone.tint : model.tone.digits)
+                Text(model.phaseLabel)
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(model.tone == .focus ? model.tone.tint : model.tone.digits)
                     .fixedSize()
 
                 if let goal = model.goal {
