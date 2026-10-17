@@ -21,7 +21,14 @@ struct InsightsView: View {
     var body: some View {
         let insights = insights
         VStack(alignment: .leading, spacing: 0) {
-            header
+            StatsHeader {
+                FLSegmentedControl(
+                    options: InsightsRange.allCases,
+                    selection: $range,
+                    title: \.title,
+                    accessibilityLabel: "Insights time range"
+                )
+            }
 
             if controller.history.isEmpty {
                 FLEmptyState(
@@ -44,77 +51,51 @@ struct InsightsView: View {
             } else {
                 ScrollView {
                     VStack(spacing: 0) {
-                        headline(insights)
                         FLRule()
-                        pulls(insights)
+                        headline(insights).flBand()
                         FLRule()
-                        HStack(alignment: .top, spacing: 0) {
+                        pulls(insights).flBand()
+                        FLRule()
+                        HStack(alignment: .top, spacing: FLLayout.columnGap) {
                             dayparts(insights)
-                                .padding(.trailing, 22)
-                            Rectangle().fill(Color.flHairline).frame(width: 1)
+                            FLColumnRule()
                             lengths(insights)
-                                .padding(.leading, 22)
                         }
                         .fixedSize(horizontal: false, vertical: true)
+                        .flBand()
                         FLRule()
-                        goals(insights)
+                        goals(insights).flBand()
                         FLRule()
-                        whereFocusWent(insights)
+                        whereFocusWent(insights).flBand()
                         FLRule()
-                        footer
+                        footer.flBand(vertical: 14)
                     }
-                    .padding(.horizontal, 26)
-                    .padding(.bottom, 26)
                 }
+                .flScrollEdges(top: 0)
             }
         }
-    }
-
-    // MARK: Header
-
-    private var header: some View {
-        HStack(alignment: .center, spacing: FLSpacing.lg) {
-            VStack(alignment: .leading, spacing: 3) {
-                Text("Insights")
-                    .font(FLTypography.display)
-                    .foregroundStyle(Color.flInk)
-                Text("What your own blocks say about how focus goes for you.")
-                    .font(FLTypography.caption)
-                    .foregroundStyle(Color.flInkSoft)
-            }
-            Spacer(minLength: FLSpacing.md)
-            FLSegmentedControl(
-                options: InsightsRange.allCases,
-                selection: $range,
-                title: \.title,
-                accessibilityLabel: "Insights time range"
-            )
-        }
-        .padding(.horizontal, 26)
-        .padding(.top, 28)
-        .padding(.bottom, 20)
     }
 
     // MARK: Headline
 
     private func headline(_ insights: FocusInsights) -> some View {
         VStack(alignment: .leading, spacing: 12) {
-            FLMicroLabel(text: "In \(insights.blocks) block\(insights.blocks == 1 ? "" : "s")")
+            Text("In \(insights.blocks) block\(insights.blocks == 1 ? "" : "s")")
+                .font(FLTypography.micro)
+                .foregroundStyle(Color.flInkSoft)
             if insights.headline.isEmpty {
                 Text("A few more blocks and patterns will start to show. Nothing here is guessed from too little.")
-                    .font(FLTypography.title)
+                    .font(.system(size: 15, weight: .medium))
                     .foregroundStyle(Color.flInkSoft)
                     .fixedSize(horizontal: false, vertical: true)
             } else {
                 ForEach(insights.headline, id: \.self) { line in
                     HStack(alignment: .firstTextBaseline, spacing: 12) {
-                        Circle()
-                            .fill(Color.flAccent)
-                            .frame(width: 6, height: 6)
-                            // Centred on the serif's lowercase letters, not sat on the line.
-                            .alignmentGuide(.firstTextBaseline) { $0[.bottom] + 4 }
+                        Image(systemName: "sparkle")
+                            .font(.system(size: 11, weight: .semibold))
+                            .foregroundStyle(Color.flAccentDeep)
                         Text(line)
-                            .font(FLTypography.title)
+                            .font(.system(size: 15, weight: .medium))
                             .foregroundStyle(Color.flInk)
                             .fixedSize(horizontal: false, vertical: true)
                     }
@@ -122,7 +103,6 @@ struct InsightsView: View {
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(.vertical, 24)
     }
 
     // MARK: What pulls you away
@@ -148,7 +128,6 @@ struct InsightsView: View {
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(.vertical, 22)
     }
 
     private func pullsDetail(_ insights: FocusInsights) -> String {
@@ -211,7 +190,6 @@ struct InsightsView: View {
                 }
             }
         }
-        .padding(.vertical, 22)
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 
@@ -238,7 +216,6 @@ struct InsightsView: View {
                     .fixedSize(horizontal: false, vertical: true)
             }
         }
-        .padding(.vertical, 22)
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 
@@ -250,7 +227,7 @@ struct InsightsView: View {
                     .foregroundStyle(Color.flInk)
                 if let subtitle {
                     Text(subtitle)
-                        .font(.system(size: 10))
+                        .font(.system(size: 10.5))
                         .foregroundStyle(Color.flInkSoft)
                 }
             }
@@ -259,13 +236,13 @@ struct InsightsView: View {
             bar(rate, tint: isBest ? .flAccentDeep : .flAccent.opacity(0.6))
 
             Text(FocusInsights.percent(rate))
-                .font(.system(size: 11.5, design: .serif))
+                .font(.system(size: 12, weight: .semibold))
                 .monospacedDigit()
                 .foregroundStyle(Color.flInk)
                 .frame(width: 36, alignment: .trailing)
 
             Text(trailing)
-                .font(.system(size: 10.5))
+                .font(.system(size: 11))
                 .monospacedDigit()
                 .foregroundStyle(Color.flInkSoft)
                 .frame(width: 92, alignment: .trailing)
@@ -318,7 +295,6 @@ struct InsightsView: View {
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(.vertical, 22)
     }
 
     private func segment(_ count: Int, of total: Int, width: CGFloat, tint: Color) -> some View {
@@ -377,7 +353,6 @@ struct InsightsView: View {
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(.vertical, 22)
     }
 
     private func whereDetail(_ insights: FocusInsights) -> String {
@@ -389,10 +364,9 @@ struct InsightsView: View {
 
     private func shareList(title: String, shares: [FocusInsights.TimeShare], isApp: Bool) -> some View {
         VStack(alignment: .leading, spacing: 9) {
-            Text(title.uppercased())
-                .font(FLTypography.micro)
-                .tracking(1.2)
-                .foregroundStyle(Color.flInkSoft)
+            Text(title)
+                .font(FLTypography.headline)
+                .foregroundStyle(Color.flInk)
             ForEach(shares) { share in
                 HStack(spacing: 10) {
                     if isApp {
@@ -407,7 +381,7 @@ struct InsightsView: View {
                         .frame(width: 120, alignment: .leading)
                     bar(share.share, tint: isApp ? .flAccent : .flRest)
                     Text(FocusInsights.percent(share.share))
-                        .font(.system(size: 11, design: .serif))
+                        .font(.system(size: 11.5, weight: .medium))
                         .monospacedDigit()
                         .foregroundStyle(Color.flInkSoft)
                         .frame(width: 36, alignment: .trailing)
@@ -438,30 +412,25 @@ struct InsightsView: View {
                     Text("Your session history stays. What was reached for, and where focus time went, start over.")
                 }
         }
-        .padding(.top, 14)
+        .padding(.horizontal, 4)
     }
 
     // MARK: Pieces
 
     private func sectionTitle(_ title: String, detail: String) -> some View {
-        VStack(alignment: .leading, spacing: 3) {
-            FLMicroLabel(text: title)
-            Text(detail)
-                .font(FLTypography.caption)
-                .foregroundStyle(Color.flInkSoft)
-        }
+        FLSectionHeader(title: title, subtitle: detail)
     }
 
     private func bar(_ fraction: Double, tint: Color) -> some View {
         GeometryReader { geometry in
             ZStack(alignment: .leading) {
-                Capsule().fill(Color.flHairline.opacity(0.45))
+                Capsule().fill(Color.flSunken)
                 Capsule()
                     .fill(tint)
                     .frame(width: fraction <= 0 ? 0 : max(3, geometry.size.width * min(1, fraction)))
             }
         }
-        .frame(height: 6)
+        .frame(height: 7)
     }
 }
 
