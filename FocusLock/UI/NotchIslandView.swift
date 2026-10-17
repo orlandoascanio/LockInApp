@@ -131,9 +131,8 @@ struct NotchIslandContent: View {
 
             VStack(alignment: .leading, spacing: 5) {
                 HStack(alignment: .center) {
-                    Text(moment.eyebrow.uppercased())
-                        .font(.system(size: 9.5, weight: .semibold))
-                        .tracking(1.4)
+                    Text(moment.eyebrow)
+                        .font(.system(size: 11.5, weight: .semibold))
                         .foregroundStyle(moment.tone.color)
                     Spacer(minLength: 8)
                     if let set = moment.set {
@@ -142,7 +141,7 @@ struct NotchIslandContent: View {
                 }
 
                 Text(moment.title)
-                    .font(.system(size: 21, weight: .regular, design: .serif))
+                    .font(.system(size: 19, weight: .bold))
                     .foregroundStyle(Color.white)
                     .lineLimit(2)
                     .fixedSize(horizontal: false, vertical: true)
