@@ -29,7 +29,9 @@ struct SessionHistoryView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            header
+            StatsHeader {
+                ExportView()
+            }
 
             if controller.history.isEmpty {
                 FLEmptyState(
@@ -39,53 +41,43 @@ struct SessionHistoryView: View {
                 )
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else {
-                HStack(spacing: 10) {
-                    FLMenuPicker(
-                        options: [""] + categories,
-                        selection: selectedCategory,
-                        title: { $0.isEmpty ? "All categories" : $0 },
-                        onSelect: { selectedCategory = $0 },
-                        width: 200,
-                        accessibilityLabel: "Category"
-                    )
-                    Spacer()
-                }.padding(.horizontal, 26).padding(.bottom, 16)
-                summaryRow
-                FLRule()
-                columnHeaders
-                rows
+                VStack(alignment: .leading, spacing: 0) {
+                    FLRule()
+                    summaryRow
+                        .flBand(vertical: 18)
+                    FLRule()
+
+                    HStack(spacing: 10) {
+                        FLMenuPicker(
+                            options: [""] + categories,
+                            selection: selectedCategory,
+                            title: { $0.isEmpty ? "All categories" : $0 },
+                            onSelect: { selectedCategory = $0 },
+                            width: 200,
+                            accessibilityLabel: "Category"
+                        )
+                        Spacer()
+                        Text(countLine)
+                            .font(FLTypography.callout)
+                            .foregroundStyle(Color.flInkSoft)
+                    }
+                    .padding(.horizontal, FLLayout.pageInset)
+                    .padding(.top, 14)
+                    .padding(.bottom, 10)
+
+                    columnHeaders
+                    rows
+                }
             }
 
             if let message = controller.exportMessage {
-                FLRule()
                 Text(message)
                     .font(FLTypography.caption)
                     .foregroundStyle(Color.flInkSoft)
-                    .padding(.horizontal, 26)
-                    .padding(.vertical, 10)
+                    .padding(.horizontal, FLLayout.pageInset)
+                    .padding(.bottom, 12)
             }
         }
-    }
-
-    private var header: some View {
-        HStack(alignment: .center) {
-            VStack(alignment: .leading, spacing: 3) {
-                Text("History")
-                    .font(FLTypography.display)
-                    .foregroundStyle(Color.flInk)
-
-                Text(countLine)
-                    .font(FLTypography.caption)
-                    .foregroundStyle(Color.flInkSoft)
-            }
-
-            Spacer()
-
-            ExportView()
-        }
-        .padding(.horizontal, 26)
-        .padding(.top, 28)
-        .padding(.bottom, 20)
     }
 
     private var countLine: String {
@@ -95,29 +87,31 @@ struct SessionHistoryView: View {
     }
 
     private var summaryRow: some View {
-        HStack(spacing: FLSpacing.xl) {
+        HStack(spacing: 20) {
             // Nothing yet today: lead with the last day there was something,
             // so coming back opens on what you did rather than four zeros.
             if let last = resumeDay {
                 let day = Self.weekday(last.date)
                 summaryItem(formatted(minutes: last.minutes), "focused \(day)")
+                FLColumnRule()
                 summaryItem("\(last.sessions)", last.sessions == 1 ? "session \(day)" : "sessions \(day)")
             } else {
                 summaryItem(formatted(minutes: stats.focusMinutesToday), "focused today")
+                FLColumnRule()
                 summaryItem("\(stats.sessionsCompletedToday)", "sessions today")
             }
+            FLColumnRule()
             if selectedCategory.isEmpty {
                 summaryItem(formatted(minutes: controller.recentSummary.totalMinutes), "last 7 days")
                 if controller.streak > 0 {
+                    FLColumnRule()
                     summaryItem("\(controller.streak)", "day streak")
                 }
             } else {
                 summaryItem(formatted(minutes: stats.focusMinutesThisWeek), "this week")
             }
-            Spacer()
         }
-        .padding(.horizontal, 26)
-        .padding(.bottom, 22)
+        .fixedSize(horizontal: false, vertical: true)
     }
 
     /// The last day with focus, when today has none and no category is
@@ -140,41 +134,27 @@ struct SessionHistoryView: View {
     }
 
     private func summaryItem(_ value: String, _ label: String) -> some View {
-        VStack(alignment: .leading, spacing: 2) {
-            Text(value)
-                .font(.system(size: 26, design: .serif))
-                .monospacedDigit()
-                .foregroundStyle(Color.flInk)
-
-            Text(label)
-                .font(FLTypography.caption)
-                .foregroundStyle(Color.flInkSoft)
-        }
+        FLFigure(label: label.prefix(1).uppercased() + label.dropFirst(), value: value)
     }
 
     private var columnHeaders: some View {
         HStack(spacing: HistoryTableLayout.columnSpacing) {
-            FLMicroLabel(text: "When")
+            FLColumnLabel(text: "When")
                 .frame(maxWidth: .infinity, alignment: .leading)
 
-            FLMicroLabel(text: "Focus")
+            FLColumnLabel(text: "Focus")
                 .frame(width: HistoryTableLayout.focusWidth, alignment: .leading)
 
-            FLMicroLabel(text: "Outcome")
+            FLColumnLabel(text: "Outcome")
                 .frame(width: HistoryTableLayout.outcomeWidth, alignment: .leading)
 
-            FLMicroLabel(text: "Guarded")
+            FLColumnLabel(text: "Guarded")
                 .frame(width: HistoryTableLayout.guardedWidth, alignment: .trailing)
         }
-        .padding(.horizontal, 26)
-        .padding(.top, 4)
-        .padding(.bottom, 10)
-        // Micro-caps and a hairline, as on Blocked: a header, not a band.
+        .padding(.horizontal, FLLayout.pageInset)
+        .padding(.bottom, 8)
         .overlay(alignment: .bottom) {
-            Rectangle()
-                .fill(Color.flHairline)
-                .frame(height: 1)
-                .padding(.horizontal, 26)
+            FLRule().padding(.horizontal, FLLayout.pageInset)
         }
     }
 
@@ -183,10 +163,9 @@ struct SessionHistoryView: View {
             LazyVStack(spacing: 0) {
                 ForEach(filteredHistory) { entry in
                     HistoryRow(entry: entry, peakMinutes: peakMinutes)
-                    Rectangle()
-                        .fill(Color.flHairline.opacity(0.5))
-                        .frame(height: 1)
-                        .padding(.horizontal, 26)
+                    if entry.id != filteredHistory.last?.id {
+                        FLRowDivider(inset: FLLayout.pageInset)
+                    }
                 }
             }
         }
@@ -228,7 +207,7 @@ private struct HistoryRow: View {
                         .help(task.goal)
                 }
                 if let checkIn = entry.checkIn {
-                    Text(checkIn.outcome.title).font(.caption).foregroundStyle(Color.flAccentDeep)
+                    Text(checkIn.outcome.title).font(.caption).foregroundStyle(checkIn.outcome.tint)
                     if !checkIn.note.isEmpty {
                         Text(checkIn.note).font(.caption).foregroundStyle(Color.flInkSoft)
                             .lineLimit(2).help(checkIn.note)
@@ -243,7 +222,7 @@ private struct HistoryRow: View {
             HStack(spacing: 8) {
                 ZStack(alignment: .leading) {
                     Capsule()
-                        .fill(Color.flHairline.opacity(0.48))
+                        .fill(Color.flSunken)
 
                     Capsule()
                         .fill(tint)
@@ -252,7 +231,7 @@ private struct HistoryRow: View {
                 .frame(width: 44, height: 6)
 
                 Text("\(entry.focusMinutes)m")
-                    .font(.system(size: 12.5, design: .serif))
+                    .font(.system(size: 12.5, weight: .medium))
                     .monospacedDigit()
                     .foregroundStyle(Color.flInk)
             }
@@ -275,14 +254,14 @@ private struct HistoryRow: View {
                     .foregroundStyle(Color.flInkSoft.opacity(0.72))
 
                 Text("\(entry.blockedAppsCount)")
-                    .font(.system(size: 12.5, design: .serif))
+                    .font(.system(size: 12.5, weight: .medium))
                     .monospacedDigit()
                     .foregroundStyle(Color.flInk)
             }
             .frame(width: HistoryTableLayout.guardedWidth, alignment: .trailing)
         }
-        .padding(.horizontal, 26)
-        .padding(.vertical, 12)
+        .padding(.horizontal, FLLayout.pageInset)
+        .padding(.vertical, 11)
         .frame(minHeight: 46)
         .background(isHovered ? Color.flSunken : .clear)
         .contentShape(Rectangle())
