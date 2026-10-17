@@ -4,17 +4,17 @@ struct ExportView: View {
     @EnvironmentObject private var controller: MenuBarController
 
     var body: some View {
-        HStack(spacing: FLSpacing.md) {
+        HStack(spacing: FLSpacing.sm) {
             Button("Export CSV") {
                 controller.exportCSVFromPanel()
             }
-            .buttonStyle(FLLinkButtonStyle())
+            .buttonStyle(FLInlineButtonStyle())
             .accessibilityLabel("Export history as CSV")
 
             Button("Export JSON") {
                 controller.exportJSONFromPanel()
             }
-            .buttonStyle(FLLinkButtonStyle())
+            .buttonStyle(FLInlineButtonStyle())
             .accessibilityLabel("Export history as JSON")
         }
         .disabled(controller.history.isEmpty)
