@@ -14,13 +14,13 @@ struct FocusDial: View {
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
-    private let diameter: CGFloat = 276
-    private let lineWidth: CGFloat = 5
+    private let diameter: CGFloat = 264
+    private let lineWidth: CGFloat = 9
 
     var body: some View {
         ZStack {
             Circle()
-                .stroke(Color.flHairline.opacity(isActive ? 0.9 : 0.6), lineWidth: lineWidth)
+                .stroke(Color.flInk.opacity(0.07), lineWidth: lineWidth)
 
             Circle()
                 .trim(from: 0, to: max(0.0001, min(1, progress)))
@@ -32,14 +32,16 @@ struct FocusDial: View {
                 .opacity(isActive ? 1 : 0)
                 .animation(reduceMotion ? nil : .linear(duration: 0.5), value: progress)
 
-            VStack(spacing: 6) {
-                FLMicroLabel(text: phaseLabel, tint: isBreak ? .flRestInk : isActive ? .flAccentDeep : .flInkSoft)
+            VStack(spacing: 2) {
+                Text(phaseLabel)
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(isBreak ? Color.flRestInk : isActive ? Color.flAccentDeep : Color.flInkSoft)
                     .lineLimit(1)
                     .minimumScaleFactor(0.8)
                     .frame(maxWidth: diameter - 60)
 
                 Text(countdown)
-                    .font(FLTypography.timer(70))
+                    .font(FLTypography.timer(64))
                     .monospacedDigit()
                     .foregroundStyle(Color.flInk)
                     .lineLimit(1)
@@ -68,45 +70,40 @@ struct TodayBlocks: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack {
-                FLMicroLabel(text: "Today")
-                Spacer()
-                if !blocks.isEmpty {
-                    Text("\(blocks.filter { $0.status == .completed }.count) of \(blocks.count) finished")
-                        .font(FLTypography.caption)
-                        .foregroundStyle(Color.flInkSoft)
-                }
-            }
+        VStack(alignment: .leading, spacing: 10) {
+            FLSectionHeader(
+                title: "Today",
+                subtitle: blocks.isEmpty
+                    ? nil
+                    : "\(blocks.filter { $0.status == .completed }.count) of \(blocks.count) finished"
+            )
 
             if blocks.isEmpty {
                 Text("Nothing yet. Your first block of the day shows up here.")
-                    .font(FLTypography.body)
+                    .font(FLTypography.callout)
                     .foregroundStyle(Color.flInkSoft)
-                    .padding(.vertical, 6)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .padding(.vertical, 4)
             } else {
                 VStack(spacing: 0) {
                     ForEach(blocks.suffix(8)) { entry in
                         row(entry)
                         if entry.id != blocks.suffix(8).last?.id {
-                            Rectangle().fill(Color.flHairline.opacity(0.5)).frame(height: 1)
+                            Rectangle().fill(Color.flHairline).frame(height: 1)
                         }
                     }
                 }
             }
         }
-        .padding(.horizontal, 26)
-        .padding(.top, 20)
-        .padding(.bottom, 28)
     }
 
     private func row(_ entry: SessionHistoryEntry) -> some View {
-        HStack(spacing: 14) {
+        HStack(spacing: 12) {
             Text(MenuBarController.shortTime(entry.startedAt))
-                .font(.system(size: 12, design: .serif))
+                .font(.system(size: 12))
                 .monospacedDigit()
                 .foregroundStyle(Color.flInkSoft)
-                .frame(width: 70, alignment: .leading)
+                .frame(width: 62, alignment: .leading)
 
             Circle()
                 .fill(dotColor(entry.status))
@@ -120,7 +117,7 @@ struct TodayBlocks: View {
                 if let outcome = entry.checkIn?.outcome {
                     Text(outcome.title)
                         .font(FLTypography.caption)
-                        .foregroundStyle(Color.flAccentDeep)
+                        .foregroundStyle(outcome.tint)
                 }
             }
 
@@ -134,7 +131,7 @@ struct TodayBlocks: View {
             }
 
             Text(entry.status == .completed ? "\(entry.focusMinutes) min" : entry.status.displayName)
-                .font(.system(size: 12, design: .serif))
+                .font(.system(size: 12, weight: .medium))
                 .monospacedDigit()
                 .foregroundStyle(entry.status == .completed ? Color.flInk : Color.flInkSoft)
         }
@@ -177,7 +174,8 @@ struct FocusGoalBar: View {
                     set: { value in controller.updateTask { $0.goal = String(value.prefix(160)) } }
                 ))
                 .focused($goalFieldFocused)
-                .flField(width: 286, focused: goalFieldFocused)
+                .flField(focused: goalFieldFocused)
+                .frame(maxWidth: .infinity)
                 // Return finishes the goal; a second Return starts the block.
                 .onSubmit { goalFieldFocused = false }
 
@@ -255,8 +253,6 @@ struct BreakPanel: View {
                     .frame(maxWidth: .infinity, alignment: .leading)
             }
         }
-        .padding(.horizontal, 26)
-        .padding(.vertical, 20)
     }
 }
 
@@ -268,7 +264,9 @@ struct BreakSuggestionGuide: View {
     var body: some View {
         if let suggestion = controller.breakSuggestion {
             VStack(alignment: .leading, spacing: 8) {
-                FLMicroLabel(text: "Try this", tint: .flRestInk)
+                Text("Try this")
+                    .font(FLTypography.headline)
+                    .foregroundStyle(Color.flRestInk)
                 BreakGuideView(
                     suggestion: suggestion,
                     breakEndsAt: controller.snapshot.phase == .break ? controller.snapshot.phaseEndsAt : nil,
@@ -306,7 +304,7 @@ private struct CheckInView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
-            FLMicroLabel(text: "How did that block go?")
+            FLSectionLabel(text: "How did that block go?")
             if let goal = entry.task?.goal, !goal.isEmpty {
                 Text(goal)
                     .font(FLTypography.body)
@@ -359,10 +357,12 @@ struct RecapCard: View {
 
     var body: some View {
         HStack(alignment: .top) {
-            VStack(alignment: .leading, spacing: 6) {
-                FLMicroLabel(text: "Last run")
+            VStack(alignment: .leading, spacing: 4) {
+                Text("Last run")
+                    .font(FLTypography.micro)
+                    .foregroundStyle(Color.flInkSoft)
                 Text(recap.headline)
-                    .font(FLTypography.title)
+                    .font(.system(size: 17, weight: .semibold))
                     .foregroundStyle(Color.flInk)
                 if !recap.categories.isEmpty {
                     Text(recap.categories.map { "\($0.name) \(RunRecap.duration($0.minutes))" }.joined(separator: " · "))
@@ -381,8 +381,6 @@ struct RecapCard: View {
             }
             .buttonStyle(FLActionButtonStyle(variant: .secondary, minHeight: 32))
         }
-        .padding(.horizontal, 26)
-        .padding(.vertical, 18)
     }
 }
 
@@ -396,7 +394,9 @@ struct StrictEscapeSheet: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
-            FLMicroLabel(text: "Emergency exit")
+            Text("Emergency exit")
+                .font(FLTypography.micro)
+                .foregroundStyle(Color.flClayInk)
             Text("End this strict block early?")
                 .font(FLTypography.display)
                 .foregroundStyle(Color.flInk)
@@ -431,12 +431,12 @@ struct StrictEscapeSheet: View {
                     .fixedSize(horizontal: false, vertical: true)
 
                 Text(StrictEscape.phrase)
-                    .font(.system(size: 14, weight: .medium, design: .serif))
+                    .font(.system(size: 14, weight: .medium))
                     .foregroundStyle(Color.flInk)
                     .textSelection(.disabled)
                     .padding(12)
                     .frame(maxWidth: .infinity, alignment: .leading)
-                    .background(Color.flCanvasWarm, in: RoundedRectangle(cornerRadius: FLRadius.md))
+                    .background(Color.flSunken, in: RoundedRectangle(cornerRadius: FLRadius.lg, style: .continuous))
 
                 TextField("Type it here", text: $typed)
                     .flField()
@@ -474,5 +474,17 @@ struct StrictEscapeSheet: View {
     private static func format(_ seconds: TimeInterval) -> String {
         let whole = max(0, Int(seconds.rounded(.up)))
         return String(format: "%d:%02d", whole / 60, whole % 60)
+    }
+}
+
+extension CheckInOutcome {
+    /// Done in moss, progress in amber, stuck in clay: how it went, at a
+    /// glance, and never "stuck" in the colour of success.
+    var tint: Color {
+        switch self {
+        case .done: return .flAccentDeep
+        case .progress: return .flWarningInk
+        case .stuck: return .flClayInk
+        }
     }
 }
