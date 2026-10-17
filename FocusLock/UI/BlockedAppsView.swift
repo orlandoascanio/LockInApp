@@ -29,7 +29,6 @@ struct BlockedAppsView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             header
-            tabPicker
 
             if tab == .websites {
                 BlockedSitesSection()
@@ -41,21 +40,25 @@ struct BlockedAppsView: View {
                 )
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else {
-                searchField
-                behaviourNote
-                columnHeaders
-                Rectangle().fill(Color.flHairline).frame(height: 1).padding(.horizontal, 26)
-                appRows
-                Spacer(minLength: 0)
+                VStack(alignment: .leading, spacing: 0) {
+                    VStack(alignment: .leading, spacing: 10) {
+                        searchField
+                        behaviourNote
+                    }
+                    .padding(.horizontal, FLLayout.pageInset)
+                    .padding(.bottom, 18)
+
+                    columnHeaders
+                    appRows
+                }
             }
 
             if let message = controller.settingsMessage {
-                FLRule()
                 Text(message)
                     .font(FLTypography.caption)
                     .foregroundStyle(Color.flInkSoft)
-                    .padding(.horizontal, 26)
-                    .padding(.vertical, 10)
+                    .padding(.horizontal, FLLayout.pageInset)
+                    .padding(.bottom, 12)
             }
         }
         .onAppear {
@@ -66,49 +69,49 @@ struct BlockedAppsView: View {
         }
     }
 
-    private var tabPicker: some View {
-        FLSegmentedControl(
-            options: Tab.allCases,
-            selection: $tab,
-            title: \.rawValue,
-            badge: { $0 == .websites && controller.browserPermissionProblem != nil },
-            accessibilityLabel: "Apps or websites"
-        )
-        .padding(.horizontal, 26)
-        .padding(.bottom, 18)
-    }
-
     private var header: some View {
-        HStack(alignment: .center) {
-            VStack(alignment: .leading, spacing: 3) {
-                Text("Blocked")
-                    .font(FLTypography.display)
-                    .foregroundStyle(Color.flInk)
+        HStack(alignment: .bottom, spacing: FLSpacing.md) {
+            VStack(alignment: .leading, spacing: 12) {
+                VStack(alignment: .leading, spacing: 3) {
+                    Text("Blocked")
+                        .font(FLTypography.largeTitle)
+                        .foregroundStyle(Color.flInk)
+                        .accessibilityAddTraits(.isHeader)
 
-                Text(subtitle)
-                    .font(FLTypography.caption)
-                    .foregroundStyle(Color.flInkSoft)
+                    Text(subtitle)
+                        .font(FLTypography.callout)
+                        .foregroundStyle(Color.flInkSoft)
+                }
+
+                FLSegmentedControl(
+                    options: Tab.allCases,
+                    selection: $tab,
+                    title: \.rawValue,
+                    badge: { $0 == .websites && controller.browserPermissionProblem != nil },
+                    accessibilityLabel: "Apps or websites"
+                )
             }
 
             Spacer()
 
-            if tab == .apps {
-                Button("＋  Add app") {
-                    controller.addBlockedAppFromPanel()
-                }
-                .buttonStyle(FLActionButtonStyle(variant: .primary, minHeight: 36))
-            }
-
             if controller.isStrictLocked {
                 Label("Strict block: you can add, not remove", systemImage: "lock.fill")
-                    .font(FLTypography.caption)
+                    .font(FLTypography.callout)
                     .foregroundStyle(Color.flInkSoft)
-                    .padding(.leading, 12)
+            }
+
+            if tab == .apps {
+                Button {
+                    controller.addBlockedAppFromPanel()
+                } label: {
+                    Label("Add app", systemImage: "plus")
+                }
+                .buttonStyle(FLActionButtonStyle(variant: .primary, minHeight: 34))
             }
         }
-        .padding(.horizontal, 26)
-        .padding(.top, 28)
-        .padding(.bottom, 20)
+        .padding(.horizontal, FLLayout.pageInset)
+        .padding(.top, 14)
+        .padding(.bottom, 18)
     }
 
     private var subtitle: String {
@@ -148,18 +151,15 @@ struct BlockedAppsView: View {
                 .foregroundStyle(Color.flInk)
                 .focused($filterFocused)
         }
-        .padding(.horizontal, 12)
-        .frame(height: 34)
-        .background(Color.flField, in: RoundedRectangle(cornerRadius: FLRadius.md, style: .continuous))
+        .padding(.horizontal, 10)
+        .frame(height: 30)
+        .background(Color.flSunken, in: RoundedRectangle(cornerRadius: FLRadius.md + 1, style: .continuous))
         .overlay(
             // The same moss ring as every other field, not the Mac's accent.
-            RoundedRectangle(cornerRadius: FLRadius.md, style: .continuous)
-                .strokeBorder(filterFocused ? Color.flAccentDeep : Color.flHairline,
-                              lineWidth: filterFocused ? 1.5 : 1)
+            RoundedRectangle(cornerRadius: FLRadius.md + 1, style: .continuous)
+                .strokeBorder(filterFocused ? Color.flAccentDeep : .clear, lineWidth: 1.5)
         )
         .animation(.easeOut(duration: 0.12), value: filterFocused)
-        .padding(.horizontal, 26)
-        .padding(.bottom, 14)
     }
 
     /// What the three behaviours actually do, said where you choose them.
@@ -169,20 +169,21 @@ struct BlockedAppsView: View {
             .font(FLTypography.caption)
             .foregroundStyle(Color.flInkSoft)
             .fixedSize(horizontal: false, vertical: true)
-            .padding(.horizontal, 26)
-            .padding(.bottom, 18)
     }
 
     private var columnHeaders: some View {
         HStack(spacing: 0) {
-            FLMicroLabel(text: "Application").frame(width: 230, alignment: .leading)
-            FLMicroLabel(text: "Behaviour").frame(width: 150, alignment: .leading)
-            FLMicroLabel(text: "Blocked today").frame(width: 120, alignment: .leading)
+            FLColumnLabel(text: "Application").frame(width: 230, alignment: .leading)
+            FLColumnLabel(text: "Behaviour").frame(width: 150, alignment: .leading)
+            FLColumnLabel(text: "Blocked today").frame(width: 120, alignment: .leading)
             Spacer(minLength: 0)
-            FLMicroLabel(text: "Active")
+            FLColumnLabel(text: "Active")
         }
-        .padding(.horizontal, 26)
-        .padding(.bottom, 10)
+        .padding(.horizontal, FLLayout.pageInset)
+        .padding(.bottom, 8)
+        .overlay(alignment: .bottom) {
+            FLRule().padding(.horizontal, FLLayout.pageInset)
+        }
     }
 
     private var appRows: some View {
@@ -190,10 +191,7 @@ struct BlockedAppsView: View {
             LazyVStack(spacing: 0) {
                 ForEach(filteredApps) { app in
                     BlockedAppRow(app: app)
-                    Rectangle()
-                        .fill(Color.flHairline.opacity(0.5))
-                        .frame(height: 1)
-                        .padding(.horizontal, 26)
+                    FLRowDivider(inset: FLLayout.pageInset)
                 }
             }
         }
@@ -254,7 +252,7 @@ private struct BlockedAppRow: View {
                 .frame(width: 150, alignment: .leading)
 
             Text(blockedToday > 0 ? "\(blockedToday)×" : "—")
-                .font(.system(size: 12.5, design: .serif))
+                .font(.system(size: 12.5, weight: .medium))
                 .monospacedDigit()
                 .foregroundStyle(Color.flInkSoft)
                 .frame(width: 120, alignment: .leading)
@@ -279,18 +277,17 @@ private struct BlockedAppRow: View {
                 .help("Remove \(app.name)")
                 .accessibilityLabel("Remove \(app.name)")
 
-                Toggle("", isOn: Binding(
-                    get: { app.isEnabled },
-                    set: { controller.setBlockedApp(app, enabled: $0) }
-                ))
-                .toggleStyle(.switch)
-                .tint(Color.flAccentDeep)
-                .labelsHidden()
-                .accessibilityLabel("Guard \(app.name)")
+                FLSwitch(
+                    isOn: Binding(
+                        get: { app.isEnabled },
+                        set: { controller.setBlockedApp(app, enabled: $0) }
+                    ),
+                    label: "Guard \(app.name)"
+                )
             }
         }
-        .padding(.horizontal, 26)
-        .frame(height: 52)
+        .padding(.horizontal, FLLayout.pageInset)
+        .frame(height: 50)
         .background(isHovering ? Color.flSunken : .clear)
         .onHover { hovering in
             withAnimation(FLAnimation.quick) {
@@ -356,19 +353,14 @@ private struct BlockedAppRow: View {
         } label: {
             HStack(spacing: 5) {
                 Text(behavior.displayName)
-                    .font(FLTypography.caption)
-                Image(systemName: "chevron.down")
-                    .font(.system(size: 8, weight: .bold))
+                    .font(.system(size: 12, weight: .medium))
+                Image(systemName: "chevron.up.chevron.down")
+                    .font(.system(size: 8, weight: .semibold))
             }
-            .foregroundStyle(app.isEnabled ? (quitsCalls ? Color.flClayInk : Color.flAccentDeep) : Color.flInkSoft)
-            .padding(.horizontal, 9)
+            .foregroundStyle(app.isEnabled ? (quitsCalls ? Color.flClayInk : Color.flInk) : Color.flInkSoft)
+            .padding(.horizontal, 10)
             .padding(.vertical, 4)
-            .overlay(
-                Capsule().strokeBorder(
-                    app.isEnabled ? (quitsCalls ? Color.flClay : Color.flAccentDeep).opacity(0.35) : Color.flHairline,
-                    lineWidth: 1
-                )
-            )
+            .background(Capsule().fill(quitsCalls && app.isEnabled ? Color.flClay.opacity(0.12) : Color.flSunken))
             .contentShape(Capsule())
         }
         // `.button` with a plain style keeps the whole label, outline and
