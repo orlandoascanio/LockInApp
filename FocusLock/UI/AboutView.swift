@@ -107,7 +107,7 @@ struct AboutView: View {
                 .accessibilityHidden(true)
 
             Text(AppIdentity.name)
-                .font(.system(size: 28, weight: .regular, design: .serif))
+                .font(.system(size: 22, weight: .bold))
                 .foregroundStyle(Color.flInk)
 
             Text("A focus timer that guards the apps and sites you reach for, without closing them.")
@@ -138,7 +138,9 @@ struct AboutView: View {
     ) -> some View {
         VStack(spacing: 0) {
             HStack(alignment: .firstTextBaseline, spacing: FLSpacing.md) {
-                FLMicroLabel(text: label)
+                Text(label)
+                    .font(FLTypography.callout)
+                    .foregroundStyle(Color.flInkSoft)
                     .frame(width: 84, alignment: .leading)
 
                 Group {
