@@ -1230,7 +1230,9 @@ final class MenuBarController: NSObject, ObservableObject {
     }
 
     /// Set on the application, so every window — the main one, the guard
-    /// screen, the HUD, the popover — follows without being told separately.
+    /// screen, the HUD — follows without being told separately. The popover
+    /// is the exception: it takes the menu bar's look unless told, so it is
+    /// told too.
     private func applyAppearance() {
         switch config.appearance {
         case .system:
@@ -1240,6 +1242,7 @@ final class MenuBarController: NSObject, ObservableObject {
         case .dark:
             NSApp.appearance = NSAppearance(named: .darkAqua)
         }
+        popover.appearance = NSApp.appearance
     }
 
     func updateTimerEndSound(_ sound: TimerEndSound) {
@@ -1462,7 +1465,7 @@ final class MenuBarController: NSObject, ObservableObject {
             title: AppIdentity.name,
             // The LockIn-era key, so the window opens where you left it.
             frameAutosaveName: "LockIn",
-            size: NSSize(width: 920, height: 660),
+            size: NSSize(width: 980, height: 720),
             rootView: MainWindowView().environmentObject(self)
         )
         // SwiftUI installs its Settings-scene menu after launch. Restore our
@@ -1704,12 +1707,15 @@ final class MenuBarController: NSObject, ObservableObject {
         FocusLockLog.debug("NSStatusItem created")
 
         popover.behavior = .transient
-        popover.contentSize = NSSize(width: 404, height: 110)
         popover.delegate = self
-        popover.contentViewController = NSHostingController(
+        // The popover takes the size its content asks for, which changes as a
+        // session starts and ends.
+        let popoverContent = NSHostingController(
             rootView: MenuBarPopoverView()
                 .environmentObject(self)
         )
+        popoverContent.sizingOptions = .preferredContentSize
+        popover.contentViewController = popoverContent
 
         if let button = statusItem.button {
             FocusLockLog.debug("Status item button exists")
@@ -2114,11 +2120,12 @@ final class MenuBarController: NSObject, ObservableObject {
         window.minSize = NSSize(width: min(size.width, 860), height: min(size.height, 600))
         window.isReleasedWhenClosed = false
 
-        // The sand canvas runs edge to edge; a stock titlebar would cut a white
-        // band across the top of it.
+        // The canvas runs edge to edge under the titlebar, with the window's
+        // name and tabs drawn on it, as a unified toolbar would; a stock
+        // titlebar would cut a band across the top.
         window.titlebarAppearsTransparent = true
         window.titleVisibility = .hidden
-        window.backgroundColor = FLColor.canvasWarm
+        window.backgroundColor = FLColor.canvas
         window.isMovableByWindowBackground = true
 
         window.contentView = NSHostingView(rootView: rootView)
