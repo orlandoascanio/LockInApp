@@ -156,14 +156,13 @@ struct QuietwhileWidgetView: View {
                 if snapshot?.isStrict == true && isRunning {
                     Image(systemName: "lock.fill")
                 }
-                Text(phaseLabel.uppercased())
+                Text(phaseLabel)
             }
-            .font(.system(size: 10, weight: .semibold))
-            .tracking(0.8)
+            .font(.system(size: 11.5, weight: .semibold))
             .foregroundStyle(accent)
 
             clock
-                .font(.system(size: family == .systemMedium ? 34 : 30, weight: .regular, design: .serif))
+                .font(.system(size: family == .systemMedium ? 34 : 30, weight: .bold))
                 .monospacedDigit()
                 .minimumScaleFactor(0.7)
                 .lineLimit(1)
@@ -254,12 +253,11 @@ struct QuietwhileWidgetView: View {
 
     private func stat(_ label: String, value: String) -> some View {
         VStack(alignment: .leading, spacing: 1) {
-            Text(label.uppercased())
-                .font(.system(size: 9, weight: .semibold))
-                .tracking(0.6)
+            Text(label)
+                .font(.system(size: 10.5, weight: .medium))
                 .foregroundStyle(.secondary)
             Text(value)
-                .font(.system(size: 15, design: .serif))
+                .font(.system(size: 15, weight: .semibold))
         }
     }
 
