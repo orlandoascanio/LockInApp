@@ -11,7 +11,7 @@ struct PermissionsPanel: View {
     let guardsWebsites: Bool
 
     var body: some View {
-        VStack(spacing: FLSpacing.sm) {
+        VStack(spacing: 0) {
             card {
                 row(
                     symbol: "bell",
@@ -27,6 +27,8 @@ struct PermissionsPanel: View {
                     )
                 }
             }
+
+            FLRowDivider()
 
             card {
                 row(
@@ -44,7 +46,7 @@ struct PermissionsPanel: View {
                 } else {
                     VStack(spacing: 0) {
                         ForEach(permissions.installedBrowsers) { browser in
-                            FLRule().opacity(0.6)
+                            FLRowDivider(inset: 0)
                             browserRow(browser)
                         }
                     }
@@ -55,9 +57,9 @@ struct PermissionsPanel: View {
             Text("Either can be changed later in System Settings › Privacy & Security, or here in Settings.")
                 .font(FLTypography.caption)
                 .foregroundStyle(Color.flInkSoft)
-                .multilineTextAlignment(.center)
                 .fixedSize(horizontal: false, vertical: true)
-                .padding(.top, FLSpacing.xs)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.top, 4)
         }
         .onAppear { permissions.refresh() }
     }
@@ -137,9 +139,9 @@ struct PermissionsPanel: View {
                     .foregroundStyle(Color.flInk)
 
                 Text(detail)
-                    .font(FLTypography.caption)
+                    .font(FLTypography.callout)
                     .foregroundStyle(Color.flInkSoft)
-                    .lineSpacing(2)
+                    .lineSpacing(1.5)
                     .fixedSize(horizontal: false, vertical: true)
             }
 
@@ -162,12 +164,7 @@ struct PermissionsPanel: View {
         VStack(alignment: .leading, spacing: 0) {
             content()
         }
-        .padding(FLSpacing.md)
+        .padding(.vertical, 12)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color.flField, in: RoundedRectangle(cornerRadius: FLRadius.lg, style: .continuous))
-        .overlay(
-            RoundedRectangle(cornerRadius: FLRadius.lg, style: .continuous)
-                .strokeBorder(Color.flHairline, lineWidth: 1)
-        )
     }
 }
