@@ -4,36 +4,50 @@ import UniformTypeIdentifiers
 
 // MARK: - Colors
 //
-// Sand canvas, moss accent, clay for anything you would regret — and after
-// dark, the same moss on charcoal rather than a white window at midnight.
-// Every colour resolves against the appearance it is drawn in, so the Settings
-// choice, the system setting, and each overlay window all follow along.
+// A Mac window, not a painted page: one soft grey-green canvas behind every
+// page, never paper white, with moss as the single accent. Nothing sits in a
+// box: sections lie on the canvas and hairlines divide them. After dark the
+// canvas goes charcoal. Every colour resolves against the appearance it is drawn in, so
+// the Settings choice, the system setting, and each overlay window all follow
+// along.
 
 enum FLColor {
     static let accent = dynamic(light: "#618C69", dark: "#7FAE88")
     static let accentDeep = dynamic(light: "#3B6148", dark: "#8DBB97")
-    static let accentSoft = dynamic(light: "#D9E0D1", dark: "#27352C")
-    static let canvas = dynamic(light: "#F5F2E8", dark: "#1A201C")
-    static let canvasWarm = dynamic(light: "#EDE9D9", dark: "#151A17")
-    static let ink = dynamic(light: "#293129", dark: "#E9E5D9")
-    /// Ink thinned rather than a fixed grey, so secondary text takes the hue
-    /// of the page wash under it. Holds 4.5:1 on every wash.
-    static let inkSoft = dynamic(light: "#293129", dark: "#E9E5D9", alpha: (0.74, 0.67), increasedContrast: (0.9, 0.88))
-    /// Ink at low alpha rather than a fixed grey, so a rule takes on the
-    /// colour of whichever page wash it is drawn over.
-    static let hairline = dynamic(light: "#293129", dark: "#E9E5D9", alpha: (0.2, 0.13), increasedContrast: (0.5, 0.45))
+    static let accentSoft = dynamic(light: "#E3ECE1", dark: "#26332A")
+    /// Words and glyphs on a moss fill: white by day, near-black on the
+    /// lighter moss after dark.
+    static let onAccent = dynamic(light: "#FFFFFF", dark: "#122016")
 
-    /// Fields sit a shade above the canvas rather than being punched out of it
-    /// in white. AppKit's stock rounded-border field is pure white, which on a
-    /// sand page reads as a hole. Translucent for the same reason as hairlines.
-    static let field = dynamic(light: "#FFFFFF", dark: "#FFFFFF", alpha: (0.55, 0.05))
+    /// The window itself, the same on every page. A soft grey with moss in
+    /// it, never paper white: the window is looked at for hours.
+    static let canvas = dynamic(light: "#E5E7E1", dark: "#1C1D1C")
+    /// Pop-overs, hover cards and the selected segment: one step towards
+    /// you, still well short of white.
+    static let surface = dynamic(light: "#EFF1EB", dark: "#272927")
+
+    static let ink = dynamic(light: "#1D211E", dark: "#F2F2EF")
+    /// Secondary text. Ink thinned rather than a fixed grey, so it holds
+    /// 4.5:1 on the canvas and on a card alike.
+    static let inkSoft = dynamic(light: "#1D211E", dark: "#F2F2EF", alpha: (0.68, 0.62), increasedContrast: (0.86, 0.86))
+    /// Dividers and card edges.
+    static let hairline = dynamic(light: "#1D211E", dark: "#FFFFFF", alpha: (0.1, 0.1), increasedContrast: (0.4, 0.4))
+
+    /// Text fields: white on a white card, as AppKit's own are, with a
+    /// hairline edge doing the separating. After dark, a lift off the card.
+    static let field = dynamic(light: "#F7F8F4", dark: "#FFFFFF", alpha: (1, 0.07))
+    /// The edge of a field or pop-up: firmer than a hairline, because it
+    /// marks something you can type in or click.
+    static let fieldEdge = dynamic(light: "#1D211E", dark: "#FFFFFF", alpha: (0.17, 0.14), increasedContrast: (0.5, 0.5))
     static let clay = dynamic(light: "#B87355", dark: "#D4906F")
     /// Breaks. A cool slate, so a break never reads as more focus.
     static let rest = dynamic(light: "#56788B", dark: "#8EB1C4")
+    /// A card during a break: the surface with a breath of slate in it.
+    static let restSurface = dynamic(light: "#E8EEF0", dark: "#232A2E")
 
     /// Clay, amber and slate as text and glyphs. The fill values above read
-    /// as colour but fall under 4.5:1 as words on the light washes, so light
-    /// mode writes in a deeper shade of each; dark mode already clears it.
+    /// as colour but fall under 4.5:1 as words, so light mode writes in a
+    /// deeper shade of each; dark mode already clears it.
     static let clayInk = dynamic(light: "#8A4A30", dark: "#D4906F")
     static let warningInk = dynamic(light: "#76531E", dark: "#D2A862")
     static let restInk = dynamic(light: "#3E5E70", dark: "#8EB1C4")
@@ -42,13 +56,14 @@ enum FLColor {
     static let warning = dynamic(light: "#B8874A", dark: "#D2A862")
     static let destructive = clay
 
-    /// A shade pressed into whatever is behind it: tracks, panels, hovered
-    /// rows. Translucent so it sits in each page's wash rather than on it.
-    static let sunken = dynamic(light: "#293129", dark: "#000000", alpha: (0.05, 0.2))
+    /// A shade pressed into whatever is behind it: tracks, wells, hovered
+    /// rows.
+    static let sunken = dynamic(light: "#1D211E", dark: "#FFFFFF", alpha: (0.055, 0.07))
 
-    /// The selected tab: a lit chip on the tinted bar.
-    static let tabSelected = dynamic(light: "#FFFDF7", dark: "#EDE9DD")
-    static let tabSelectedInk = dynamic(light: "#293129", dark: "#1A201C")
+    /// The selected tab or segment: a raised white chip on a sunken track,
+    /// as in a stock segmented control.
+    static let tabSelected = dynamic(light: "#F7F8F4", dark: "#4A4D4A")
+    static let tabSelectedInk = dynamic(light: "#1D211E", dark: "#F2F2EF")
 
     /// - Parameter increasedContrast: alphas to use instead when Increase
     ///   Contrast is on, for the translucent neutrals whose faintness is a
@@ -85,14 +100,17 @@ extension Color {
     static let flAccent = Color(nsColor: FLColor.accent)
     static let flAccentDeep = Color(nsColor: FLColor.accentDeep)
     static let flAccentSoft = Color(nsColor: FLColor.accentSoft)
+    static let flOnAccent = Color(nsColor: FLColor.onAccent)
     static let flCanvas = Color(nsColor: FLColor.canvas)
-    static let flCanvasWarm = Color(nsColor: FLColor.canvasWarm)
+    static let flSurface = Color(nsColor: FLColor.surface)
     static let flInk = Color(nsColor: FLColor.ink)
     static let flInkSoft = Color(nsColor: FLColor.inkSoft)
     static let flHairline = Color(nsColor: FLColor.hairline)
     static let flField = Color(nsColor: FLColor.field)
+    static let flFieldEdge = Color(nsColor: FLColor.fieldEdge)
     static let flClay = Color(nsColor: FLColor.clay)
     static let flRest = Color(nsColor: FLColor.rest)
+    static let flRestSurface = Color(nsColor: FLColor.restSurface)
     static let flDestructive = Color(nsColor: FLColor.destructive)
     static let flWarning = Color(nsColor: FLColor.warning)
     static let flClayInk = Color(nsColor: FLColor.clayInk)
@@ -101,39 +119,6 @@ extension Color {
     static let flSunken = Color(nsColor: FLColor.sunken)
     static let flTabSelected = Color(nsColor: FLColor.tabSelected)
     static let flTabSelectedInk = Color(nsColor: FLColor.tabSelectedInk)
-}
-
-// MARK: - Page washes
-//
-// Each page of the main window is stained with its own earth pigment, the
-// kind a sand-and-moss world would actually have on the shelf: terre verte
-// for focus, burnt sienna for what's blocked, yellow ochre for the hours a
-// schedule claims, raw umber for the past, Payne's grey for the numbers,
-// caput mortuum for what the numbers say about you, and unbleached paper for
-// the machinery. They differ in strength as well as hue,
-// like real pigments do, rather than marching around the colour wheel. The
-// stain is strongest under the tab bar and settles back into the canvas.
-// Derived in OKLCH; light tops sit near L 0.91, dark tops near L 0.29.
-
-struct FLPageWash {
-    let top: NSColor
-    let bottom: NSColor
-
-    private init(light: (top: String, bottom: String), dark: (top: String, bottom: String)) {
-        top = FLColor.dynamic(light: light.top, dark: dark.top)
-        bottom = FLColor.dynamic(light: light.bottom, dark: dark.bottom)
-    }
-
-    static let terreVerte = FLPageWash(light: ("#DDE8D7", "#EEEFE3"), dark: ("#223425", "#1B221B"))
-    static let burntSienna = FLPageWash(light: ("#EFDED0", "#F3ECE1"), dark: ("#452318", "#261D18"))
-    static let yellowOchre = FLPageWash(light: ("#F4E4C7", "#F5EEDE"), dark: ("#413516", "#242218"))
-    static let rawUmber = FLPageWash(light: ("#E9DED2", "#F1ECE1"), dark: ("#29211B", "#1D1C18"))
-    static let paynesGrey = FLPageWash(light: ("#DCE3E6", "#EDEEE8"), dark: ("#1C2C39", "#191F21"))
-    static let caputMortuum = FLPageWash(light: ("#E8DCDD", "#F1ECE5"), dark: ("#35222A", "#1F1B1D"))
-    /// Not a page: the Focus page during a break, in the slate that has
-    /// always meant rest here.
-    static let restSlate = FLPageWash(light: ("#CFE1EB", "#EAEDE9"), dark: ("#1A313D", "#192122"))
-    static let unbleached = FLPageWash(light: ("#ECE9E2", "#F2EFE6"), dark: ("#2B2A27", "#1E1F1C"))
 }
 
 extension NSColor {
@@ -153,10 +138,12 @@ extension NSColor {
 // MARK: - Radius
 
 enum FLRadius {
-    static let sm: CGFloat = 4
-    static let md: CGFloat = 6
+    static let sm: CGFloat = 5
+    static let md: CGFloat = 7
     static let lg: CGFloat = 10
     static let xl: CGFloat = 14
+    /// Cards: large and continuous, like a macOS window's own corners.
+    static let card: CGFloat = 16
 }
 
 // MARK: - Spacing
@@ -169,26 +156,47 @@ enum FLSpacing {
     static let xl: CGFloat = 32
 }
 
+/// Page geometry shared by every page of the main window.
+enum FLLayout {
+    /// From the window edge to a page's content.
+    static let pageInset: CGFloat = 28
+    /// Above and below the content of a band, between its hairlines.
+    static let bandPadding: CGFloat = 22
+    /// Between two columns of a band, either side of their hairline.
+    static let columnGap: CGFloat = 24
+}
+
 // MARK: - Typography
 //
-// Serif for anything numeric that the eye lands on — the countdown, durations,
-// counts. Sans for labels and controls. Micro-caps with wide tracking stand in
-// for section headers so the layout needs no boxes to separate its regions.
+// SF Pro throughout, as on the rest of the Mac. Hierarchy comes from weight
+// and size together: bold page titles, semibold headings, regular body, and
+// secondary text in the thinned ink rather than smaller still. Anything
+// that counts uses tabular digits, so numbers never jitter as they change.
 
 enum FLTypography {
+    /// The countdown. Bold, so the time reads from across the room.
     static func timer(_ size: CGFloat) -> Font {
-        .system(size: size, weight: .regular, design: .serif)
+        .system(size: size, weight: .bold).monospacedDigit()
     }
 
     static let timerLarge = timer(88)
     static let timerOverlay = timer(64)
     static let timerHUD = timer(30)
-    static let display = Font.system(size: 22, weight: .regular, design: .serif)
-    static let title = Font.system(size: 19, weight: .regular, design: .serif)
+    /// Page titles.
+    static let largeTitle = Font.system(size: 26, weight: .bold)
+    /// Sheet titles and empty states.
+    static let display = Font.system(size: 20, weight: .bold)
+    /// Card headings.
+    static let title = Font.system(size: 15, weight: .semibold)
+    /// The number a stat tile is about.
+    static let figure = Font.system(size: 24, weight: .bold).monospacedDigit()
     static let headline = Font.system(size: 13, weight: .semibold)
     static let body = Font.system(size: 13)
+    /// Descriptions under a row's title.
+    static let callout = Font.system(size: 12)
     static let caption = Font.system(size: 11.5)
-    static let micro = Font.system(size: 9.5, weight: .semibold)
+    /// Table column headings and chart axes.
+    static let micro = Font.system(size: 11, weight: .medium)
 }
 
 // MARK: - Animation
@@ -197,28 +205,363 @@ enum FLAnimation {
     static let quick = Animation.easeOut(duration: 0.16)
     static let standard = Animation.easeOut(duration: 0.22)
     static let entrance = Animation.easeOut(duration: 0.28)
+    /// Things that move between places, like the selected tab: critically
+    /// damped, so they arrive without bouncing.
+    static let move = Animation.spring(response: 0.32, dampingFraction: 1)
+}
+
+// MARK: - Bands
+//
+// A page is a stack of bands lying on the canvas, divided by full-width
+// hairlines. No boxes: the hairline and the air around it are the structure.
+
+extension View {
+    /// A band of a page: inset from the window's sides, with air above and
+    /// below. Put an `FLRule` between bands.
+    func flBand(vertical: CGFloat = FLLayout.bandPadding) -> some View {
+        frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.horizontal, FLLayout.pageInset)
+            .padding(.vertical, vertical)
+    }
+}
+
+/// The hairline between two columns of a band.
+struct FLColumnRule: View {
+    var body: some View {
+        Rectangle()
+            .fill(Color.flHairline)
+            .frame(width: 1)
+    }
+}
+
+extension View {
+    /// Fades a scroll view's content out at its edges instead of cutting it,
+    /// so what passes under the header reads as scrolled, not sliced. Give
+    /// the content at least this much padding at each end.
+    func flScrollEdges(top: CGFloat = 10, bottom: CGFloat = 22) -> some View {
+        mask(
+            VStack(spacing: 0) {
+                LinearGradient(colors: [.clear, .black], startPoint: .top, endPoint: .bottom)
+                    .frame(height: top)
+                Color.black
+                LinearGradient(colors: [.black, .clear], startPoint: .top, endPoint: .bottom)
+                    .frame(height: bottom)
+            }
+        )
+    }
+}
+
+/// A page's title, what the page holds, and the page's own action on the
+/// right.
+struct FLPageHeader<Trailing: View>: View {
+    let title: String
+    var subtitle: String?
+    @ViewBuilder var trailing: () -> Trailing
+
+    var body: some View {
+        HStack(alignment: .center, spacing: FLSpacing.md) {
+            VStack(alignment: .leading, spacing: 3) {
+                Text(title)
+                    .font(FLTypography.largeTitle)
+                    .foregroundStyle(Color.flInk)
+                    .accessibilityAddTraits(.isHeader)
+
+                if let subtitle {
+                    Text(subtitle)
+                        .font(FLTypography.callout)
+                        .foregroundStyle(Color.flInkSoft)
+                        .lineLimit(2)
+                }
+            }
+
+            Spacer(minLength: FLSpacing.md)
+
+            trailing()
+        }
+        .padding(.horizontal, FLLayout.pageInset)
+        .padding(.top, 14)
+        .padding(.bottom, 18)
+    }
+}
+
+extension FLPageHeader where Trailing == EmptyView {
+    init(title: String, subtitle: String? = nil) {
+        self.init(title: title, subtitle: subtitle) { EmptyView() }
+    }
+}
+
+/// A group of settings: a heading, then its rows lying on the canvas with
+/// hairlines between them, and a footnote under the last. Put an
+/// `FLRowDivider` between rows.
+struct FLGroup<Content: View>: View {
+    var title: String?
+    var footer: String?
+    @ViewBuilder var content: () -> Content
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            if let title {
+                Text(title)
+                    .font(FLTypography.title)
+                    .foregroundStyle(Color.flInk)
+                    .padding(.bottom, 2)
+                    .accessibilityAddTraits(.isHeader)
+            }
+
+            VStack(alignment: .leading, spacing: 0) {
+                content()
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+
+            if let footer {
+                Text(footer)
+                    .font(FLTypography.caption)
+                    .foregroundStyle(Color.flInkSoft)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .padding(.top, 2)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+}
+
+/// The hairline between two rows of a group or a table.
+struct FLRowDivider: View {
+    var inset: CGFloat = 0
+
+    var body: some View {
+        Rectangle()
+            .fill(Color.flHairline)
+            .frame(height: 1)
+            .padding(.horizontal, inset)
+    }
+}
+
+/// One setting: what it is and what it does on the left, its control on the
+/// right.
+struct FLSettingRow<Control: View>: View {
+    let title: String
+    var detail: String?
+    @ViewBuilder var control: () -> Control
+
+    var body: some View {
+        HStack(alignment: .center, spacing: FLSpacing.md) {
+            VStack(alignment: .leading, spacing: 3) {
+                Text(title)
+                    .font(FLTypography.body)
+                    .foregroundStyle(Color.flInk)
+                    .fixedSize(horizontal: false, vertical: true)
+
+                if let detail {
+                    Text(detail)
+                        .font(FLTypography.callout)
+                        .foregroundStyle(Color.flInkSoft)
+                        .lineSpacing(1.5)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+
+            control()
+        }
+        .padding(.vertical, 11)
+        .frame(minHeight: 44)
+    }
+}
+
+/// A setting that is on or off, with a stock switch in the accent.
+struct FLToggleRow: View {
+    let title: String
+    var detail: String?
+    @Binding var isOn: Bool
+
+    var body: some View {
+        FLSettingRow(title: title, detail: detail) {
+            FLSwitch(isOn: $isOn, label: title)
+        }
+    }
+}
+
+/// The stock switch, at the size System Settings uses, tinted moss.
+struct FLSwitch: View {
+    @Binding var isOn: Bool
+    let label: String
+
+    var body: some View {
+        Toggle(label, isOn: $isOn)
+            .toggleStyle(.switch)
+            .controlSize(.small)
+            .tint(Color.flAccentDeep)
+            .labelsHidden()
+    }
+}
+
+/// A heading inside a card: sentence case and semibold, the way macOS
+/// labels a group.
+struct FLSectionLabel: View {
+    let text: String
+    var tint: Color = .flInk
+
+    var body: some View {
+        Text(text)
+            .font(FLTypography.title)
+            .foregroundStyle(tint)
+            .accessibilityAddTraits(.isHeader)
+    }
+}
+
+/// A heading over a column of a table.
+struct FLColumnLabel: View {
+    let text: String
+
+    var body: some View {
+        Text(text)
+            .font(FLTypography.micro)
+            .foregroundStyle(Color.flInkSoft)
+    }
+}
+
+/// A section's heading with a figure or detail on the right.
+struct FLSectionHeader<Trailing: View>: View {
+    let title: String
+    var subtitle: String?
+    @ViewBuilder var trailing: () -> Trailing
+
+    var body: some View {
+        HStack(alignment: .firstTextBaseline, spacing: FLSpacing.md) {
+            VStack(alignment: .leading, spacing: 2) {
+                FLSectionLabel(text: title)
+                if let subtitle {
+                    Text(subtitle)
+                        .font(FLTypography.callout)
+                        .foregroundStyle(Color.flInkSoft)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+            Spacer(minLength: FLSpacing.sm)
+            trailing()
+        }
+    }
+}
+
+extension FLSectionHeader where Trailing == EmptyView {
+    init(title: String, subtitle: String? = nil) {
+        self.init(title: title, subtitle: subtitle) { EmptyView() }
+    }
+}
+
+/// One number and what it counts, set as type. A row of them is divided by
+/// `FLColumnRule`s, not boxed.
+struct FLFigure: View {
+    let label: String
+    let value: String
+    var detail: String?
+    var valueTint: Color = .flInk
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 3) {
+            Text(label)
+                .font(FLTypography.micro)
+                .foregroundStyle(Color.flInkSoft)
+                .lineLimit(1)
+
+            Text(value)
+                .font(FLTypography.figure)
+                .foregroundStyle(valueTint)
+                .lineLimit(1)
+                .minimumScaleFactor(0.7)
+
+            if let detail {
+                Text(detail)
+                    .font(FLTypography.caption)
+                    .foregroundStyle(Color.flInkSoft)
+                    .lineLimit(1)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .accessibilityElement(children: .combine)
+    }
+}
+
+/// Something that needs an answer: a tinted panel with its glyph, the words,
+/// and the one action that settles it.
+struct FLCallout<Actions: View>: View {
+    enum Tone {
+        case info
+        case warning
+        case problem
+
+        var tint: Color {
+            switch self {
+            case .info: return .flAccentDeep
+            case .warning: return .flWarningInk
+            case .problem: return .flClayInk
+            }
+        }
+
+        var fill: Color {
+            switch self {
+            case .info: return Color.flAccentSoft.opacity(0.7)
+            case .warning: return Color.flWarning.opacity(0.13)
+            case .problem: return Color.flClay.opacity(0.11)
+            }
+        }
+    }
+
+    let tone: Tone
+    let systemImage: String
+    let title: String
+    var detail: String?
+    @ViewBuilder var actions: () -> Actions
+
+    var body: some View {
+        HStack(alignment: detail == nil ? .center : .top, spacing: 10) {
+            Image(systemName: systemImage)
+                .font(.system(size: 12.5, weight: .semibold))
+                .foregroundStyle(tone.tint)
+                .frame(width: 16)
+                .accessibilityHidden(true)
+
+            if let detail {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(title)
+                        .font(FLTypography.headline)
+                        .foregroundStyle(Color.flInk)
+                        .fixedSize(horizontal: false, vertical: true)
+                    Text(detail)
+                        .font(FLTypography.callout)
+                        .foregroundStyle(Color.flInkSoft)
+                        .lineSpacing(1.5)
+                        .fixedSize(horizontal: false, vertical: true)
+                    HStack(spacing: FLSpacing.md) {
+                        actions()
+                    }
+                    .padding(.top, 4)
+                }
+                Spacer(minLength: 0)
+            } else {
+                Text(title)
+                    .font(.system(size: 12.5, weight: .medium))
+                    .foregroundStyle(Color.flInk)
+                    .fixedSize(horizontal: false, vertical: true)
+                Spacer(minLength: FLSpacing.sm)
+                actions()
+            }
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 10)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(tone.fill, in: RoundedRectangle(cornerRadius: FLRadius.lg, style: .continuous))
+    }
 }
 
 // MARK: - Shared components
 
-/// Wide-tracked micro-caps label. Replaces boxed section headers.
-struct FLMicroLabel: View {
-    let text: String
-    var tint: Color = .flInkSoft
-
-    var body: some View {
-        Text(text.uppercased())
-            .font(FLTypography.micro)
-            .tracking(1.6)
-            .foregroundStyle(tint)
-    }
-}
-
-/// Full-width hairline. The only separator in the design.
+/// Full-width hairline, for the few dividers that run edge to edge.
 struct FLRule: View {
     var body: some View {
         Rectangle()
-            .fill(Color.flHairline.opacity(0.7))
+            .fill(Color.flHairline)
             .frame(height: 1)
     }
 }
@@ -231,12 +574,13 @@ struct FLBadge: View {
 
     var body: some View {
         Text(text)
-            .font(FLTypography.caption)
+            .font(.system(size: 11, weight: .medium))
             .foregroundStyle(tint)
-            .padding(.horizontal, 9)
-            .padding(.vertical, 4)
+            .padding(.horizontal, 8)
+            .padding(.vertical, 3)
+            .background(Capsule().fill(Color.flSunken))
             .overlay(
-                Capsule().strokeBorder(borderTint ?? Color.flHairline, lineWidth: 1)
+                Capsule().strokeBorder(borderTint ?? .clear, lineWidth: 1)
             )
     }
 }
@@ -249,17 +593,19 @@ struct FLEmptyState: View {
     var body: some View {
         VStack(spacing: FLSpacing.sm) {
             Image(systemName: systemImage)
-                .font(.system(size: 22, weight: .light))
-                .foregroundStyle(Color.flInkSoft.opacity(0.6))
+                .font(.system(size: 30, weight: .regular))
+                .foregroundStyle(Color.flInkSoft.opacity(0.55))
+                .padding(.bottom, 4)
 
             Text(title)
-                .font(FLTypography.display)
+                .font(.system(size: 17, weight: .semibold))
                 .foregroundStyle(Color.flInk)
 
             Text(detail)
-                .font(FLTypography.caption)
+                .font(FLTypography.callout)
                 .foregroundStyle(Color.flInkSoft)
-                .frame(maxWidth: 300)
+                .lineSpacing(1.5)
+                .frame(maxWidth: 320)
         }
         .multilineTextAlignment(.center)
     }
@@ -279,6 +625,8 @@ struct FLActionButtonStyle: ButtonStyle {
     var minHeight: CGFloat = 40
     /// Recolours a secondary button, as slate does for a break's own actions.
     var tint: Color?
+    /// Stretches the capsule to the width it is offered.
+    var fullWidth = false
 
     func makeBody(configuration: Configuration) -> some View {
         StyledLabel(style: self, configuration: configuration)
@@ -291,37 +639,53 @@ struct FLActionButtonStyle: ButtonStyle {
         let style: FLActionButtonStyle
         let configuration: Configuration
         @Environment(\.isEnabled) private var isEnabled
+        @Environment(\.colorScheme) private var colorScheme
 
         var body: some View {
             let pressed = configuration.isPressed && isEnabled
+            let isChromeless = style.variant == .quiet || style.variant == .destructiveQuiet
             configuration.label
-                .font(.system(size: 13.5, weight: style.variant == .quiet ? .regular : .semibold))
-                .foregroundStyle(isEnabled ? style.foreground(isPressed: pressed) : Color.flInkSoft.opacity(0.6))
+                .font(.system(size: style.minHeight >= 40 ? 14 : 13, weight: style.variant == .quiet ? .medium : .semibold))
+                .foregroundStyle(isEnabled ? style.foreground : Color.flInkSoft.opacity(0.6))
                 .lineLimit(1)
-                .padding(.horizontal, style.variant == .quiet ? FLSpacing.sm : 22)
+                .padding(.horizontal, isChromeless ? FLSpacing.sm + 2 : (style.minHeight >= 40 ? 22 : 16))
+                .frame(maxWidth: style.fullWidth ? .infinity : nil)
                 .frame(minHeight: style.minHeight)
-                .background(isEnabled ? style.background(isPressed: pressed) : .clear, in: Capsule())
-                .overlay(Capsule().strokeBorder(
-                    isEnabled ? style.border : (style.variant == .quiet || style.variant == .destructiveQuiet ? .clear : Color.flHairline),
-                    lineWidth: 1.2
-                ))
+                .background {
+                    if !isChromeless {
+                        Capsule()
+                            .fill(isEnabled ? style.background(isPressed: pressed) : Color.flSunken)
+                            .shadow(
+                                color: .black.opacity(isEnabled && colorScheme != .dark ? (style.variant == .primary ? 0.16 : 0.05) : 0),
+                                radius: style.variant == .primary ? 5 : 2,
+                                y: style.variant == .primary ? 2 : 1
+                            )
+                    } else if pressed {
+                        Capsule().fill(Color.flSunken)
+                    }
+                }
+                .overlay {
+                    if !isChromeless && style.variant != .primary {
+                        Capsule().strokeBorder(Color.flHairline, lineWidth: 1)
+                    }
+                }
                 .contentShape(Capsule())
-                .opacity(pressed && style.variant == .quiet ? 0.6 : 1)
-                .animation(FLAnimation.quick, value: pressed)
+                .scaleEffect(pressed && !isChromeless ? 0.98 : 1)
+                .animation(.easeOut(duration: 0.1), value: pressed)
                 .animation(FLAnimation.quick, value: isEnabled)
         }
     }
 
-    fileprivate func foreground(isPressed: Bool) -> Color {
+    fileprivate var foreground: Color {
         switch variant {
         case .primary:
-            return .flCanvas
+            return .flOnAccent
         case .secondary:
-            return tint ?? .flAccentDeep
+            return tint ?? .flInk
         case .destructive, .destructiveQuiet:
             return .flClayInk
         case .quiet:
-            return .flInkSoft
+            return tint ?? .flInkSoft
         }
     }
 
@@ -329,40 +693,25 @@ struct FLActionButtonStyle: ButtonStyle {
         switch variant {
         case .primary:
             return isPressed ? .flAccent : .flAccentDeep
-        case .secondary:
-            if let tint { return isPressed ? tint.opacity(0.12) : .clear }
-            return isPressed ? Color.flAccentSoft.opacity(0.5) : .clear
-        case .destructive:
-            return isPressed ? Color.flClay.opacity(0.12) : .clear
-        case .quiet, .destructiveQuiet:
-            return .clear
-        }
-    }
-
-    fileprivate var border: Color {
-        switch variant {
-        case .primary:
-            return .clear
-        case .secondary:
-            return (tint ?? .flAccentDeep).opacity(0.35)
-        case .destructive:
-            return Color.flClay.opacity(0.35)
+        case .secondary, .destructive:
+            return isPressed ? Color.flTabSelected.opacity(0.7) : .flTabSelected
         case .quiet, .destructiveQuiet:
             return .clear
         }
     }
 }
 
-/// Underlined text link — used where a control should not look like a button.
+/// A text button: the label in the accent with no chrome, the way macOS sets
+/// "Learn More…" or "Open Settings". Never underlined; it is a button.
 struct FLLinkButtonStyle: ButtonStyle {
     var tint: Color = .flAccentDeep
 
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
-            .font(.system(size: 13))
+            .font(.system(size: 13, weight: .medium))
             .foregroundStyle(tint)
-            .underline()
-            .opacity(configuration.isPressed ? 0.6 : 1)
+            .contentShape(Rectangle())
+            .opacity(configuration.isPressed ? 0.55 : 1)
     }
 }
 
@@ -506,7 +855,7 @@ struct FLWeeklyRhythm: View {
                 }
 
                 Text(Self.duration(goalMinutes))
-                    .font(.system(size: 9.5, weight: .medium))
+                    .font(.system(size: 10.5, weight: .medium))
                     .foregroundStyle(Color.flInkSoft)
                     .frame(width: Self.gutter, alignment: .leading)
                     .padding(.leading, 6)
@@ -523,7 +872,7 @@ struct FLWeeklyRhythm: View {
             HStack(spacing: 0) {
                 ForEach(days) { day in
                     Text(day.label)
-                        .font(.system(size: 10.5, weight: day.isToday ? .semibold : .regular))
+                        .font(.system(size: 11, weight: day.isToday ? .semibold : .regular))
                         .foregroundStyle(labelColor(day))
                         .frame(maxWidth: .infinity)
                 }
@@ -545,10 +894,13 @@ struct FLWeeklyRhythm: View {
         VStack(spacing: 4) {
             if !day.isFuture {
                 Text(day.minutes > 0 ? Self.duration(day.minutes) : "–")
-                    .font(.system(size: 10.5, weight: day.isToday ? .semibold : .regular))
+                    .font(.system(size: 11, weight: day.isToday ? .semibold : .regular))
                     .monospacedDigit()
                     .foregroundStyle(day.isToday ? Color.flInk : Color.flInkSoft)
                     .fixedSize()
+                    // The goal line runs behind a value, not through it.
+                    .padding(.horizontal, 3)
+                    .background(Color.flCanvas, in: Capsule())
             }
             bar(day)
         }
@@ -623,7 +975,7 @@ struct FLWeeklyRhythm: View {
         .padding(.vertical, 7)
         .background(
             RoundedRectangle(cornerRadius: FLRadius.md, style: .continuous)
-                .fill(Color.flCanvas)
+                .fill(Color.flSurface)
                 .shadow(color: .black.opacity(0.12), radius: 6, y: 2)
         )
         .overlay(
@@ -750,7 +1102,7 @@ private struct FLFieldChrome: ViewModifier {
             .background(Color.flField, in: RoundedRectangle(cornerRadius: FLRadius.md, style: .continuous))
             .overlay(
                 RoundedRectangle(cornerRadius: FLRadius.md, style: .continuous)
-                    .strokeBorder(isFocused ? Color.flAccentDeep : Color.flHairline,
+                    .strokeBorder(isFocused ? Color.flAccentDeep : Color.flFieldEdge,
                                   lineWidth: isFocused ? 1.5 : 1)
             )
             .animation(.easeOut(duration: 0.12), value: isFocused)
