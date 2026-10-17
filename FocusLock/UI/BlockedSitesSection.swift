@@ -10,13 +10,17 @@ struct BlockedSitesSection: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            addRow
+            VStack(alignment: .leading, spacing: 12) {
+                addRow
 
-            if let browser = controller.browserPermissionProblem {
-                BrowserPermissionBanner(permissions: controller.permissions) {
-                    permissionBanner(for: browser)
+                if let browser = controller.browserPermissionProblem {
+                    BrowserPermissionBanner(permissions: controller.permissions) {
+                        permissionBanner(for: browser)
+                    }
                 }
             }
+            .padding(.horizontal, FLLayout.pageInset)
+            .padding(.bottom, 18)
 
             if controller.config.blockedSites.isEmpty {
                 FLEmptyState(
@@ -27,38 +31,35 @@ struct BlockedSitesSection: View {
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else {
                 columnHeaders
-                Rectangle().fill(Color.flHairline).frame(height: 1).padding(.horizontal, 26)
                 ScrollView {
                     LazyVStack(spacing: 0) {
                         ForEach(controller.config.blockedSites) { site in
                             BlockedSiteRow(site: site)
-                            Rectangle()
-                                .fill(Color.flHairline.opacity(0.5))
-                                .frame(height: 1)
-                                .padding(.horizontal, 26)
+                            FLRowDivider(inset: FLLayout.pageInset)
                         }
                     }
                 }
             }
 
             browserNote
+                .padding(.horizontal, FLLayout.pageInset)
+                .padding(.vertical, 12)
         }
     }
 
     private var addRow: some View {
         HStack(spacing: 10) {
             TextField("youtube.com, or reddit.com/r/all for just a section", text: $entry)
-                .flField(width: 360)
+                .flField()
+                .frame(maxWidth: 420)
                 .onSubmit(add)
 
             Button("Add site", action: add)
-                .buttonStyle(FLActionButtonStyle(variant: .primary, minHeight: 34))
+                .buttonStyle(FLActionButtonStyle(variant: .primary, minHeight: 30))
                 .disabled(entry.trimmingCharacters(in: .whitespaces).isEmpty)
 
             Spacer()
         }
-        .padding(.horizontal, 26)
-        .padding(.bottom, 18)
     }
 
     private func add() {
@@ -69,13 +70,16 @@ struct BlockedSitesSection: View {
 
     private var columnHeaders: some View {
         HStack(spacing: 0) {
-            FLMicroLabel(text: "Website").frame(width: 330, alignment: .leading)
-            FLMicroLabel(text: "Blocked today").frame(width: 120, alignment: .leading)
+            FLColumnLabel(text: "Website").frame(width: 330, alignment: .leading)
+            FLColumnLabel(text: "Blocked today").frame(width: 120, alignment: .leading)
             Spacer(minLength: 0)
-            FLMicroLabel(text: "Active")
+            FLColumnLabel(text: "Active")
         }
-        .padding(.horizontal, 26)
-        .padding(.bottom, 10)
+        .padding(.horizontal, FLLayout.pageInset)
+        .padding(.bottom, 8)
+        .overlay(alignment: .bottom) {
+            FLRule().padding(.horizontal, FLLayout.pageInset)
+        }
     }
 
     @ViewBuilder
@@ -90,62 +94,36 @@ struct BlockedSitesSection: View {
     /// The browser has never been asked: say what the request is for, and let
     /// the button bring up the macOS dialog.
     private func askBanner(for browser: SupportedBrowser) -> some View {
-        HStack(alignment: .top, spacing: 12) {
-            Image(systemName: "globe")
-                .foregroundStyle(Color.flAccentDeep)
-            VStack(alignment: .leading, spacing: 6) {
-                Text("\(browser.displayName) needs your OK before websites can be guarded in it")
-                    .font(FLTypography.headline)
-                    .foregroundStyle(Color.flInk)
-                Text("Quietwhile asks \(browser.displayName) for the address of the tab in front. Only the address, only during focus. Never page contents or history. macOS will ask you to confirm.")
-                    .font(FLTypography.caption)
-                    .foregroundStyle(Color.flInkSoft)
-                    .fixedSize(horizontal: false, vertical: true)
-                Button("Allow \(browser.displayName)…") { controller.permissions.requestBrowser(browser) }
-                    .buttonStyle(FLLinkButtonStyle())
-            }
+        FLCallout(
+            tone: .warning,
+            systemImage: "globe",
+            title: "\(browser.displayName) needs your OK before websites can be guarded in it",
+            detail: "Quietwhile asks \(browser.displayName) for the address of the tab in front. Only the address, only during focus. Never page contents or history. macOS will ask you to confirm."
+        ) {
+            Button("Allow \(browser.displayName)…") { controller.permissions.requestBrowser(browser) }
+                .buttonStyle(FLActionButtonStyle(variant: .secondary, minHeight: 28))
         }
-        .padding(14)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color.flAccentSoft.opacity(0.45), in: RoundedRectangle(cornerRadius: FLRadius.lg))
-        .padding(.horizontal, 26)
-        .padding(.bottom, 16)
     }
 
     private func deniedBanner(for browser: SupportedBrowser) -> some View {
-        HStack(alignment: .top, spacing: 12) {
-            Image(systemName: "exclamationmark.triangle.fill")
-                .foregroundStyle(Color.flClayInk)
-            VStack(alignment: .leading, spacing: 6) {
-                Text("Quietwhile isn't allowed to read \(browser.displayName)'s tabs")
-                    .font(FLTypography.headline)
-                    .foregroundStyle(Color.flInk)
-                Text("Turn on \(browser.displayName) under Quietwhile in System Settings › Privacy & Security › Automation, then try again.")
-                    .font(FLTypography.caption)
-                    .foregroundStyle(Color.flInkSoft)
-                    .fixedSize(horizontal: false, vertical: true)
-                HStack(spacing: 14) {
-                    Button("Open Automation Settings") { controller.openAutomationSettings() }
-                        .buttonStyle(FLLinkButtonStyle())
-                    Button("I fixed it — try again") { controller.retryBrowserPermission() }
-                        .buttonStyle(FLLinkButtonStyle(tint: .flInkSoft))
-                }
-            }
+        FLCallout(
+            tone: .problem,
+            systemImage: "exclamationmark.triangle.fill",
+            title: "Quietwhile isn't allowed to read \(browser.displayName)'s tabs",
+            detail: "Turn on \(browser.displayName) under Quietwhile in System Settings › Privacy & Security › Automation, then try again."
+        ) {
+            Button("Open Automation Settings") { controller.openAutomationSettings() }
+                .buttonStyle(FLActionButtonStyle(variant: .secondary, minHeight: 28))
+            Button("I fixed it — try again") { controller.retryBrowserPermission() }
+                .buttonStyle(FLLinkButtonStyle(tint: .flInkSoft))
         }
-        .padding(14)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color.flClay.opacity(0.08), in: RoundedRectangle(cornerRadius: FLRadius.lg))
-        .padding(.horizontal, 26)
-        .padding(.bottom, 16)
     }
 
     private var browserNote: some View {
         Text("Works in Safari, Chrome, Arc, Brave, Edge, Vivaldi, Opera, and Chromium — macOS asks once per browser for permission. Firefox can’t be guarded.")
-            .font(.system(size: 11))
+            .font(FLTypography.caption)
             .foregroundStyle(Color.flInkSoft)
             .fixedSize(horizontal: false, vertical: true)
-            .padding(.horizontal, 26)
-            .padding(.vertical, 12)
     }
 }
 
@@ -174,7 +152,7 @@ private struct BlockedSiteRow: View {
 
             let count = controller.blockedTodayCount(for: site)
             Text(count > 0 ? "\(count)×" : "—")
-                .font(.system(size: 12.5, design: .serif))
+                .font(.system(size: 12.5, weight: .medium))
                 .monospacedDigit()
                 .foregroundStyle(Color.flInkSoft)
                 .frame(width: 120, alignment: .leading)
@@ -198,18 +176,17 @@ private struct BlockedSiteRow: View {
                 .help("Remove \(site.pattern)")
                 .accessibilityLabel("Remove \(site.pattern)")
 
-                Toggle("", isOn: Binding(
-                    get: { site.isEnabled },
-                    set: { controller.setBlockedSite(site, enabled: $0) }
-                ))
-                .toggleStyle(.switch)
-                .tint(Color.flAccentDeep)
-                .labelsHidden()
-                .accessibilityLabel("Guard \(site.pattern)")
+                FLSwitch(
+                    isOn: Binding(
+                        get: { site.isEnabled },
+                        set: { controller.setBlockedSite(site, enabled: $0) }
+                    ),
+                    label: "Guard \(site.pattern)"
+                )
             }
         }
-        .padding(.horizontal, 26)
-        .frame(height: 48)
+        .padding(.horizontal, FLLayout.pageInset)
+        .frame(height: 46)
         .background(isHovering ? Color.flSunken : .clear)
         .onHover { hovering in
             withAnimation(FLAnimation.quick) {
