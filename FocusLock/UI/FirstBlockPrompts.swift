@@ -65,10 +65,11 @@ struct WebsiteProtectionAvailabilityNote: View {
                     .foregroundStyle(Color.flClayInk)
                     .fixedSize(horizontal: false, vertical: true)
             } else {
-                Text("Website protection available only in \(allowed.map(\.displayName).joined(separator: ", ")).")
+                Text("Websites guarded in \(allowed.map(\.displayName).joined(separator: ", ")) only")
                     .font(FLTypography.caption)
                     .foregroundStyle(Color.flInkSoft)
-                    .fixedSize(horizontal: false, vertical: true)
+                    .lineLimit(1)
+                    .truncationMode(.tail)
             }
         }
     }
